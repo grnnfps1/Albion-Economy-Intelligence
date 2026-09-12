@@ -21,15 +21,16 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 1 | Infra: Docker, Postgres, Redis, FastAPI, Next.js | ✅ |
 | 2 | Migrations, seed, catálogo de 12.237 itens | ✅ |
 | 3 | Client do AODP: rate limit, batching, retry, normalização | ✅ |
-| 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ⬜ próxima |
-| 5 | Histórico e gráficos | ⬜ |
+| 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ✅ |
+| 5 | Histórico e gráficos | ⬜ próxima |
 | 6 | Opportunity Engine + arbitragem | ⬜ |
 | 7–10 | Crafting, refino, Focus, dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
-**Ainda não existe coleta rodando.** O client sabe falar com o AODP, mas nada
-agenda nem grava preço no banco. Isso é a fase 4.
+**A coleta existe e grava preço.** `python -m app.cli.collect_market --server west`
+faz uma passada; com `--loop` vira o worker contínuo. A tela `/market` mostra o
+resultado com a idade de cada cotação.
 
 ## Stack
 
@@ -197,15 +198,26 @@ um único preço manipulado contamina a janela inteira (visto na validação: 3.
 - Black Market não é cidade (`kind = 'black_market'`) e a semântica de ordens é
   invertida. Não use como perna de arbitragem antes de validar empiricamente.
 
-## Próxima fase (4) — escopo
+## Próxima fase (5) — escopo
 
-1. Worker de coleta com lock no Redis (`lock:collector:*`) para não rodar dois do
-   mesmo servidor.
-2. Upsert em `market_prices` a partir de `MarketPriceRecord`.
-3. Registro em `collector_runs` e `raw_responses`.
-4. `GET /api/v1/market/prices` com filtros de servidor, cidade, item, tier,
-   encanto, qualidade.
-5. Tela `/market`: tabela com buy/sell separados, idade por campo, ordenação.
+1. Collector de histórico: `time-scale` 1, 6 e 24, janelas de 24H a 90D.
+2. Marcação de outlier por mediana + MAD dentro de `(item, local, qualidade)`.
+   O valor cru fica; `is_outlier` marca. A UI mostra o ponto marcado, não apaga.
+3. Médias de referência por **mediana**, nunca por média — o endpoint do AODP já
+   entrega média, e um único preço manipulado contamina a janela.
+4. `GET /api/v1/market/history` e a tela `/market/history` com gráfico.
+5. `/gold` com a série de cotação.
 
-Critério de pronto: preço real na tela, com a idade do dado visível e ausência de
-cotação exibida como "sem dado", nunca como zero.
+Critério de pronto: o gráfico de um item mostra a série, marca visualmente o que
+foi considerado outlier, e a variação exibida usa mediana.
+
+## Notas da fase 4
+
+- Um lote que falha não derruba a varredura: o erro é contado, o run vira
+  `partial` e a coleta segue. Perder 50 itens é melhor do que perder 300.
+- `use_cache=False` na coleta. Cache serve para leitura da API, não para coletar
+  o mesmo valor de novo.
+- Linha sem nenhum preço não é gravada. "Ninguém abriu esse mercado" não é uma
+  observação de preço e sujaria o cálculo de frescor.
+- Ordenação por preço usa `NULLS LAST`: `NULL` significa "sem ordem", não "mais
+  barato".

@@ -79,15 +79,35 @@ services:
       backend:
         condition: service_started
 
-  # Os workers de coleta entram na FASE 3/4. Ficam como serviço separado desde já
-  # porque coleta é processo longo e não pode viver dentro do request da API
-  # (docs/00-arquitetura.md §3).
-  # worker-market:
-  #   build: { context: ./backend, target: dev }
-  #   command: ["python", "-m", "app.collectors.market"]
-  #   env_file: .env
-  #   depends_on:
-  #     backend: { condition: service_healthy }
+  # Coleta é processo longo: mantém cursor, janela de rate limit e backoff.
+  # Por isso vive num container próprio e nunca numa função serverless
+  # (docs/00-arquitetura.md §3). Suba com:
+  #   docker compose --profile collector up -d worker-market
+  worker-market:
+    profiles: ["collector"]
+    build:
+      context: ./backend
+      target: dev
+    container_name: albion-worker-market
+    command:
+      - python
+      - -m
+      - app.cli.collect_market
+      - --server
+      - ${COLLECTOR_SERVER:-west}
+      - --loop
+      - --interval
+      - ${COLLECTOR_INTERVAL_SECONDS:-900}
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-albion}:${POSTGRES_PASSWORD:-albion}@postgres:5432/${POSTGRES_DB:-albion}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/srv
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

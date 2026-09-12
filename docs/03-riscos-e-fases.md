@@ -75,7 +75,7 @@ seguir. Sem pular (requisito 51).
 | **1** | Infra: Docker, PG, Redis, FastAPI, Next.js, `.env`, README, testes | `docker compose up` sobe tudo; `/health` verde nos 3 checks; testes passam ✔ |
 | **2** | Migrations + seed + catálogo de itens | `alembic upgrade head` idempotente; 12.237 itens importados do `ao-bin-dumps` ✔ |
 | **3** | Client AODP: prices, history, gold + limiter, retry, batch, cache | 122 testes verdes, zero chamada real à API ✔ |
-| **4** | Collector de mercado → normalização → `/api/v1/market/prices` → tela `/market` | Tabela com idade do dado e ordenação |
+| **4** | Collector, normalização, `/api/v1/market/prices` e tela `/market` | Preço na tela com idade por campo e ordenação ✔ |
 | **5** | History + `/market/history` com gráfico e mediana | Períodos 24H…90D; outliers marcados |
 | **6** | Opportunity Engine v1 + `/arbitrage` | Custo, taxa, transporte, lucro, margem, ROI, score |
 | **7** | Receitas + `/crafting` | Retorno de material, taxa de estação, focus |
@@ -86,4 +86,4 @@ seguir. Sem pular (requisito 51).
 Fases posteriores (não planejadas em detalhe agora): contas, entitlements, licenças,
 API keys, pagamento, admin, alertas.
 
-**Estado atual: Fases 1, 2 e 3 implementadas. Fase 4 não iniciada.**
+**Estado atual: Fases 1 a 4 implementadas. Fase 5 não iniciada.**

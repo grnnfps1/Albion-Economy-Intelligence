@@ -72,6 +72,67 @@ export async function fetchCatalogMeta(): Promise<CatalogMeta | null> {
   }
 }
 
+export type Freshness = "ATUALIZADO" | "DESATUALIZADO" | "ANTIGO" | "DESCONHECIDO";
+
+export type PriceField = {
+  value: number | null;
+  age_seconds: number | null;
+  freshness: Freshness;
+};
+
+export type MarketPrice = {
+  item: string;
+  item_name: string | null;
+  tier: number | null;
+  enchantment: number;
+  location: string;
+  location_kind: string;
+  quality: number;
+  sell_min: PriceField;
+  sell_max: PriceField;
+  buy_min: PriceField;
+  buy_max: PriceField;
+  observed_age_seconds: number;
+  observed_freshness: Freshness;
+};
+
+export type MarketPricePage = {
+  server: string;
+  total: number;
+  limit: number;
+  offset: number;
+  sort_by: string;
+  descending: boolean;
+  generated_at: string;
+  data_source_note: string;
+  prices: MarketPrice[];
+};
+
+export type MarketQuery = {
+  server?: string;
+  locations?: string;
+  search?: string;
+  tier?: string;
+  enchantment?: string;
+  qualities?: string;
+  sort_by?: string;
+  descending?: string;
+  limit?: string;
+  offset?: string;
+};
+
+export async function fetchMarketPrices(query: MarketQuery): Promise<MarketPricePage | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") params.set(key, value);
+  }
+  try {
+    return await getJson<MarketPricePage>(`/api/v1/market/prices?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

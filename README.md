@@ -4,11 +4,9 @@ Motor de inteligência econômica para Albion Online. Transforma os dados de mer
 Albion Online Data Project em oportunidades acionáveis: arbitragem, crafting,
 refinamento e prata por Focus.
 
-**Estado: FASE 3 concluída — client do AODP.** O schema existe, o catálogo de
-itens é importado do dump oficial e o cliente que fala com o AODP está pronto e
-testado: rate limiter de janela dupla, batching por comprimento de URL, retry com
-backoff, cache e normalização. Ainda **não há coleta rodando**: agendar o
-collector e gravar preços no banco é a fase 4.
+**Estado: FASE 4 concluída — mercado.** A plataforma já coleta preços reais do
+AODP, grava em `market_prices` com procedência e mostra na tela `/market` com a
+idade de cada cotação. Falta histórico, gráficos e o motor de oportunidades.
 
 ---
 
@@ -115,6 +113,39 @@ decisão operacional e não metadado do jogo; para reaplicar a lista padrão:
 
 ```bash
 docker compose exec backend python -m app.cli.import_items --apply-tracking
+```
+
+### Coletar preços
+
+```bash
+# uma passada
+docker compose exec backend python -m app.cli.collect_market --server west
+
+# worker contínuo (perfil separado: coleta é processo longo)
+docker compose --profile collector up -d worker-market
+docker compose --profile collector logs -f worker-market
+```
+
+A coleta varre os itens marcados como `is_tracked` (312 por padrão) nos 8 locais
+e nas 5 qualidades. Um lock no Redis impede dois collectors do mesmo servidor —
+eles não corromperiam dado, mas dobrariam o consumo de rate limit, e o orçamento
+é de 1 requisição por segundo.
+
+Depois:
+
+```bash
+curl -s "http://localhost:8000/api/v1/market/prices?server=west&search=couro&limit=5" \
+  | python3 -m json.tool
+```
+
+e abra http://localhost:3000/market.
+
+Acompanhar execuções:
+
+```bash
+docker compose exec postgres psql -U albion -d albion -c \
+  "SELECT collector, status, rows_upserted, rows_rejected, http_requests, started_at
+   FROM collector_runs ORDER BY started_at DESC LIMIT 5;"
 ```
 
 ### Testes

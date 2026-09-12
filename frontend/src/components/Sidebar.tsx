@@ -7,7 +7,7 @@ import Link from "next/link";
  */
 const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Painel", href: "/", phase: null },
-  { label: "Mercado", href: "/market", phase: 4 },
+  { label: "Mercado", href: "/market", phase: null },
   { label: "Histórico", href: "/market/history", phase: 5 },
   { label: "Arbitragem", href: "/arbitrage", phase: 6 },
   { label: "Crafting", href: "/crafting", phase: 7 },
@@ -30,12 +30,12 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 1 — infraestrutura</p>
+        <p className="mt-1 text-muted text-xs">Fase 4 — mercado</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">
         {SECTIONS.map((section) => {
-          const available = section.phase === null && section.href === "/";
+          const available = section.phase === null && section.href !== "/watchlist";
           return (
             <li key={section.href} className="shrink-0">
               {available ? (

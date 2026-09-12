@@ -1,4 +1,4 @@
-.PHONY: help up down logs ps test test-backend test-frontend lint migrate revision import-items shell-db shell-redis clean
+.PHONY: help up down logs ps test test-backend test-frontend lint migrate revision import-items collect collector-up collector-logs shell-db shell-redis clean
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
@@ -24,6 +24,12 @@ revision:        ## make revision m="mensagem"
 	docker compose exec backend alembic revision --autogenerate -m "$(m)"
 import-items:    ## Importa o catálogo de itens do ao-bin-dumps (~40 MB de download)
 	docker compose exec backend python -m app.cli.import_items
+collect:         ## Roda uma coleta de preços agora (make collect s=west)
+	docker compose exec backend python -m app.cli.collect_market --server $(or $(s),west)
+collector-up:    ## Sobe o worker de coleta contínua
+	docker compose --profile collector up -d worker-market
+collector-logs:  ## Logs do worker de coleta
+	docker compose --profile collector logs -f worker-market
 shell-db:        ## psql no banco
 	docker compose exec postgres psql -U albion -d albion
 shell-redis:     ## redis-cli
