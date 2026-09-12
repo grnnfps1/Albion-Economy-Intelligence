@@ -1,0 +1,25 @@
+# segredos
+.env
+.env.local
+.env.*.local
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# sistema
+.DS_Store
+*.log
+
+# artefatos locais
+/tmp/
+*.zip

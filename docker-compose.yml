@@ -1,0 +1,94 @@
+name: albion-economy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: albion-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-albion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-albion}
+      POSTGRES_DB: ${POSTGRES_DB:-albion}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-albion} -d ${POSTGRES_DB:-albion}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: albion-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    container_name: albion-backend
+    env_file: .env
+    environment:
+      # Dentro da rede do compose os hosts são os nomes dos serviços, não localhost.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-albion}:${POSTGRES_PASSWORD:-albion}@postgres:5432/${POSTGRES_DB:-albion}
+      REDIS_URL: redis://redis:6379/0
+      TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-albion}:${POSTGRES_PASSWORD:-albion}@postgres:5432/${POSTGRES_DB:-albion}_test
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/srv
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    container_name: albion-frontend
+    environment:
+      # Variável de servidor: nunca chega ao browser (sem prefixo NEXT_PUBLIC_).
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/srv
+      - /srv/node_modules
+      - /srv/.next
+    depends_on:
+      backend:
+        condition: service_started
+
+  # Os workers de coleta entram na FASE 3/4. Ficam como serviço separado desde já
+  # porque coleta é processo longo e não pode viver dentro do request da API
+  # (docs/00-arquitetura.md §3).
+  # worker-market:
+  #   build: { context: ./backend, target: dev }
+  #   command: ["python", "-m", "app.collectors.market"]
+  #   env_file: .env
+  #   depends_on:
+  #     backend: { condition: service_healthy }
+
+volumes:
+  postgres_data:
+  redis_data:
