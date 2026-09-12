@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: albion
+          POSTGRES_PASSWORD: albion
+          POSTGRES_DB: albion
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U albion"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://albion:albion@localhost:5432/albion
+      TEST_DATABASE_URL: postgresql+asyncpg://albion:albion@localhost:5432/albion_test
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: development
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Criar banco de teste
+        run: PGPASSWORD=albion psql -h localhost -U albion -d albion -c "CREATE DATABASE albion_test;"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Migrations aplicam do zero
+        run: alembic upgrade head
+
+      - name: Migrations revertem e reaplicam
+        run: alembic downgrade base && alembic upgrade head
+
+      # Sem isso a suíte "passa" com os testes de integração pulados e ninguém nota.
+      - name: Testes
+        run: pytest -q -rs
+
+      - name: Falhar se algum teste pulou
+        run: |
+          pytest -q --no-header -rs 2>&1 | tee /tmp/pytest.log
+          if grep -q "skipped" /tmp/pytest.log; then
+            echo "::error::Há testes pulados no CI. Postgres deveria estar disponível."
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci || npm install
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  regras-do-projeto:
+    name: Regras do projeto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Regra 3 do CLAUDE.md: nenhuma regra de negócio no frontend.
+      - name: Nenhum cálculo de negócio no frontend
+        run: |
+          if grep -rInE '(margem|margin|roi|lucro|profit)\s*=\s*.*[*/+-]' frontend/src --include='*.ts' --include='*.tsx'; then
+            echo "::error::Cálculo de negócio detectado no frontend. Ele pertence a backend/app/calculations/."
+            exit 1
+          fi
+
+      # Regra 9: segredo nunca é commitado.
+      - name: .env não pode estar versionado
+        run: |
+          if git ls-files | grep -E '^\.env$|/\.env$'; then
+            echo "::error::Arquivo .env versionado."
+            exit 1
+          fi
