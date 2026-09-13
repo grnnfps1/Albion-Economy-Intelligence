@@ -7,6 +7,7 @@ import Link from "next/link";
  */
 const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Painel", href: "/", phase: null },
+  { label: "Pipeline", href: "/status", phase: null },
   { label: "Mercado", href: "/market", phase: null },
   { label: "Histórico", href: "/market/history", phase: null },
   { label: "Arbitragem", href: "/arbitrage", phase: null },
@@ -30,7 +31,7 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 9 — focus</p>
+        <p className="mt-1 text-muted text-xs">Fase 10 — dashboard</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">

@@ -4,9 +4,9 @@ Motor de inteligência econômica para Albion Online. Transforma os dados de mer
 Albion Online Data Project em oportunidades acionáveis: arbitragem, crafting,
 refinamento e prata por Focus.
 
-**Estado: FASE 9 concluída — ranking de Focus.** A plataforma coleta preços e histórico do
+**Estado: as dez fases do plano original estão concluídas.** A plataforma coleta preços e histórico do
 AODP, marca outliers, e entrega `/market`, `/market/history`, `/gold`,
-`/arbitrage`, `/crafting`, `/refining` e `/focus`. Imposto, retorno de material e taxa de estação são
+`/arbitrage`, `/crafting`, `/refining`, `/focus` e o painel integrado em `/`. Imposto, retorno de material e taxa de estação são
 **entrada do usuário** — nenhum é constante, e uma calculadora que os fixa está
 errada para quase todo mundo. Sem eles, a resposta é `UNKNOWN` com o motivo, e
 nunca um número calculado com taxa zero.

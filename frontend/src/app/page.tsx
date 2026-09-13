@@ -1,160 +1,168 @@
-import { RefreshButton } from "@/components/RefreshButton";
-import { StatusDot } from "@/components/StatusDot";
-import { fetchCatalogMeta, fetchPlatformStatus } from "@/lib/api";
-import { formatLatency, formatSilver } from "@/lib/format";
+import Link from "next/link";
+
+import { FeeSettings } from "@/components/FeeSettings";
+import { ItemIcon } from "@/components/ItemIcon";
+import { OpportunityCard } from "@/components/OpportunityCard";
+import { fetchDashboard } from "@/lib/api";
+import { formatDataAge, formatSilver } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const SERVER_NAMES: Record<string, string> = {
-  west: "Americas",
-  east: "Asia",
-  europe: "Europe",
+const EXTRA = [
+  { name: "return_rate", label: "Retorno de material", placeholder: "0.15" },
+  { name: "station_fee", label: "Taxa da estação", placeholder: "100" },
+  { name: "focus_budget", label: "Focus disponível", placeholder: "10000" },
+];
+
+const TOM: Record<string, string> = {
+  ATUALIZADO: "text-up",
+  DESATUALIZADO: "text-warn",
+  ANTIGO: "text-down",
+  DESCONHECIDO: "text-muted",
 };
 
-export default async function Home() {
-  const [status, meta] = await Promise.all([fetchPlatformStatus(), fetchCatalogMeta()]);
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const raw = await searchParams;
+  const query = Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
+  ) as Record<string, string | undefined>;
+
+  const data = await fetchDashboard(query);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <header className="mb-10">
-        <h1 className="font-semibold text-2xl text-body tracking-tight">
-          Estado do pipeline
-        </h1>
+    <div>
+      <header className="mb-6">
+        <h1 className="font-semibold text-2xl text-body tracking-tight">Painel</h1>
         <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">
-          A plataforma ainda não coleta preços. A fase 1 entrega a infraestrutura, e o
-          que faz sentido mostrar agora é se cada peça do caminho do dado está de pé.
+          A melhor oportunidade de cada tipo, com a idade do dado que a sustenta. Um número
+          grande sobre cotação de ontem não é oportunidade — é retrato antigo.
         </p>
       </header>
 
-      {!status.reachable && (
-        <div className="mb-8 rounded-sm border border-down/40 bg-down/5 p-4">
-          <p className="text-body text-sm">A API não respondeu.</p>
-          <p className="mt-1 text-muted text-sm">
-            {status.error}. Suba o backend com{" "}
-            <code className="figure text-body">docker compose up -d backend</code> e
-            verifique com{" "}
-            <code className="figure text-body">docker compose logs -f backend</code>.
+      {data === null ? (
+        <div className="rounded-sm border border-down/40 bg-down/5 p-4 text-sm">
+          <p className="text-body">A API não respondeu.</p>
+          <p className="mt-1 text-muted">
+            Veja o{" "}
+            <Link href="/status" className="text-body underline">
+              estado do pipeline
+            </Link>
+            .
           </p>
         </div>
-      )}
+      ) : (
+        <>
+          {/* O estado da coleta vem antes dos números. Se o collector parou,
+              todos os cards abaixo olham um retrato antigo. */}
+          <div
+            className={`mb-6 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-sm border p-3 text-xs ${
+              data.pipeline.freshness === "ATUALIZADO"
+                ? "border-line bg-ink-raised/40"
+                : "border-warn/40 bg-warn/5"
+            }`}
+          >
+            <span className="flex gap-1.5">
+              <span className="text-muted">última coleta</span>
+              <span className={`figure ${TOM[data.pipeline.freshness]}`}>
+                {formatDataAge(data.pipeline.last_collection_age_seconds)}
+              </span>
+            </span>
+            <span className="flex gap-1.5">
+              <span className="text-muted">preços em base</span>
+              <span className="figure text-body">
+                {formatSilver(data.pipeline.prices_tracked)}
+              </span>
+            </span>
+            {data.pipeline.stale_price_ratio !== null && (
+              <span className="flex gap-1.5">
+                <span className="text-muted">desatualizados</span>
+                <span
+                  className={`figure ${
+                    data.pipeline.stale_price_ratio > 0.3 ? "text-warn" : "text-muted"
+                  }`}
+                >
+                  {(data.pipeline.stale_price_ratio * 100).toFixed(0)}%
+                </span>
+              </span>
+            )}
+            <Link href="/status" className="ml-auto text-muted hover:text-body">
+              pipeline →
+            </Link>
+          </div>
 
-      {status.mockData && (
-        <div className="mb-8 rounded-sm border border-warn/40 bg-warn/5 p-4 text-sm">
-          Esta instância está configurada para dado mock. Nada aqui representa o mercado
-          real.
-        </div>
-      )}
+          <FeeSettings action="/" extraFields={EXTRA} />
 
-      <section className="mb-10">
-        <h2 className="mb-3 border-line border-b pb-2 font-medium text-body text-sm">
-          Infraestrutura
-        </h2>
-        <dl className="divide-y divide-line">
-          <Row
-            label="API"
-            value={<StatusDot status={status.reachable ? "ok" : "down"} />}
-            detail={status.version ? `v${status.version} · ${status.environment}` : null}
-          />
-          <Row
-            label="PostgreSQL"
-            value={<StatusDot status={status.database?.status} />}
-            detail={
-              status.database?.detail ?? formatLatency(status.database?.latency_ms ?? null)
-            }
-          />
-          <Row
-            label="Redis"
-            value={<StatusDot status={status.cache?.status} />}
-            detail={status.cache?.detail ?? formatLatency(status.cache?.latency_ms ?? null)}
-          />
-        </dl>
-      </section>
-
-      {meta && (
-        <section className="mb-10">
-          <h2 className="mb-3 border-line border-b pb-2 font-medium text-body text-sm">
-            Catálogo
-          </h2>
-          <dl className="divide-y divide-line">
-            <Row
-              label="Itens importados"
-              value={<span className="figure text-body text-sm">{formatSilver(meta.catalog.total)}</span>}
-              detail="ao-bin-dumps"
-            />
-            <Row
-              label="Itens marcados para coleta"
-              value={<span className="figure text-body text-sm">{formatSilver(meta.catalog.tracked)}</span>}
-              detail="varridos pelos collectors"
-            />
-            <Row
-              label="Locais de mercado"
-              value={<span className="figure text-body text-sm">{meta.locations.length}</span>}
-              detail={`${meta.locations.filter((l) => l.kind === "royal_city").length} cidades + Black Market`}
-            />
-            <Row
-              label="Categorias"
-              value={<span className="figure text-body text-sm">{meta.categories.length}</span>}
-              detail={null}
-            />
-          </dl>
-          {meta.catalog.total === 0 && (
-            <p className="mt-4 text-muted text-sm">
-              O catálogo está vazio. Importe com{" "}
-              <code className="figure text-body">
-                docker compose exec backend python -m app.cli.import_items
-              </code>
-              .
-            </p>
+          {!data.params.complete && (
+            <div className="mb-6 rounded-sm border border-warn/40 bg-warn/5 p-4 text-sm leading-relaxed">
+              <p className="text-body">Configure as taxas para ver os números.</p>
+              <p className="mt-1 text-muted">
+                Faltam: <span className="figure">{data.params.missing.join(", ")}</span>. Elas
+                dependem da sua conta — o imposto muda com Premium, o retorno muda com Focus
+                e especialização. Sem elas o painel mostra o que existe, mas não inventa
+                lucro.
+              </p>
+            </div>
           )}
-        </section>
-      )}
 
-      <section className="mb-10">
-        <h2 className="mb-3 border-line border-b pb-2 font-medium text-body text-sm">
-          Fonte de mercado
-        </h2>
-        <dl className="divide-y divide-line">
-          {status.aodp.length === 0 && (
-            <p className="py-3 text-muted text-sm">Sem resposta da fonte.</p>
+          <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {data.cards.map((card) => (
+              <OpportunityCard key={card.kind} card={card} />
+            ))}
+          </div>
+
+          {data.top_opportunities.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 border-line border-b pb-2 font-medium text-body text-sm">
+                Top oportunidades
+                <span className="ml-2 text-muted text-xs">ordenadas por score</span>
+              </h2>
+              {data.top_opportunities.map((card) => (
+                <Link
+                  key={`${card.item}-${card.detail}`}
+                  href={card.href}
+                  className="flex items-center gap-3 border-line/60 border-b py-2.5 last:border-0 hover:bg-ink-raised/30"
+                >
+                  <ItemIcon
+                    url={card.icon_url}
+                    alt={card.item_name ?? ""}
+                    tier={card.tier}
+                    size={32}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body text-sm">
+                      {card.item_name ?? card.item}
+                    </span>
+                    <span className="block truncate text-muted text-[11px]">
+                      {card.detail}
+                    </span>
+                  </span>
+                  <span className="figure shrink-0 text-up text-sm">
+                    {formatSilver(card.headline)}
+                  </span>
+                  <span
+                    className={`figure w-16 shrink-0 text-right text-[11px] ${
+                      TOM[card.freshness]
+                    }`}
+                  >
+                    {formatDataAge(card.age_seconds)}
+                  </span>
+                  <span className="figure w-10 shrink-0 text-right text-body text-sm">
+                    {card.score}
+                  </span>
+                </Link>
+              ))}
+            </section>
           )}
-          {status.aodp.map((server) => (
-            <Row
-              key={server.server}
-              label={SERVER_NAMES[server.server] ?? server.server}
-              value={<StatusDot status={server.status} />}
-              detail={server.detail ?? formatLatency(server.latency_ms)}
-            />
-          ))}
-        </dl>
-        <p className="mt-4 max-w-prose text-muted text-xs leading-relaxed">
-          Os preços vêm do Albion Online Data Project, que depende de jogadores abrirem o
-          mercado no jogo com o client de coleta. Um mercado pouco visitado tem cotação
-          velha ou nenhuma. Por isso toda tela do produto mostra a idade do dado, e
-          ausência de preço nunca é exibida como zero.
-        </p>
-      </section>
 
-      <RefreshButton />
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: React.ReactNode;
-  detail: string | null;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <dt className="text-body text-sm">{label}</dt>
-      <dd className="flex items-center gap-4">
-        {detail && <span className="figure text-muted text-xs">{detail}</span>}
-        {value}
-      </dd>
+          <p className="max-w-prose text-muted text-xs leading-relaxed">
+            {data.data_source_note}
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -378,6 +378,41 @@ export async function fetchFocus(
   }
 }
 
+export type DashboardCard = {
+  kind: string; available: boolean; reason: string | null;
+  item: string | null; item_name: string | null; icon_url: string | null;
+  tier: number | null;
+  headline: number | null; headline_label: string | null; detail: string | null;
+  age_seconds: number | null; freshness: Freshness;
+  score: number | null; confidence: number | null;
+  liquidity_units_per_day: number | null; href: string;
+};
+
+export type DashboardResponse = {
+  server: string; generated_at: string;
+  pipeline: {
+    prices_tracked: number; last_collection_age_seconds: number | null;
+    freshness: Freshness; last_run_status: string | null;
+    stale_price_ratio: number | null;
+  };
+  params: CraftingResponse["params"];
+  cards: DashboardCard[];
+  top_opportunities: DashboardCard[];
+  data_source_note: string;
+};
+
+export async function fetchDashboard(
+  query: Record<string, string | undefined>,
+): Promise<DashboardResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<DashboardResponse>(`/api/v1/dashboard?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

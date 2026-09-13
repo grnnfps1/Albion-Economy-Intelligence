@@ -81,9 +81,9 @@ seguir. Sem pular (requisito 51).
 | **7** | Receitas + `/crafting` | Retorno de material, taxa de estação, focus |
 | **8** | `/refining` | Prata/focus por refino |
 | **9** | Ranking de focus | Ordenação por `profit_per_focus` |
-| **10** | Dashboard integrado | Cards + Top Oportunidades |
+| **10** | Dashboard integrado | Cards com idade e confiança; pipeline antes dos números ✔ |
 
 Fases posteriores (não planejadas em detalhe agora): contas, entitlements, licenças,
 API keys, pagamento, admin, alertas.
 
-**Estado atual: Fases 1 a 9 implementadas. As taxas do jogo continuam sem medição (`docs/04-taxas.md`), mas deixaram de ser bloqueio: são entrada do usuário.**
+**Estado atual: as dez fases do plano original estão implementadas. As taxas do jogo continuam sem medição (`docs/04-taxas.md`), mas deixaram de ser bloqueio: são entrada do usuário.**

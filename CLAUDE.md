@@ -27,7 +27,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 7 | Crafting | ✅ |
 | 8 | Refino | ✅ |
 | 9 | Focus | ✅ |
-| 10 | Dashboard | ⬜ próxima |
+| 10 | Dashboard | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -217,23 +217,22 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
-## Próxima fase (10) — dashboard
+## O plano original terminou
 
-Última do plano original. Integra tudo numa tela só, respondendo "o que eu faço
-agora?" sem obrigar a passar por cinco abas.
+As dez fases estão implementadas. O que vem agora não está planejado em detalhe;
+é o que o documento original listava como "futuro". Em ordem de valor:
 
-O que precisa existir:
+1. **Medir as taxas no jogo** (`docs/04-taxas.md`). Não bloqueia mais nada, mas
+   define o padrão pré-preenchido. Seis medições, incluindo se token de facção
+   retorna no craft.
+2. **Contas e preferências.** Hoje os parâmetros do usuário vivem na URL. Com
+   login, viram preferência salva — o cálculo não muda, só a origem do valor.
+3. **Watchlist e alertas.** A arquitetura já está preparada; falta a tabela e o
+   worker que avalia condições.
+4. **Portfólio.** Registro de compras e vendas reais, para comparar o lucro
+   previsto com o realizado. É o que fecharia o ciclo do produto.
 
-1. Cards com a melhor oportunidade de cada tipo — arbitragem, craft, refino,
-   focus — cada um levando à tela completa.
-2. Tabela de Top Oportunidades ordenada por score, misturando os tipos.
-3. Estado do pipeline em miniatura: se a coleta parou, o dashboard inteiro está
-   desatualizado e isso precisa aparecer antes dos números.
-
-O risco desta fase é virar vitrine: um dashboard que mostra o número mais alto de
-cada categoria sem o contexto que o torna confiável seria um retrocesso em
-relação a tudo que foi construído. Cada card precisa carregar idade do dado e
-confiança, como as telas de origem fazem.
+Nada disso exige refazer o que existe.
 
 ## Parâmetros de crafting: entrada do usuário
 
@@ -284,7 +283,20 @@ imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
 
-## Notas da fase 9
+## Notas da fase 10
+
+- **O estado do pipeline vem antes dos números.** Se a coleta parou, todos os
+  cards estão olhando um retrato antigo. A tira no topo mostra idade da última
+  coleta e a fração de preços desatualizados, e muda de cor quando não está
+  fresca.
+- **Card indisponível continua na tela**, com o motivo. Sumir deixaria um buraco
+  sem explicação, e o usuário não saberia que existe uma seção ali.
+- **Top Oportunidades só traz arbitragem.** É a única categoria com score
+  comparável hoje. Misturar categorias sem métrica comum produziria um ranking
+  que não significa nada — melhor mostrar menos e verdadeiro. Quando craft e
+  refino ganharem score, entram.
+- **A home virou o painel; o estado do pipeline foi para `/status`.** Continua
+  linkado da tira do topo.
 
 - **Taxa não é ganho.** Prata/Focus responde "quanto rende cada ponto"; o que se
   leva para casa é limitado pelo Focus disponível **e** pelo que o mercado
