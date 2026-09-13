@@ -348,6 +348,36 @@ export async function fetchRefining(
   }
 }
 
+export type FocusPlan = {
+  item: string; item_name: string | null; icon_url: string | null;
+  tier: number | null; enchantment: number; route: string;
+  profit_per_unit: number; focus_per_unit: number; profit_per_focus: number | null;
+  units_by_focus: number | null; units_by_liquidity: number | null;
+  units: number | null; focus_used: number | null;
+  realizable_profit: number | null; limiter: string;
+  days_to_sell: number | null; liquidity_units_per_day: number | null;
+};
+
+export type FocusResponse = {
+  server: string; buy_location: string; sell_location: string;
+  focus_budget: number | null; horizon_days: number; sort_by: string; total: number;
+  params: CraftingResponse["params"];
+  generated_at: string; data_source_note: string;
+  plans: FocusPlan[];
+};
+
+export async function fetchFocus(
+  query: Record<string, string | undefined>,
+): Promise<FocusResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<FocusResponse>(`/api/v1/focus/ranking?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

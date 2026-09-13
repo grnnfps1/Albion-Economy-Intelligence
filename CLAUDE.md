@@ -26,8 +26,8 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 6 | Opportunity Engine + arbitragem | ✅ taxas configuráveis pelo usuário |
 | 7 | Crafting | ✅ |
 | 8 | Refino | ✅ |
-| 9 | Focus | ⬜ próxima |
-| 10 | Dashboard | ⬜ |
+| 9 | Focus | ✅ |
+| 10 | Dashboard | ⬜ próxima |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -217,21 +217,23 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
-## Próxima fase (9) — ranking de Focus
+## Próxima fase (10) — dashboard
 
-O cálculo de prata/focus já existe em crafting e refino. A fase 9 é a **visão
-unificada**: um ranking único que mistura craft e refino e responde "onde gastar
-o focus de hoje?".
+Última do plano original. Integra tudo numa tela só, respondendo "o que eu faço
+agora?" sem obrigar a passar por cinco abas.
 
-O que precisa ser resolvido:
+O que precisa existir:
 
-1. Focus tem teto diário e acumula. O ranking deveria considerar **quanto focus
-   a pessoa tem**, não só a taxa por unidade.
-2. Prata/focus alto em item ilíquido é armadilha: escoar 500 unidades de algo que
-   gira 3 por dia leva meses. O ranking precisa cruzar com liquidez, como o score
-   de arbitragem já faz.
-3. Um item pode aparecer por dois caminhos (craft direto e refino). Deduplicar
-   pela melhor rota, mostrando qual foi.
+1. Cards com a melhor oportunidade de cada tipo — arbitragem, craft, refino,
+   focus — cada um levando à tela completa.
+2. Tabela de Top Oportunidades ordenada por score, misturando os tipos.
+3. Estado do pipeline em miniatura: se a coleta parou, o dashboard inteiro está
+   desatualizado e isso precisa aparecer antes dos números.
+
+O risco desta fase é virar vitrine: um dashboard que mostra o número mais alto de
+cada categoria sem o contexto que o torna confiável seria um retrocesso em
+relação a tudo que foi construído. Cada card precisa carregar idade do dado e
+confiança, como as telas de origem fazem.
 
 ## Parâmetros de crafting: entrada do usuário
 
@@ -281,6 +283,22 @@ encantamento já vai no próprio id e o serviço entende. Guardar 12 mil URLs em
 imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
+
+## Notas da fase 9
+
+- **Taxa não é ganho.** Prata/Focus responde "quanto rende cada ponto"; o que se
+  leva para casa é limitado pelo Focus disponível **e** pelo que o mercado
+  absorve. O ranking cruza os dois e devolve o ganho realizável no horizonte.
+- **O limitador é informação de primeira classe.** Saber que uma operação está
+  travada pelo mercado, e não pelo Focus, muda a decisão: adianta produzir mais
+  ou adianta procurar outro item?
+- **Ordenar só por taxa inverte o ranking.** Há teste demonstrando: item com
+  taxa maior e giro de 1/dia rende menos que item com taxa menor e giro de
+  800/dia. É a razão de o ranking existir.
+- **Item que aparece por craft e por refino fica uma vez**, com a melhor rota
+  marcada. Duas linhas para a mesma decisão é ruído.
+- **Sem orçamento de Focus informado, o único teto é o mercado** — e a tela diz
+  isso, em vez de fingir que a taxa basta.
 
 ## Notas da fase 8
 
