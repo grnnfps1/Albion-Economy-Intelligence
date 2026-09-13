@@ -1,18 +1,12 @@
 import Link from "next/link";
 
-import { FeeSettings } from "@/components/FeeSettings";
 import { ItemIcon } from "@/components/ItemIcon";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { fetchDashboard } from "@/lib/api";
+import { feeParams, getPreferences } from "@/lib/preferences";
 import { formatDataAge, formatSilver } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const EXTRA = [
-  { name: "return_rate", label: "Retorno de material", placeholder: "0.15" },
-  { name: "station_fee", label: "Taxa da estação", placeholder: "100" },
-  { name: "focus_budget", label: "Focus disponível", placeholder: "10000" },
-];
 
 const TOM: Record<string, string> = {
   ATUALIZADO: "text-up",
@@ -31,10 +25,17 @@ export default async function Home({
     Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
   ) as Record<string, string | undefined>;
 
-  const data = await fetchDashboard(query);
+  const prefs = await getPreferences();
+  const data = await fetchDashboard({
+    ...feeParams(prefs),
+    buy_location: prefs.buyLocation,
+    sell_location: prefs.sellLocation,
+    focus_budget: String(prefs.focusBudget),
+    ...query,
+  });
 
   return (
-    <div>
+    <div className="px-4 py-4">
       <header className="mb-6">
         <h1 className="font-semibold text-2xl text-body tracking-tight">Painel</h1>
         <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">
@@ -93,8 +94,6 @@ export default async function Home({
               pipeline →
             </Link>
           </div>
-
-          <FeeSettings action="/" extraFields={EXTRA} />
 
           {!data.params.complete && (
             <div className="mb-6 rounded-sm border border-warn/40 bg-warn/5 p-4 text-sm leading-relaxed">

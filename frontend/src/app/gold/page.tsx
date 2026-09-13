@@ -17,7 +17,7 @@ export default async function GoldPage({
   const data = await fetchGold(server, days);
 
   return (
-    <div>
+    <div className="px-4 py-4">
       <header className="mb-6">
         <h1 className="font-semibold text-2xl text-body tracking-tight">Gold</h1>
         <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">

@@ -1,13 +1,46 @@
-import { CraftRow } from "@/components/CraftRow";
-import { FeeSettings } from "@/components/FeeSettings";
-import { fetchCrafting } from "@/lib/api";
+import { PageShell } from "@/components/PageShell";
+import { ColumnHeader } from "@/components/ColumnHeader";
+import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
+import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
+import { ItemIcon } from "@/components/ui/ItemIcon";
+import { fetchCrafting, type CraftOpportunity } from "@/lib/api";
+import { formatSilver } from "@/lib/format";
+import { feeParams, getPreferences } from "@/lib/preferences";
 
 export const dynamic = "force-dynamic";
 
-const EXTRA = [
-  { name: "return_rate", label: "Retorno de material", placeholder: "0.15" },
-  { name: "station_fee", label: "Taxa da estação", placeholder: "100" },
-  { name: "crafts", label: "Execuções", placeholder: "1" },
+const COLUNAS =
+  "minmax(13rem,1.5fr) 7.5rem 7.5rem 8.5rem 7.5rem minmax(15rem,1.8fr) 9.5rem";
+
+const GRUPOS = [
+  {
+    chave: "sort_by",
+    padrao: "profit_per_focus",
+    opcoes: [
+      { valor: "profit_per_focus", rotulo: "prata/focus" },
+      { valor: "profit", rotulo: "lucro" },
+      { valor: "roi", rotulo: "ROI" },
+    ],
+  },
+  {
+    chave: "tier",
+    padrao: "",
+    opcoes: [
+      { valor: "", rotulo: "todos" },
+      ...[4, 5, 6, 7, 8].map((t) => ({ valor: String(t), rotulo: `T${t}` })),
+    ],
+  },
+  {
+    chave: "station_category",
+    padrao: "",
+    opcoes: [
+      { valor: "", rotulo: "tudo" },
+      { valor: "wood", rotulo: "madeira" },
+      { valor: "metal", rotulo: "metal" },
+      { valor: "leather", rotulo: "couro" },
+      { valor: "cloth", rotulo: "tecido" },
+    ],
+  },
 ];
 
 export default async function CraftingPage({
@@ -20,77 +53,130 @@ export default async function CraftingPage({
     Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
   ) as Record<string, string | undefined>;
 
-  const data = await fetchCrafting({ ...query, limit: "30" });
+  const prefs = await getPreferences();
+  const data = await fetchCrafting({
+    ...feeParams(prefs),
+    buy_location: prefs.buyLocation,
+    sell_location: prefs.sellLocation,
+    ...query,
+    limit: "40",
+  });
 
   return (
-    <div>
-      <header className="mb-6">
-        <h1 className="font-semibold text-2xl text-body tracking-tight">Crafting</h1>
-        <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">
-          O ranking ordena por prata por focus, não por lucro absoluto. Focus é o recurso
-          escasso: um craft que rende mais prata gastando três vezes mais focus é o pior
-          negócio dos dois.
-        </p>
-      </header>
-
-      <FeeSettings action="/crafting" extraFields={EXTRA} />
+    <PageShell
+      titulo="Crafting"
+      descricao="Prata por focus manda no ranking: focus é o recurso escasso, e um craft que rende mais gastando três vezes mais focus é o pior negócio dos dois."
+      contagem={data ? `${data.opportunities.length} de ${data.total} receitas` : undefined}
+      grupos={GRUPOS}
+      prefs={prefs}
+    >
+      <ColumnHeader
+        columns={COLUNAS}
+        ordemPadrao="profit_per_focus"
+        colunas={[
+          { rotulo: "item" },
+          { rotulo: "você gasta", alinhamento: "right" },
+          { rotulo: "você recebe", alinhamento: "right" },
+          { rotulo: "lucro", ordenavel: "profit", alinhamento: "right" },
+          { rotulo: "prata / focus", ordenavel: "profit_per_focus", alinhamento: "right" },
+          { rotulo: "materiais · onde comprar" },
+          { rotulo: "vender em", alinhamento: "right" },
+        ]}
+      />
 
       {data === null && (
-        <div className="rounded-sm border border-down/40 bg-down/5 p-4 text-sm">
-          <p className="text-body">A API não respondeu.</p>
-        </div>
+        <p className="p-4 text-[12px] text-down">A API não respondeu.</p>
       )}
 
-      {data && !data.params.complete && (
-        <div className="mb-6 rounded-sm border border-warn/40 bg-warn/5 p-4 text-sm leading-relaxed">
-          <p className="text-body">Parâmetros faltando — o lucro não é calculado.</p>
-          <p className="mt-1 text-muted">
-            Faltam: <span className="figure">{data.params.missing.join(", ")}</span>. Nenhum
-            deles é constante: o retorno muda com Focus e especialização, a taxa da estação é
-            definida pelo dono e varia por cidade, e o imposto muda com Premium. Uma
-            calculadora que fixa os três está errada para quase todo mundo.
-          </p>
-        </div>
-      )}
-
-      {data && data.params.complete && (
-        <p className="mb-4 text-muted text-xs">
-          Retorno de{" "}
-          <span className="figure text-body">
-            {((data.params.return_rate ?? 0) * 100).toFixed(1)}%
-          </span>
-          , estação a <span className="figure text-body">{data.params.station_fee}</span> por
-          craft, imposto de{" "}
-          <span className="figure text-body">
-            {((data.params.fees.sales_tax_pct ?? 0) * 100).toFixed(2)}%
-          </span>
-          {data.params.fees.premium ? " (Premium)" : ""} · {data.crafts} execução(ões) ·
-          comprando em {data.buy_location}, vendendo em {data.sell_location}
+      {data?.total === 0 && (
+        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+          Nenhuma receita com dados suficientes. O custo precisa de cotação de cada material em{" "}
+          {prefs.buyLocation}. Rode a coleta ou tente outra cidade nas preferências.
         </p>
       )}
 
-      {data && data.total === 0 && (
-        <div className="rounded-sm border border-line bg-ink-raised p-4 text-sm">
-          <p className="text-body">Nenhuma receita com dados suficientes.</p>
-          <p className="mt-1 max-w-prose text-muted">
-            As receitas vêm do dump do jogo, mas o custo precisa de cotação de cada material
-            na cidade escolhida. Rode a coleta e tente outra cidade.
-          </p>
-        </div>
-      )}
-
-      {data?.opportunities.map((opportunity) => (
-        <CraftRow
-          key={`${opportunity.item}-${opportunity.recipe_variant}`}
-          opportunity={opportunity}
-        />
+      {data?.opportunities.map((op) => (
+        <CraftLine key={`${op.item}-${op.recipe_variant}`} op={op} />
       ))}
 
-      {data && data.total > 0 && (
-        <p className="mt-6 max-w-prose text-muted text-xs leading-relaxed">
-          {data.data_source_note}
+      {data && data.opportunities.length > 0 && (
+        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
+          <b>Como ler:</b> <i>você gasta</i> é o custo dos materiais depois do retorno, mais a
+          taxa da estação. <i>Você recebe</i> já desconta o imposto de venda. Nos materiais, o
+          número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
+          tier.
         </p>
       )}
-    </div>
+    </PageShell>
+  );
+}
+
+function CraftLine({ op }: { op: CraftOpportunity }) {
+  const eco = op.economics;
+  const positivo = eco.known ? (eco.profit ?? 0) > 0 : null;
+
+  return (
+    <DenseRow tier={op.tier} positive={positivo} columns={COLUNAS}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} />
+        <div className="min-w-0">
+          <div className="mb-[3px] flex gap-1">
+            <TierBadge tier={op.tier} enchantment={op.enchantment} />
+            <QualityBadge quality={1} />
+          </div>
+          <div className="truncate text-[12.5px] leading-tight" title={op.item}>
+            {op.item_name ?? op.item}
+          </div>
+        </div>
+      </div>
+
+      <Figure value={eco.material_cost_net} label="materiais + taxas" />
+      <Figure value={eco.sale_revenue_net} label="após imposto" />
+      <ProfitFigure profit={eco.profit} marginPct={eco.margin_pct} unknownReason={eco.reason} />
+
+      <div className="pr-3 text-right">
+        <span
+          className={`figure font-semibold text-[13.5px] ${
+            positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
+          }`}
+        >
+          {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
+        </span>
+        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
+          {formatSilver(eco.focus_cost)} focus
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1.5 overflow-hidden">
+        {op.materials.map((m) => (
+          <span
+            key={m.item}
+            title={`${m.item_name ?? m.item}: ${m.quantity} × ${formatSilver(m.unit_price)} = ${formatSilver(m.total_price)}`}
+            className="flex shrink-0 items-center gap-1.5 rounded border border-line bg-raised px-1.5 py-[3px]"
+          >
+            <ItemIcon url={m.icon_url} alt={m.item} tier={op.tier} quantity={m.quantity} size={28} />
+            <span className="flex flex-col leading-[1.15]">
+              <span className="figure text-[11px]">
+                {formatSilver(m.unit_price)}
+                <span className="ml-px text-[9px] text-dim">/un</span>
+              </span>
+              <CityTag city={m.location ?? "—"} className="text-[9.5px] text-muted" />
+            </span>
+          </span>
+        ))}
+      </div>
+
+      <div className="text-right">
+        <CityTag city={op.sell_location} className="justify-end text-[12px]" />
+        <div className="mt-px flex justify-end gap-1.5">
+          <AgeTag seconds={op.sell_age_seconds} />
+          <span className="figure text-[9.5px] text-dim">
+            {op.liquidity_units_per_day === null
+              ? "giro ?"
+              : `${formatSilver(op.liquidity_units_per_day)}/dia`}
+          </span>
+        </div>
+      </div>
+    </DenseRow>
   );
 }

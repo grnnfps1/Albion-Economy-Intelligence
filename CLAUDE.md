@@ -257,7 +257,42 @@ prata. Lucro absoluto alto com Focus alto pode ser pior negócio — há teste
 cobrindo exatamente isso. E prata/focus é **intensivo**: não muda quando se
 aumenta o número de execuções, ao contrário do lucro absoluto.
 
-## Linguagem visual da tela de mercado
+## Linguagem visual
+
+Linha densa, 40 por tela, com **cor carregando informação e nunca decoração**:
+
+| Elemento | O que comunica |
+|---|---|
+| faixa à esquerda | tier, nas cores do jogo (T4 azul … T8 branco) |
+| fundo tingido | verde = lucro, vermelho = prejuízo |
+| moldura do ícone | tier de novo, para o olho separar antes de ler |
+| ponto na cidade | cor heráldica oficial, sempre **acompanhada do nome** |
+| pílula verde/vermelha | margem percentual, ao lado do lucro |
+| âmbar | atenção: dado velho, parâmetro não verificado |
+
+Regras que a tela materializa:
+
+- **Rótulo diz a consequência, não o nome do campo.** "você gasta (materiais +
+  taxas)" e "você recebe (após imposto)", nunca "custo" e "mercado" — rótulo
+  vago esconde taxa.
+- **Hierarquia por tamanho.** Lucro é o maior número da linha; custo e receita
+  encolhem. Tudo com o mesmo peso visual é o mesmo que nada ter peso.
+- **Número cheio, nunca abreviado.** `1.683.277`, não `1,68m`. Numa ferramenta
+  cujo produto é precisão, abreviar economiza a coisa errada.
+- **Nome visual manda, id técnico no tooltip.**
+- **Nada duplicado.** O badge do ícone é a quantidade; o texto é o preço
+  unitário. Repetir a quantidade nos dois gasta espaço e confunde.
+
+**Preferências ficam num cookie**, não na URL, e num formulário só
+(`PreferencesForm`), recolhido por padrão e **já preenchido**. Antes cada tela
+pedia os mesmos sete campos — era levar "não inventar número" longe demais. A
+regra é não inventar **em silêncio**: o padrão vem preenchido com um aviso de
+que não foi verificado no jogo.
+
+`preferences.ts` é server-only e `preferences-shared.ts` tem os tipos. Misturar
+os dois arrasta `next/headers` para o bundle do cliente e o build falha.
+
+## Linguagem visual da tela de mercado (histórico)
 
 Linha densa, uma por item × cidade × qualidade, dividida em blocos rotulados
 pelo que significam na prática e não pelo nome do campo na API:

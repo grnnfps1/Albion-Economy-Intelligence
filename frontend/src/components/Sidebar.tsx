@@ -31,7 +31,7 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 10 — dashboard</p>
+        <p className="mt-1 text-muted text-xs">mercado · crafting · refino</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">

@@ -27,7 +27,7 @@ export default async function HistoryPage({
   const data = item ? await fetchHistory({ item, server, period }) : null;
 
   return (
-    <div>
+    <div className="px-4 py-4">
       <header className="mb-6">
         <h1 className="font-semibold text-2xl text-body tracking-tight">Histórico</h1>
         <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">

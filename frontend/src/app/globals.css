@@ -2,34 +2,53 @@
 
 /* ---------------------------------------------------------------------------
    Paleta.
-   Base neutra fria. Cor só carrega informação: alta, baixa, alerta, status,
-   e a identidade das cidades reais do jogo. Nada é colorido por decoração.
+
+   Fundo mais escuro e contraste maior que a versão anterior: a tela é densa e
+   precisa que o olho encontre o número que importa sem procurar.
+
+   Cor carrega informação, nunca decoração:
+   · tier      → identidade do item, as mesmas cores que o jogo usa
+   · cidade    → cores heráldicas oficiais das sete cidades reais
+   · verde/vermelho → lucro e prejuízo
+   · âmbar     → atenção: dado velho, parâmetro não verificado
    --------------------------------------------------------------------------- */
 @theme {
-  --color-ink: #12151c;
-  --color-ink-raised: #171b24;
-  --color-ink-sunken: #0d1015;
-  --color-line: #252b37;
-  --color-line-strong: #38404f;
-  --color-body: #e4e7ec;
-  --color-muted: #8a93a6;
-  --color-silver: #c8ceda;
+  --color-ink: #0f1216;
+  --color-raised: #161a21;
+  --color-sunken: #0a0c10;
+  --color-line: #222831;
+  --color-line-strong: #333b48;
+  --color-body: #e6e9ee;
+  --color-muted: #7d8798;
+  --color-dim: #59616f;
 
-  --color-up: #4fb477;
-  --color-down: #e0575b;
-  --color-warn: #d9a441;
+  --color-up: #3fbf7f;
+  --color-up-dim: #1d3a2c;
+  --color-down: #e2555c;
+  --color-down-dim: #3a2023;
+  --color-warn: #e0a63c;
 
-  /* Cores heráldicas das cidades reais — vocabulário do próprio jogo. */
-  --color-caerleon: #b3453f;
-  --color-bridgewatch: #d08b3c;
-  --color-lymhurst: #5f9e4a;
-  --color-fortsterling: #b9c2cf;
-  --color-martlock: #4a7fb5;
-  --color-thetford: #8a5fae;
-  --color-brecilien: #4fa8a0;
+  /* Cidades reais, nas cores do jogo. */
+  --color-caerleon: #c0392b;
+  --color-bridgewatch: #e08a2e;
+  --color-lymhurst: #5aa84f;
+  --color-fortsterling: #c9d3e0;
+  --color-martlock: #3d7fc1;
+  --color-thetford: #8c5cb5;
+  --color-brecilien: #3fa79c;
+
+  /* Tiers, na convenção do jogo. */
+  --color-t1: #6b7280;
+  --color-t2: #8a9aa8;
+  --color-t3: #3fbf7f;
+  --color-t4: #4a86d6;
+  --color-t5: #c0392b;
+  --color-t6: #e08a2e;
+  --color-t7: #e0c23c;
+  --color-t8: #e6e9ee;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", monospace;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
 }
 
 html {
@@ -40,19 +59,19 @@ body {
   background-color: var(--color-ink);
   color: var(--color-body);
   font-family: var(--font-sans);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Números de mercado alinham em coluna. Isso é legibilidade de tabela
-   financeira, não estilo. */
+/* Número de mercado alinha em coluna. É legibilidade de tabela financeira. */
 .figure {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-silver);
+  outline: 2px solid var(--color-warn);
   outline-offset: 2px;
 }
 

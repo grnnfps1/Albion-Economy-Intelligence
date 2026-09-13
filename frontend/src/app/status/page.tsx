@@ -15,7 +15,7 @@ export default async function StatusPage() {
   const [status, meta] = await Promise.all([fetchPlatformStatus(), fetchCatalogMeta()]);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl px-4 py-6">
       <header className="mb-10">
         <h1 className="font-semibold text-2xl text-body tracking-tight">
           Estado do pipeline
