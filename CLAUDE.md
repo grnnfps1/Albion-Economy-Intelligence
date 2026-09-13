@@ -190,6 +190,14 @@ um único preço manipulado contamina a janela inteira (visto na validação: 3.
 
 ## Armadilhas conhecidas
 
+- **Campo de lista em `Settings` precisa de `NoDecode`.** O pydantic-settings
+  decodifica listas e dicts como JSON **antes** de qualquer `field_validator`
+  rodar, e só quando o valor vem de variável de ambiente. `CORS_ORIGINS=http://x`
+  derrubava a aplicação no startup. Pior: o teste passava, porque construir
+  `Settings(cors_origins="...")` como argumento não passa pelo
+  `EnvSettingsSource`. **Todo campo de lista/dict novo precisa de teste com
+  `monkeypatch.setenv`**, não com argumento de construtor.
+
 - `alembic/env.py` lê a URL de `app.core.config`, nunca de `alembic.ini` (que é
   versionado e não pode ter credencial).
 - `is_tracked` em `items` é decisão operacional, não metadado do jogo. Reimportar

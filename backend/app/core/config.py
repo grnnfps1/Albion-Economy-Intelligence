@@ -5,11 +5,13 @@ diretamente -- isso mantém o inventário de configuração em um lugar só e to
 os testes previsíveis.
 """
 
+import json
 from enum import StrEnum
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, PostgresDsn, RedisDsn, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Environment(StrEnum):
@@ -40,7 +42,14 @@ class Settings(BaseSettings):
     redis_url: RedisDsn = Field(default="redis://localhost:6379/0")
 
     # --- web ----------------------------------------------------------------
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    # `NoDecode` é obrigatório aqui. Sem ele, o pydantic-settings tenta ler a
+    # variável de ambiente como JSON *antes* de qualquer validador rodar, e
+    # `CORS_ORIGINS=http://localhost:3000` derruba a aplicação no startup com um
+    # erro que não diz o que fazer. Com `NoDecode`, o valor chega cru ao
+    # validador abaixo, que aceita a forma que uma pessoa escreveria num .env.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # --- AODP ---------------------------------------------------------------
     # Hosts verificados em 2026-09-12. Ver docs/02-aodp.md.
@@ -72,9 +81,30 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
-        if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
-        return value
+        """Aceita as duas formas que aparecem num .env.
+
+        A separada por vírgula é a que uma pessoa escreve:
+            CORS_ORIGINS=http://localhost:3000, https://app.exemplo.com
+
+        A JSON é a que ferramentas de deploy costumam gerar:
+            CORS_ORIGINS=["http://localhost:3000"]
+
+        Recusar qualquer uma das duas seria uma armadilha silenciosa no deploy.
+        """
+        if not isinstance(value, str):
+            return value
+
+        texto = value.strip()
+        if texto.startswith("["):
+            try:
+                decodificado = json.loads(texto)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"CORS_ORIGINS parece JSON mas não é válido: {exc}"
+                ) from exc
+            return [str(item).strip() for item in decodificado if str(item).strip()]
+
+        return [item.strip() for item in texto.split(",") if item.strip()]
 
     @model_validator(mode="after")
     def _forbid_mock_in_production(self) -> "Settings":
