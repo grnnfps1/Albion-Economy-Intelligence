@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import arbitrage, crafting, history, items, market, meta
+from app.api.v1.routes import arbitrage, crafting, history, items, market, meta, refining
 
 # Rotas de negócio, versionadas sob /api/v1.
 api_router = APIRouter()
@@ -10,3 +10,4 @@ api_router.include_router(market.router)
 api_router.include_router(history.router)
 api_router.include_router(arbitrage.router)
 api_router.include_router(crafting.router)
+api_router.include_router(refining.router)

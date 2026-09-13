@@ -25,8 +25,9 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 5 | Histórico, outliers, gráficos, gold | ✅ |
 | 6 | Opportunity Engine + arbitragem | ✅ taxas configuráveis pelo usuário |
 | 7 | Crafting | ✅ |
-| 8 | Refino | ⬜ próxima |
-| 9–10 | Focus, dashboard | ⬜ |
+| 8 | Refino | ✅ |
+| 9 | Focus | ⬜ próxima |
+| 10 | Dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -216,20 +217,21 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
-## Próxima fase (8) — refino
+## Próxima fase (9) — ranking de Focus
 
-Refino é crafting com uma diferença que importa: a receita consome o recurso
-bruto **e o refinado do tier anterior** (`T4_PLANKS` = 2× `T4_WOOD` + 1×
-`T3_PLANKS`). Isso cria uma cadeia, e a pergunta útil não é "vale refinar T5?" e
-sim "onde na cadeia T2→T8 está o gargalo de preço?".
+O cálculo de prata/focus já existe em crafting e refino. A fase 9 é a **visão
+unificada**: um ranking único que mistura craft e refino e responde "onde gastar
+o focus de hoje?".
 
-O motor de `crafting_service` já cobre o cálculo de um passo. A fase 8 precisa de:
+O que precisa ser resolvido:
 
-1. `/refining` filtrando por `station_category` de recurso;
-2. comparação lado a lado dos tiers da mesma família;
-3. opção de custear o refinado do tier anterior pelo **preço de mercado** ou pelo
-   **custo de refiná-lo você mesmo** — são respostas diferentes e a segunda é a
-   que o jogador usa quando já tem a cadeia montada.
+1. Focus tem teto diário e acumula. O ranking deveria considerar **quanto focus
+   a pessoa tem**, não só a taxa por unidade.
+2. Prata/focus alto em item ilíquido é armadilha: escoar 500 unidades de algo que
+   gira 3 por dia leva meses. O ranking precisa cruzar com liquidez, como o score
+   de arbitragem já faz.
+3. Um item pode aparecer por dois caminhos (craft direto e refino). Deduplicar
+   pela melhor rota, mostrando qual foi.
 
 ## Parâmetros de crafting: entrada do usuário
 
@@ -279,6 +281,23 @@ encantamento já vai no próprio id e o serviço entende. Guardar 12 mil URLs em
 imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
+
+## Notas da fase 8
+
+- **A cadeia muda a pergunta.** Não é "vale refinar T5?" e sim "onde na cadeia
+  T2→T8 está o gargalo". `calculations/chain.py` resolve o custo recursivamente.
+- **Três formas de custear o insumo, e as três estão certas** — para pessoas
+  diferentes. Quem compra tudo pronto usa `MERCADO`; quem já tem a cadeia montada
+  usa `PRODUZIR`; `MAIS_BARATO` decide elo a elo. A resposta traz sempre as duas
+  alternativas puras, para a comparação ficar explícita em vez de escondida numa
+  escolha do motor.
+- **Cada elo paga a taxa da estação, não só o último.** Em refino isso pesa muito
+  mais que em craft avulso, e é o erro mais fácil de cometer.
+- **Recursão tem limite de profundidade e corte de ciclo.** Um dump malformado
+  com receita auto-referente não pode derrubar a API.
+- **Elos deduplicados na resposta.** A recursão visita o mesmo tier por caminhos
+  diferentes (T6 é insumo de T7 e de T8); repetir viraria borrão em vez de
+  mostrar o gargalo.
 
 ## Notas da fase 7
 

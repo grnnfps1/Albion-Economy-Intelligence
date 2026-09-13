@@ -309,6 +309,45 @@ export async function fetchCrafting(
   }
 }
 
+export type ChainStep = {
+  item: string; item_name: string | null; icon_url: string | null;
+  sourcing: string; unit_cost: number | null;
+  market_price: number | null; craft_cost: number | null; depth: number;
+};
+
+export type RefiningOpportunity = {
+  item: string; item_name: string | null; icon_url: string | null;
+  tier: number | null; enchantment: number; family: string | null;
+  station_category: string | null;
+  sell_price: number | null; sell_age_seconds: number | null;
+  liquidity_units_per_day: number | null;
+  sourcing: string; unit_cost: number | null; focus_per_unit: number;
+  chain: ChainStep[];
+  cost_from_market: number | null; cost_from_crafting: number | null;
+  known: boolean; reason: string | null;
+  profit: number | null; margin_pct: number | null; profit_per_focus: number | null;
+};
+
+export type RefiningResponse = {
+  server: string; buy_location: string; sell_location: string; sourcing: string;
+  total: number; families: string[];
+  params: CraftingResponse["params"];
+  generated_at: string; data_source_note: string;
+  opportunities: RefiningOpportunity[];
+};
+
+export async function fetchRefining(
+  query: Record<string, string | undefined>,
+): Promise<RefiningResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<RefiningResponse>(`/api/v1/refining/opportunities?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

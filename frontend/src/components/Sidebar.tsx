@@ -11,7 +11,7 @@ const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Histórico", href: "/market/history", phase: null },
   { label: "Arbitragem", href: "/arbitrage", phase: null },
   { label: "Crafting", href: "/crafting", phase: null },
-  { label: "Refinamento", href: "/refining", phase: 8 },
+  { label: "Refinamento", href: "/refining", phase: null },
   { label: "Focus", href: "/focus", phase: 9 },
   { label: "Gold", href: "/gold", phase: null },
   { label: "Transporte", href: "/transport", phase: 6 },
@@ -30,7 +30,7 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 7 — crafting</p>
+        <p className="mt-1 text-muted text-xs">Fase 8 — refino</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">
