@@ -172,3 +172,111 @@ async def test_freshest_observation(session, fixtures):
         session, [record(fixtures, fixtures["leather"], fixtures["caerleon"])]
     )
     assert await market_repo.freshest_observation(session, "west") == NOW
+
+
+async def test_liquidez_sem_historico_e_unknown(session, fixtures):
+    """Requisito 21: sem dado suficiente, UNKNOWN — nunca um número plausível."""
+    from app.repositories.liquidity import liquidity_by_item_location
+
+    sinais = await liquidity_by_item_location(
+        session, "west", [fixtures["leather"].id]
+    )
+    assert sinais == {}
+
+
+async def test_liquidez_vem_do_volume_do_historico(session, fixtures):
+    from datetime import timedelta
+
+    from app.collectors.aodp.normalization import MarketHistoryRecord
+    from app.repositories import history as history_repo
+    from app.repositories.liquidity import liquidity_by_item_location
+
+    agora = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    registros = [
+        MarketHistoryRecord(
+            server_id=fixtures["server"].id,
+            location_id=fixtures["caerleon"].id,
+            item_id=fixtures["leather"].id,
+            quality=2, timescale=24,
+            bucket_ts=agora - timedelta(days=dia),
+            item_count=600, avg_price=1200 + dia,
+            source_id=fixtures["source"].id, ingested_at=agora,
+        )
+        for dia in range(10)
+    ]
+    await history_repo.upsert_history(session, registros)
+
+    sinais = await liquidity_by_item_location(session, "west", [fixtures["leather"].id])
+    sinal = sinais[(fixtures["leather"].id, fixtures["caerleon"].id, 2)]
+
+    assert sinal.known is True
+    assert sinal.units_per_day == 600.0
+    assert sinal.days_with_data == 10
+    assert sinal.median_price is not None
+
+
+async def test_amostra_pequena_nao_vira_numero(session, fixtures):
+    from datetime import timedelta
+
+    from app.collectors.aodp.normalization import MarketHistoryRecord
+    from app.repositories import history as history_repo
+    from app.repositories.liquidity import liquidity_by_item_location
+
+    agora = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    await history_repo.upsert_history(
+        session,
+        [
+            MarketHistoryRecord(
+                server_id=fixtures["server"].id,
+                location_id=fixtures["caerleon"].id,
+                item_id=fixtures["leather"].id,
+                quality=2, timescale=24, bucket_ts=agora - timedelta(days=dia),
+                item_count=600, avg_price=1200,
+                source_id=fixtures["source"].id, ingested_at=agora,
+            )
+            for dia in range(2)
+        ],
+    )
+
+    sinal = (await liquidity_by_item_location(session, "west", [fixtures["leather"].id]))[
+        (fixtures["leather"].id, fixtures["caerleon"].id, 2)
+    ]
+    assert sinal.known is False
+    assert sinal.units_per_day is None
+
+
+async def test_outlier_nao_infla_a_liquidez(session, fixtures):
+    """Pico de preço manipulado costuma vir com volume igualmente irreal."""
+    from datetime import timedelta
+
+    from app.collectors.aodp.normalization import MarketHistoryRecord
+    from app.repositories import history as history_repo
+    from app.repositories.liquidity import liquidity_by_item_location
+
+    agora = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    registros = [
+        MarketHistoryRecord(
+            server_id=fixtures["server"].id,
+            location_id=fixtures["caerleon"].id,
+            item_id=fixtures["leather"].id,
+            quality=2, timescale=24, bucket_ts=agora - timedelta(days=dia),
+            item_count=600, avg_price=1200,
+            source_id=fixtures["source"].id, ingested_at=agora,
+        )
+        for dia in range(6)
+    ]
+    await history_repo.upsert_history(session, registros)
+
+    chave = registros[0]
+    await history_repo.mark_outliers(
+        session,
+        {
+            (chave.server_id, chave.location_id, chave.item_id, chave.quality,
+             chave.timescale, chave.bucket_ts): True
+        },
+    )
+
+    sinal = (await liquidity_by_item_location(session, "west", [fixtures["leather"].id]))[
+        (fixtures["leather"].id, fixtures["caerleon"].id, 2)
+    ]
+    assert sinal.days_with_data == 5

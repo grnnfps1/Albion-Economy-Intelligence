@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { MarketFilters } from "@/components/MarketFilters";
-import { MarketTable } from "@/components/MarketTable";
+import { MarketRow } from "@/components/MarketRow";
+import { MarketSort } from "@/components/MarketSort";
 import { fetchCatalogMeta, fetchMarketPrices, type MarketQuery } from "@/lib/api";
 import { formatSilver } from "@/lib/format";
 
@@ -78,12 +79,16 @@ export default async function MarketPage({
 
       {page !== null && page.total > 0 && (
         <>
-          <MarketTable
-            prices={page.prices}
-            params={params}
-            sortBy={page.sort_by}
-            descending={page.descending}
-          />
+          <MarketSort params={params} sortBy={page.sort_by} descending={page.descending} />
+
+          <div>
+            {page.prices.map((price) => (
+              <MarketRow
+                key={`${price.item}-${price.location}-${price.quality}`}
+                price={price}
+              />
+            ))}
+          </div>
 
           <div className="mt-4 flex items-center justify-between text-muted text-xs">
             <span className="figure">

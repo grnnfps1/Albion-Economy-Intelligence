@@ -141,6 +141,11 @@ curl -s "http://localhost:8000/api/v1/market/prices?server=west&search=couro&lim
 
 e abra http://localhost:3000/market.
 
+A tela mostra, por linha, as duas pontas do mercado separadas ("o que você paga"
+e "o que você recebe"), a idade de cada cotação, a mediana de 30 dias com a
+distância do preço atual, e o giro do item com a cobertura do histórico. Preço
+fresco num mercado com 3 dias de registro em 30 é frágil — a tela diz isso.
+
 Acompanhar execuções:
 
 ```bash

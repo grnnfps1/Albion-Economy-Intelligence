@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import SessionDep, SettingsDep
 from app.repositories import market as market_repo
+from app.repositories.liquidity import liquidity_by_item_location
 from app.schemas.market import MarketPricePage
 from app.services.market_service import DATA_SOURCE_NOTE, to_price_out
 
@@ -46,6 +47,11 @@ async def prices(
         offset=offset,
     )
 
+    # Uma consulta de liquidez para a página inteira, não uma por linha.
+    sinais = await liquidity_by_item_location(
+        session, server, [item.id for _price, item, _location in rows]
+    )
+
     now = datetime.now(UTC)
     return MarketPricePage(
         server=server,
@@ -56,6 +62,11 @@ async def prices(
         descending=descending,
         generated_at=now.isoformat(),
         data_source_note=DATA_SOURCE_NOTE,
-        prices=[to_price_out(price, item, location, now, settings)
-                for price, item, location in rows],
+        prices=[
+            to_price_out(
+                price, item, location, now, settings,
+                sinais.get((item.id, location.id, price.quality)),
+            )
+            for price, item, location in rows
+        ],
     )

@@ -80,6 +80,13 @@ export type PriceField = {
   freshness: Freshness;
 };
 
+export type Liquidity = {
+  status: "KNOWN" | "UNKNOWN";
+  units_per_day: number | null;
+  days_with_data: number;
+  period_days: number;
+};
+
 export type MarketPrice = {
   item: string;
   item_name: string | null;
@@ -94,6 +101,9 @@ export type MarketPrice = {
   buy_max: PriceField;
   observed_age_seconds: number;
   observed_freshness: Freshness;
+  liquidity: Liquidity;
+  median_30d: number | null;
+  vs_median_pct: number | null;
 };
 
 export type MarketPricePage = {

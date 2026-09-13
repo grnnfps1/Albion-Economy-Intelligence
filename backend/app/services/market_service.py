@@ -6,12 +6,14 @@ frescor é configuração e pode mudar sem migration nem deploy do frontend.
 
 from datetime import datetime
 
+from app.calculations.statistics import percentage_change
 from app.core.config import Settings
 from app.core.freshness import classify, data_age_seconds
 from app.models.catalog import Item
 from app.models.market import MarketPrice
 from app.models.reference import Location
-from app.schemas.market import MarketPriceOut, PriceField
+from app.repositories.liquidity import LiquiditySignal
+from app.schemas.market import LiquidityOut, MarketPriceOut, PriceField
 
 DATA_SOURCE_NOTE = (
     "Preços vêm da coleta comunitária do Albion Online Data Project: dependem de "
@@ -38,8 +40,17 @@ def to_price_out(
     location: Location,
     now: datetime,
     settings: Settings,
+    liquidity: LiquiditySignal | None = None,
 ) -> MarketPriceOut:
     observed_age = data_age_seconds(price.observed_at, now) or 0
+
+    mediana = liquidity.median_price if liquidity else None
+    # Compara com o preço que alguém paga comprando agora. Usar buy_max aqui
+    # misturaria as duas pontas e daria uma distância que não existe.
+    distancia = percentage_change(
+        float(price.sell_price_min) if price.sell_price_min is not None else None, mediana
+    )
+
     return MarketPriceOut(
         item=item.unique_name,
         item_name=item.display_name_pt or item.display_name_en,
@@ -56,4 +67,12 @@ def to_price_out(
         observed_freshness=classify(
             observed_age, settings.freshness_fresh_seconds, settings.freshness_stale_seconds
         ),
+        liquidity=LiquidityOut(
+            status="KNOWN" if liquidity and liquidity.known else "UNKNOWN",
+            units_per_day=liquidity.units_per_day if liquidity else None,
+            days_with_data=liquidity.days_with_data if liquidity else 0,
+            period_days=liquidity.period_days if liquidity else 30,
+        ),
+        median_30d=round(mediana, 2) if mediana is not None else None,
+        vs_median_pct=round(distancia, 1) if distancia is not None else None,
     )

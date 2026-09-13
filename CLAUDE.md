@@ -217,6 +217,31 @@ Quando destravar, o motor deve:
    dizer "não sei" do que dizer "18,4%" quando o real é 11%.
 3. Considerar transporte e liquidez antes de publicar uma oportunidade.
 
+## Linguagem visual da tela de mercado
+
+Linha densa, uma por item × cidade × qualidade, dividida em blocos rotulados
+pelo que significam na prática e não pelo nome do campo na API:
+
+| Bloco | Conteúdo |
+|---|---|
+| identidade | badge de tier/encanto, qualidade, chip da cidade na cor heráldica, nome visual e id técnico |
+| comprando agora | `sell_min` e `sell_max` — o que você paga |
+| vendendo agora | `buy_max` e `buy_min` — o que você recebe |
+| referência | mediana de 30 dias, distância do preço atual, giro por dia e cobertura do histórico |
+
+Três regras que essa tela materializa:
+
+- **"venda mín" isolado não diz nada.** O rótulo é sempre acompanhado da
+  consequência: "o que você paga", "o que você recebe".
+- **Preço fresco em mercado pouco visitado é preço frágil.** Por isso frescor e
+  cobertura aparecem juntos: `há 8 min` ao lado de `3/30d` é um alerta, não um
+  elogio.
+- **Liquidez desconhecida é estado de primeira classe.** Sem histórico
+  suficiente, a barra some e o texto diz "liquidez desconhecida".
+
+A cor das cidades vem da identidade que elas têm no jogo. Não é decoração: numa
+tela densa o jogador reconhece "laranja = Bridgewatch" antes de ler o texto.
+
 ## Notas da fase 5
 
 - **Mediana, não média.** O AODP já entrega média por bucket; média de médias
@@ -231,6 +256,10 @@ Quando destravar, o motor deve:
   metade da amostra.
 - **A escala do gráfico ignora os outliers.** Incluir o pico de 29.790 numa série
   de 3.700 achataria a variação real contra a base.
+- **Liquidez sai de `item_count` do histórico.** É a única medida de volume que a
+  fonte oferece. Buckets marcados como outlier ficam fora do cálculo: pico de
+  preço manipulado costuma vir com volume igualmente irreal. Menos de 3 buckets
+  na janela devolve UNKNOWN.
 
 ## Notas da fase 4
 
