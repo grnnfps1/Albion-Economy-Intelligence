@@ -24,8 +24,9 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ✅ |
 | 5 | Histórico, outliers, gráficos, gold | ✅ |
 | 6 | Opportunity Engine + arbitragem | ✅ taxas configuráveis pelo usuário |
-| 7 | Crafting — receitas e cálculo prontos; falta API e tela | 🟡 em andamento |
-| 8–10 | Refino, Focus, dashboard | ⬜ |
+| 7 | Crafting | ✅ |
+| 8 | Refino | ⬜ próxima |
+| 9–10 | Focus, dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -215,18 +216,24 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
-## Fase 7 — o que já existe e o que falta
+## Próxima fase (8) — refino
 
-**Pronto:** `recipes` / `recipe_materials` (migration `0003`), importador
-(`catalog/recipes_importer.py`) e o cálculo puro (`calculations/crafting.py`).
-12.515 receitas e 27.899 materiais importados do dump.
+Refino é crafting com uma diferença que importa: a receita consome o recurso
+bruto **e o refinado do tier anterior** (`T4_PLANKS` = 2× `T4_WOOD` + 1×
+`T3_PLANKS`). Isso cria uma cadeia, e a pergunta útil não é "vale refinar T5?" e
+sim "onde na cadeia T2→T8 está o gargalo de preço?".
 
-**Falta:** `GET /api/v1/crafting/opportunities` e a tela `/crafting`. O serviço
-precisa juntar receita + preço de material por cidade + preço de venda do item
-final, e chamar `compute_craft`.
+O motor de `crafting_service` já cobre o cálculo de um passo. A fase 8 precisa de:
 
-Três parâmetros são **entrada do usuário**, pelo mesmo motivo das taxas de
-mercado — nenhum é fato fixo:
+1. `/refining` filtrando por `station_category` de recurso;
+2. comparação lado a lado dos tiers da mesma família;
+3. opção de custear o refinado do tier anterior pelo **preço de mercado** ou pelo
+   **custo de refiná-lo você mesmo** — são respostas diferentes e a segunda é a
+   que o jogador usa quando já tem a cadeia montada.
+
+## Parâmetros de crafting: entrada do usuário
+
+Três parâmetros, pelo mesmo motivo das taxas de mercado — nenhum é fato fixo:
 
 | Parâmetro | Por que varia |
 |---|---|
@@ -236,7 +243,8 @@ mercado — nenhum é fato fixo:
 
 `profit_per_focus` é a ordenação principal: Focus é o recurso escasso, não a
 prata. Lucro absoluto alto com Focus alto pode ser pior negócio — há teste
-cobrindo exatamente isso.
+cobrindo exatamente isso. E prata/focus é **intensivo**: não muda quando se
+aumenta o número de execuções, ao contrário do lucro absoluto.
 
 ## Linguagem visual da tela de mercado
 
@@ -272,7 +280,7 @@ imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
 
-## Notas da fase 7 (parcial)
+## Notas da fase 7
 
 - **O dump é irregular e precisa ser tratado, não assumido.**
   `craftingrequirements` pode ser objeto ou lista (receitas alternativas:

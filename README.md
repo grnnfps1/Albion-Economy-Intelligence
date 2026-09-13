@@ -4,10 +4,12 @@ Motor de inteligência econômica para Albion Online. Transforma os dados de mer
 Albion Online Data Project em oportunidades acionáveis: arbitragem, crafting,
 refinamento e prata por Focus.
 
-**Estado: FASE 5 concluída — histórico.** A plataforma coleta preços e histórico
-reais do AODP, marca outliers, e mostra tudo em `/market`, `/market/history` e
-`/gold`. A fase 6 (arbitragem) está **bloqueada** até as taxas do jogo serem
-verificadas — ver [`docs/04-taxas.md`](docs/04-taxas.md).
+**Estado: FASE 7 concluída — crafting.** A plataforma coleta preços e histórico do
+AODP, marca outliers, e entrega `/market`, `/market/history`, `/gold`,
+`/arbitrage` e `/crafting`. Imposto, retorno de material e taxa de estação são
+**entrada do usuário** — nenhum é constante, e uma calculadora que os fixa está
+errada para quase todo mundo. Sem eles, a resposta é `UNKNOWN` com o motivo, e
+nunca um número calculado com taxa zero.
 
 ---
 

@@ -14,7 +14,13 @@ import { useTransition } from "react";
  * compartilhável e sobrevive ao refresh. Quando login existir, isto vira
  * preferência salva sem mudar o cálculo.
  */
-export function FeeSettings() {
+export function FeeSettings({
+  action = "/arbitrage",
+  extraFields = [],
+}: {
+  action?: string;
+  extraFields?: { name: string; label: string; placeholder: string }[];
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -22,7 +28,9 @@ export function FeeSettings() {
   function aplicar(form: HTMLFormElement) {
     const dados = new FormData(form);
     const next = new URLSearchParams(params.toString());
-    for (const chave of ["setup_fee_pct", "sales_tax_pct", "quantity", "transport_cost_per_unit"]) {
+    const campos = ["setup_fee_pct", "sales_tax_pct", "quantity", "transport_cost_per_unit",
+      ...extraFields.map((f) => f.name)];
+    for (const chave of campos) {
       const valor = String(dados.get(chave) ?? "").trim();
       if (valor) next.set(chave, valor);
       else next.delete(chave);
@@ -30,7 +38,7 @@ export function FeeSettings() {
     next.set("premium", dados.get("premium") ? "true" : "false");
     next.set("strategy", String(dados.get("strategy") ?? "IMEDIATA"));
     next.delete("offset");
-    startTransition(() => router.push(`/arbitrage?${next.toString()}`));
+    startTransition(() => router.push(`${action}?${next.toString()}`));
   }
 
   const campo =
@@ -87,11 +95,20 @@ export function FeeSettings() {
         <input name="quantity" className={campo} placeholder="100"
                defaultValue={params.get("quantity") ?? ""} />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-muted text-xs">Transporte/un</span>
-        <input name="transport_cost_per_unit" className={campo} placeholder="0"
-               defaultValue={params.get("transport_cost_per_unit") ?? ""} />
-      </label>
+      {action === "/arbitrage" && (
+        <label className="flex flex-col gap-1">
+          <span className="text-muted text-xs">Transporte/un</span>
+          <input name="transport_cost_per_unit" className={campo} placeholder="0"
+                 defaultValue={params.get("transport_cost_per_unit") ?? ""} />
+        </label>
+      )}
+      {extraFields.map((field) => (
+        <label key={field.name} className="flex flex-col gap-1">
+          <span className="text-muted text-xs">{field.label}</span>
+          <input name={field.name} className={campo} placeholder={field.placeholder}
+                 defaultValue={params.get(field.name) ?? ""} />
+        </label>
+      ))}
       <button
         type="submit"
         disabled={pending}

@@ -259,6 +259,56 @@ export async function fetchArbitrage(
   }
 }
 
+export type CraftMaterial = {
+  item: string; item_name: string | null; icon_url: string | null;
+  quantity: number; unit_price: number | null; total_price: number | null;
+  is_returnable: boolean; location: string | null; age_seconds: number | null;
+};
+
+export type CraftOpportunity = {
+  item: string; item_name: string | null; icon_url: string | null;
+  tier: number | null; enchantment: number; recipe_variant: number;
+  station_category: string | null;
+  buy_location: string; sell_location: string;
+  sell_price: number | null; sell_age_seconds: number | null;
+  liquidity_units_per_day: number | null;
+  materials: CraftMaterial[];
+  economics: {
+    known: boolean; reason: string | null;
+    output_quantity: number; focus_cost: number;
+    material_cost_gross: number | null; material_cost_net: number | null;
+    returned_value: number | null; station_fee: number | null;
+    sale_revenue_net: number | null; market_fees: number | null;
+    profit: number | null; margin_pct: number | null; roi_pct: number | null;
+    profit_per_focus: number | null;
+  };
+};
+
+export type CraftingResponse = {
+  server: string; buy_location: string; sell_location: string;
+  crafts: number; sort_by: string; total: number;
+  params: {
+    return_rate: number | null; station_fee: number | null;
+    fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
+            premium: boolean | null; source: string; complete: boolean; missing: string[] };
+    complete: boolean; missing: string[];
+  };
+  generated_at: string; data_source_note: string;
+  opportunities: CraftOpportunity[];
+};
+
+export async function fetchCrafting(
+  query: Record<string, string | undefined>,
+): Promise<CraftingResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<CraftingResponse>(`/api/v1/crafting/opportunities?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

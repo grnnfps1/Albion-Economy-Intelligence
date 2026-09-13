@@ -1,0 +1,51 @@
+"""Oportunidades de crafting."""
+
+from fastapi import APIRouter, Query
+
+from app.api.deps import SessionDep
+from app.calculations.fees import Strategy
+from app.schemas.crafting import CraftingResponse
+from app.services.crafting_service import find_crafting_opportunities
+
+router = APIRouter(prefix="/crafting", tags=["crafting"])
+
+ORDENACOES = ("profit_per_focus", "profit", "roi")
+
+
+@router.get("/opportunities", response_model=CraftingResponse)
+async def crafting_opportunities(
+    session: SessionDep,
+    server: str = Query("west"),
+    buy_location: str = Query("caerleon", description="slug da cidade onde comprar material"),
+    sell_location: str | None = Query(None, description="padrão: mesma cidade da compra"),
+    # Nenhum destes é fato fixo. Retorno muda com Focus e especialização, taxa
+    # de estação muda por cidade e por hora, imposto muda com Premium.
+    return_rate: float | None = Query(None, ge=0, le=1, description="Ex.: 0.15 para 15%."),
+    station_fee: float | None = Query(None, ge=0, description="Prata por craft."),
+    setup_fee_pct: float | None = Query(None, ge=0, le=1),
+    sales_tax_pct: float | None = Query(None, ge=0, le=1),
+    premium: bool | None = Query(None),
+    crafts: int = Query(1, ge=1, le=10_000),
+    strategy: str = Query("IMEDIATA", description="IMEDIATA | PACIENTE"),
+    sort_by: str = Query("profit_per_focus", description=f"um de {ORDENACOES}"),
+    tier: int | None = Query(None, ge=1, le=8),
+    station_category: str | None = Query(None, description="Ex.: wood, metal, cloth."),
+    limit: int = Query(30, ge=1, le=100),
+) -> CraftingResponse:
+    return await find_crafting_opportunities(
+        session,
+        server=server,
+        buy_location=buy_location,
+        sell_location=sell_location or buy_location,
+        return_rate=return_rate,
+        station_fee=station_fee,
+        setup_fee_pct=setup_fee_pct,
+        sales_tax_pct=sales_tax_pct,
+        premium=premium,
+        crafts=crafts,
+        strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
+        sort_by=sort_by if sort_by in ORDENACOES else "profit_per_focus",
+        tier=tier,
+        station_category=station_category,
+        limit=limit,
+    )
