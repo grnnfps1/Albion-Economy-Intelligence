@@ -26,7 +26,7 @@ export function Sidebar({ session }: { session: Session | null }) {
   return (
     <nav
       aria-label="Seções"
-      className="flex w-full shrink-0 flex-col gap-1 border-line border-b bg-ink-sunken p-4 md:h-dvh md:w-56 md:border-r md:border-b-0"
+      className="flex w-full shrink-0 flex-col gap-1 border-line border-b bg-sunken p-4 md:h-dvh md:w-56 md:border-r md:border-b-0"
     >
       <div className="mb-6 hidden md:block">
         <p className="font-semibold text-[15px] text-body leading-tight">
@@ -45,7 +45,7 @@ export function Sidebar({ session }: { session: Session | null }) {
               {available ? (
                 <Link
                   href={section.href}
-                  className="block rounded-sm bg-ink-raised px-3 py-1.5 text-body text-sm"
+                  className="block rounded-sm bg-raised px-3 py-1.5 text-body text-sm"
                 >
                   {section.label}
                 </Link>

@@ -36,7 +36,7 @@ export function ItemIcon({
 
   return (
     <span
-      className={`relative inline-flex shrink-0 items-center justify-center rounded-sm border bg-ink-sunken ${moldura}`}
+      className={`relative inline-flex shrink-0 items-center justify-center rounded-sm border bg-sunken ${moldura}`}
       style={{ width: size, height: size }}
     >
       {url ? (

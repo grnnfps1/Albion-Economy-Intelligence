@@ -62,7 +62,7 @@ export default async function Home({
           <div
             className={`mb-6 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-sm border p-3 text-xs ${
               data.pipeline.freshness === "ATUALIZADO"
-                ? "border-line bg-ink-raised/40"
+                ? "border-line bg-raised/40"
                 : "border-warn/40 bg-warn/5"
             }`}
           >
@@ -123,7 +123,7 @@ export default async function Home({
                 <Link
                   key={`${card.item}-${card.detail}`}
                   href={card.href}
-                  className="flex items-center gap-3 border-line/60 border-b py-2.5 last:border-0 hover:bg-ink-raised/30"
+                  className="flex items-center gap-3 border-line/60 border-b py-2.5 last:border-0 hover:bg-raised/30"
                 >
                   <ItemIcon
                     url={card.icon_url}

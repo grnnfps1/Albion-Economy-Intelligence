@@ -3,30 +3,47 @@
 /* ---------------------------------------------------------------------------
    Paleta.
 
-   Fundo mais escuro e contraste maior que a versão anterior: a tela é densa e
-   precisa que o olho encontre o número que importa sem procurar.
+   Carvão quente em vez de preto frio: a tela é densa, o olho fica nela por
+   muito tempo, e o preto puro sobre números claros vibra. O tom quente também
+   é o que dá a leitura medieval sem precisar de textura nenhuma.
+
+   Três superfícies, não uma: `sunken` para o que está atrás (cabeçalho de
+   tabela, barra lateral), `ink` para o corpo, `raised` para o que flutua
+   (cards, linha em hover). Sem essa separação tudo parece o mesmo plano, que
+   era o problema da versão anterior.
 
    Cor carrega informação, nunca decoração:
+   · ouro      → a marca e o que está ativo. Só chrome, nunca dado.
    · tier      → identidade do item, as mesmas cores que o jogo usa
    · cidade    → cores heráldicas oficiais das sete cidades reais
    · verde/vermelho → lucro e prejuízo
    · âmbar     → atenção: dado velho, parâmetro não verificado
+
+   Ouro e âmbar são vizinhos, e por isso a regra é dura: ouro nunca aparece
+   dentro de uma célula de dado, âmbar nunca aparece na navegação. Se os dois
+   disputassem o mesmo espaço, nenhum dos dois significaria nada.
    --------------------------------------------------------------------------- */
 @theme {
-  --color-ink: #0f1216;
-  --color-raised: #161a21;
-  --color-sunken: #0a0c10;
-  --color-line: #222831;
-  --color-line-strong: #333b48;
-  --color-body: #e6e9ee;
-  --color-muted: #7d8798;
-  --color-dim: #59616f;
+  --color-ink: #14110d;
+  --color-raised: #1d1914;
+  --color-sunken: #0d0b08;
+  --color-line: #2b2620;
+  --color-line-strong: #3f382e;
+  --color-body: #ece6da;
+  --color-muted: #9a9083;
+  --color-dim: #6b6357;
 
-  --color-up: #3fbf7f;
-  --color-up-dim: #1d3a2c;
+  /* Ouro de Albion: marca, item ativo, moldura de destaque. */
+  --color-accent: #c8a253;
+  --color-accent-bright: #e0b970;
+  --color-accent-dim: #2e2415;
+
+  --color-up: #56c07f;
+  --color-up-dim: #16301f;
   --color-down: #e2555c;
-  --color-down-dim: #3a2023;
-  --color-warn: #e0a63c;
+  --color-down-dim: #331b1c;
+  --color-warn: #f0a53a;
+  --color-warn-dim: #33250e;
 
   /* Cidades reais, nas cores do jogo. */
   --color-caerleon: #c0392b;
@@ -37,7 +54,7 @@
   --color-thetford: #8c5cb5;
   --color-brecilien: #3fa79c;
 
-  /* Tiers, na convenção do jogo. */
+  /* Tiers, na convenção do jogo: T4 azul … T8 branco. */
   --color-t1: #6b7280;
   --color-t2: #8a9aa8;
   --color-t3: #3fbf7f;
@@ -45,9 +62,37 @@
   --color-t5: #c0392b;
   --color-t6: #e08a2e;
   --color-t7: #e0c23c;
-  --color-t8: #e6e9ee;
+  --color-t8: #ece6da;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* ------------------------------------------------------------------------
+     Escala tipográfica.
+
+     Os nomes são curtos de propósito e nenhum repete um nome de cor: em
+     Tailwind 4 um token `--text-body` colidiria com a cor `--color-body` e
+     `text-body` deixaria de ser previsível.
+
+     · h1/h2  títulos
+     · lbl    rótulo de coluna, sempre em caixa alta com tracking
+     · val    número de tabela
+     · note   texto de apoio
+     · micro  badge, sufixo, unidade
+     ------------------------------------------------------------------------ */
+  --text-h1: 1.25rem;
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: 0.01em;
+  --text-h2: 0.9375rem;
+  --text-h2--line-height: 1.3;
+  --text-lbl: 0.625rem;
+  --text-lbl--line-height: 1.1;
+  --text-val: 0.8125rem;
+  --text-val--line-height: 1.35;
+  --text-note: 0.6875rem;
+  --text-note--line-height: 1.5;
+  --text-micro: 0.5625rem;
+  --text-micro--line-height: 1.1;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-cinzel), ui-serif, Georgia, serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
 }
 
@@ -63,6 +108,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Título com a pegada do jogo. Usado só em marca e título de página: aplicado
+   a dado, a serifada atrapalha a leitura em linha densa. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 /* Número de mercado alinha em coluna. É legibilidade de tabela financeira. */
 .figure {
   font-family: var(--font-mono);
@@ -70,8 +123,18 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* Rótulo de coluna: um padrão só no produto inteiro. Caixa alta com tracking,
+   nunca Title Case em um lugar e MAIÚSCULA travada em outro. */
+.lbl {
+  font-size: var(--text-lbl);
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-dim);
+}
+
 :focus-visible {
-  outline: 2px solid var(--color-warn);
+  outline: 2px solid var(--color-accent-bright);
   outline-offset: 2px;
 }
 

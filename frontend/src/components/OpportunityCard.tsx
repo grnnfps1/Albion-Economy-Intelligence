@@ -45,7 +45,7 @@ export function OpportunityCard({ card }: { card: DashboardCard }) {
   return (
     <Link
       href={card.href}
-      className="flex min-h-32 flex-col justify-between rounded-sm border border-line bg-ink-raised/40 p-3 hover:border-line-strong"
+      className="flex min-h-32 flex-col justify-between rounded-sm border border-line bg-raised/40 p-3 hover:border-line-strong"
     >
       <p className="text-muted text-[11px] uppercase tracking-wide">
         {TITULO[card.kind] ?? card.kind}

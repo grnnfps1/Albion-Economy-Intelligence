@@ -46,7 +46,7 @@ export default async function HistoryPage({
             name="item"
             defaultValue={item ?? ""}
             placeholder="T5_LEATHER"
-            className="figure rounded-sm border border-line bg-ink-raised px-2 py-1.5 text-body text-sm"
+            className="figure rounded-sm border border-line bg-raised px-2 py-1.5 text-body text-sm"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -54,7 +54,7 @@ export default async function HistoryPage({
           <select
             name="period"
             defaultValue={period}
-            className="rounded-sm border border-line bg-ink-raised px-2 py-1.5 text-body text-sm"
+            className="rounded-sm border border-line bg-raised px-2 py-1.5 text-body text-sm"
           >
             {PERIODOS.map((option) => (
               <option key={option} value={option}>
@@ -91,7 +91,7 @@ export default async function HistoryPage({
       )}
 
       {data && data.series.length === 0 && (
-        <div className="rounded-sm border border-line bg-ink-raised p-4 text-sm">
+        <div className="rounded-sm border border-line bg-raised p-4 text-sm">
           <p className="text-body">Sem histórico para {data.item} neste período.</p>
           <p className="mt-1 max-w-prose text-muted">
             Rode{" "}

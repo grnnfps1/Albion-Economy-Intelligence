@@ -27,7 +27,7 @@ export default async function GoldPage({
       </header>
 
       {data === null || data.points.length === 0 ? (
-        <div className="rounded-sm border border-line bg-ink-raised p-4 text-sm">
+        <div className="rounded-sm border border-line bg-raised p-4 text-sm">
           <p className="text-body">Sem cotação registrada.</p>
           <p className="mt-1 text-muted">
             Rode{" "}
