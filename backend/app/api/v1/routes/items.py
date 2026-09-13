@@ -3,10 +3,17 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import SessionDep
+from app.catalog.icons import item_icon_url
 from app.repositories import items as items_repo
 from app.schemas.catalog import ItemOut, ItemPage
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+
+def _with_icon(row) -> ItemOut:
+    out = ItemOut.model_validate(row)
+    out.icon_url = item_icon_url(row.unique_name)
+    return out
 
 
 @router.get("", response_model=ItemPage)
@@ -34,7 +41,7 @@ async def list_items(
         total=total,
         limit=limit,
         offset=offset,
-        items=[ItemOut.model_validate(row) for row in rows],
+        items=[_with_icon(row) for row in rows],
     )
 
 
@@ -43,4 +50,4 @@ async def get_item(session: SessionDep, unique_name: str) -> ItemOut:
     item = await items_repo.get_by_unique_name(session, unique_name)
     if item is None:
         raise HTTPException(status_code=404, detail=f"item não encontrado: {unique_name}")
-    return ItemOut.model_validate(item)
+    return _with_icon(item)

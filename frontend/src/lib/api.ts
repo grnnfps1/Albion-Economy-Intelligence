@@ -90,6 +90,7 @@ export type Liquidity = {
 export type MarketPrice = {
   item: string;
   item_name: string | null;
+  icon_url: string | null;
   tier: number | null;
   enchantment: number;
   location: string;

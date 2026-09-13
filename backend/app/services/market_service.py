@@ -7,6 +7,7 @@ frescor é configuração e pode mudar sem migration nem deploy do frontend.
 from datetime import datetime
 
 from app.calculations.statistics import percentage_change
+from app.catalog.icons import item_icon_url
 from app.core.config import Settings
 from app.core.freshness import classify, data_age_seconds
 from app.models.catalog import Item
@@ -54,6 +55,7 @@ def to_price_out(
     return MarketPriceOut(
         item=item.unique_name,
         item_name=item.display_name_pt or item.display_name_en,
+        icon_url=item_icon_url(item.unique_name, price.quality),
         tier=item.tier,
         enchantment=item.enchantment,
         location=location.display_name,

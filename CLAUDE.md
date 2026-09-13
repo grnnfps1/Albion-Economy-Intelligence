@@ -224,7 +224,7 @@ pelo que significam na prática e não pelo nome do campo na API:
 
 | Bloco | Conteúdo |
 |---|---|
-| identidade | badge de tier/encanto, qualidade, chip da cidade na cor heráldica, nome visual e id técnico |
+| identidade | ícone do item, badge de tier/encanto, qualidade, chip da cidade na cor heráldica, nome visual e id técnico |
 | comprando agora | `sell_min` e `sell_max` — o que você paga |
 | vendendo agora | `buy_max` e `buy_min` — o que você recebe |
 | referência | mediana de 30 dias, distância do preço atual, giro por dia e cobertura do histórico |
@@ -240,7 +240,16 @@ Três regras que essa tela materializa:
   suficiente, a barra some e o texto diz "liquidez desconhecida".
 
 A cor das cidades vem da identidade que elas têm no jogo. Não é decoração: numa
-tela densa o jogador reconhece "laranja = Bridgewatch" antes de ler o texto.
+tela densa o jogador reconhece "laranja = Bridgewatch" antes de ler o texto. Vale
+o mesmo para a moldura do ícone, colorida por tier.
+
+**Ícones** vêm do render oficial (`render.albiononline.com/v1/item/{id}.png`). A
+URL é **derivada do `unique_name`, nunca armazenada** — o sufixo `@N` do
+encantamento já vai no próprio id e o serviço entende. Guardar 12 mil URLs em
+`items.icon_url` criaria uma cópia para migrar toda vez que o host mudar. As
+imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
+backend gastaria banda e latência sem benefício, e por isso também não se usa
+`next/image` aqui.
 
 ## Notas da fase 5
 

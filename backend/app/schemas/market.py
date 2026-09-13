@@ -34,6 +34,7 @@ class LiquidityOut(BaseModel):
 class MarketPriceOut(BaseModel):
     item: str = Field(description="Id técnico do Albion.")
     item_name: str | None
+    icon_url: str | None = None
     tier: int | None
     enchantment: int
     location: str

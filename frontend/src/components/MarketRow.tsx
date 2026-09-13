@@ -2,6 +2,7 @@ import type { MarketPrice, PriceField } from "@/lib/api";
 import { formatDataAge, formatSilver } from "@/lib/format";
 
 import { CityChip } from "./CityChip";
+import { ItemIcon } from "./ItemIcon";
 import { LiquidityBar } from "./LiquidityBar";
 
 const TOM_IDADE: Record<string, string> = {
@@ -86,7 +87,13 @@ export function MarketRow({ price }: { price: MarketPrice }) {
   return (
     <article className="flex flex-wrap items-stretch gap-4 border-line/60 border-b py-3 last:border-0">
       {/* identidade */}
-      <div className="min-w-56 flex-1">
+      <div className="flex min-w-56 flex-1 gap-3">
+        <ItemIcon
+          url={price.icon_url}
+          alt={price.item_name ?? price.item}
+          tier={price.tier}
+        />
+        <div className="min-w-0">
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
           <span className="figure rounded-sm border border-line-strong px-1.5 py-0.5 text-[11px] text-body">
             T{price.tier ?? "?"}
@@ -97,8 +104,11 @@ export function MarketRow({ price }: { price: MarketPrice }) {
           </span>
           <CityChip city={price.location} kind={price.location_kind} />
         </div>
-        <p className="text-body text-sm leading-tight">{price.item_name ?? price.item}</p>
-        <p className="figure text-muted text-[11px]">{price.item}</p>
+        <p className="truncate text-body text-sm leading-tight">
+          {price.item_name ?? price.item}
+        </p>
+        <p className="figure truncate text-muted text-[11px]">{price.item}</p>
+        </div>
       </div>
 
       <Perna

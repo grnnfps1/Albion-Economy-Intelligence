@@ -14,6 +14,10 @@ class ItemOut(BaseModel):
     weight: float | None
     max_quality: int | None
     is_tracked: bool = Field(description="true quando os collectors varrem este item.")
+    icon_url: str | None = Field(
+        default=None,
+        description="Render oficial do jogo. Derivado do unique_name, não armazenado.",
+    )
 
 
 class ItemPage(BaseModel):
