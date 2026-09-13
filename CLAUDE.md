@@ -188,6 +188,28 @@ um único preço manipulado contamina a janela inteira (visto na validação: 3.
 - **Migrations geradas pelo autogenerate não são reformatadas na mão** — o lint
   já as ignora. O que importa nelas é o SQL.
 
+## Acesso via Discord
+
+Quem está no servidor configurado em `DISCORD_GUILD_ID` entra. A fonte da
+verdade é o Discord: sair do servidor tira o acesso no próximo login, sem lista
+paralela que alguém precise lembrar de atualizar.
+
+- **O portão é o `middleware.ts`**, não cada página. Esquecer de proteger uma
+  rota nova é o jeito mais comum de furar login; o middleware fecha por padrão.
+- **Sem `SESSION_SECRET` e `DISCORD_CLIENT_ID`, a aplicação roda aberta.** É o
+  modo de desenvolvimento local. Seguro porque um deploy sem esses valores nem
+  chega a autenticar ninguém.
+- **A sessão usa Web Crypto, não o módulo `crypto` do Node**, porque o
+  middleware roda no runtime edge, onde o módulo de Node não existe.
+- **O cookie é assinado, não criptografado.** Só guarda id, nome e avatar. Nada
+  de `access_token`: quem roubasse o cookie poderia agir no Discord em nome do
+  usuário.
+- **`state` obrigatório no OAuth.** Sem ele, qualquer site forja um callback e
+  loga a vítima numa conta que não é dela. Há verificação e o callback forjado
+  cai em `/login?erro=estado`.
+- **Expiração é checada na verificação**, não só no `max-age` do navegador: um
+  cookie antigo continua assinado para sempre.
+
 ## Armadilhas conhecidas
 
 - **Campo de lista em `Settings` precisa de `NoDecode`.** O pydantic-settings

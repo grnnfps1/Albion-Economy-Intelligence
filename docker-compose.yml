@@ -65,8 +65,9 @@ services:
       context: ./frontend
       target: dev
     container_name: albion-frontend
+    env_file: .env
     environment:
-      # Variável de servidor: nunca chega ao browser (sem prefixo NEXT_PUBLIC_).
+      # Variáveis de servidor: nenhuma chega ao browser (sem prefixo NEXT_PUBLIC_).
       BACKEND_INTERNAL_URL: http://backend:8000
       NEXT_TELEMETRY_DISABLED: "1"
     ports:

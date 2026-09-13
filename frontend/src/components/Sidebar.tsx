@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { UserChip } from "@/components/UserChip";
+import type { Session } from "@/lib/session";
+
 /**
  * Navegação do produto inteiro, com o que ainda não existe marcado pela fase em
  * que entra. Esconder as seções futuras daria a impressão de um produto menor;
@@ -19,7 +22,7 @@ const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Watchlist", href: "/watchlist", phase: null },
 ];
 
-export function Sidebar() {
+export function Sidebar({ session }: { session: Session | null }) {
   return (
     <nav
       aria-label="Seções"
@@ -65,6 +68,8 @@ export function Sidebar() {
           );
         })}
       </ul>
+
+      {session && <UserChip session={session} />}
     </nav>
   );
 }
