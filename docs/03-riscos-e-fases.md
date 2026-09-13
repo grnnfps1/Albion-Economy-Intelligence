@@ -86,4 +86,4 @@ seguir. Sem pular (requisito 51).
 Fases posteriores (não planejadas em detalhe agora): contas, entitlements, licenças,
 API keys, pagamento, admin, alertas.
 
-**Estado atual: Fases 1 a 5 implementadas. Fase 6 bloqueada até as taxas serem verificadas — ver `docs/04-taxas.md`.**
+**Estado atual: Fases 1 a 6 implementadas. As taxas do jogo continuam sem medição (`docs/04-taxas.md`), mas deixaram de ser bloqueio: são entrada do usuário.**

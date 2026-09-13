@@ -9,7 +9,7 @@ const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Painel", href: "/", phase: null },
   { label: "Mercado", href: "/market", phase: null },
   { label: "Histórico", href: "/market/history", phase: null },
-  { label: "Arbitragem", href: "/arbitrage", phase: 6 },
+  { label: "Arbitragem", href: "/arbitrage", phase: null },
   { label: "Crafting", href: "/crafting", phase: 7 },
   { label: "Refinamento", href: "/refining", phase: 8 },
   { label: "Focus", href: "/focus", phase: 9 },
@@ -30,7 +30,7 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 5 — histórico</p>
+        <p className="mt-1 text-muted text-xs">Fase 6 — arbitragem</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">

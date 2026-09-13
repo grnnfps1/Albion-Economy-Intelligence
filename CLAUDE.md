@@ -23,8 +23,9 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 3 | Client do AODP: rate limit, batching, retry, normalização | ✅ |
 | 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ✅ |
 | 5 | Histórico, outliers, gráficos, gold | ✅ |
-| 6 | Opportunity Engine + arbitragem | ⛔ bloqueada: taxas não verificadas |
-| 7–10 | Crafting, refino, Focus, dashboard | ⬜ |
+| 6 | Opportunity Engine + arbitragem | ✅ taxas configuráveis pelo usuário |
+| 7 | Crafting | ⬜ próxima |
+| 8–10 | Refino, Focus, dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -198,24 +199,34 @@ um único preço manipulado contamina a janela inteira (visto na validação: 3.
 - Black Market não é cidade (`kind = 'black_market'`) e a semântica de ordens é
   invertida. Não use como perna de arbitragem antes de validar empiricamente.
 
-## Próxima fase (6) — BLOQUEADA
+## Taxas: configuração do usuário, não do servidor
 
-Arbitragem precisa de imposto de venda e setup fee. Os parâmetros existem em
-`config_parameters` com `value = NULL` e `source = 'UNKNOWN'`, e o levantamento
-em `docs/04-taxas.md` encontrou **conflito entre as fontes** sobre qual
-percentual é setup e qual é imposto de venda.
+O imposto de venda depende de a conta ter Premium. Um valor fixo de servidor
+mostraria lucro errado para metade das pessoas. A precedência é:
 
-Não preencher por conta própria. O caminho é medir no jogo (roteiro no doc) e
-gravar com `source` citando a medição.
+```
+parâmetro da requisição  →  config_parameters  →  UNKNOWN
+```
 
-Quando destravar, o motor deve:
+Enquanto `docs/04-taxas.md` não for resolvido com medição no jogo, o padrão do
+banco continua `NULL`, e a plataforma responde `economics.known = false` com o
+motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
-1. Receber as taxas como **argumento obrigatório** das funções de
-   `calculations/` — nunca ler configuração de dentro da fórmula.
-2. Responder `UNKNOWN` para lucro, margem, ROI e score enquanto algum parâmetro
-   necessário estiver `NULL`. Margem sem imposto é sempre otimista, e é melhor
-   dizer "não sei" do que dizer "18,4%" quando o real é 11%.
-3. Considerar transporte e liquidez antes de publicar uma oportunidade.
+As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
+obrigatório. Nenhuma delas lê configuração.
+
+## Próxima fase (7) — crafting
+
+1. Importar `craftingrequirements` do dump (focus, prata, materiais) para
+   `recipes` / `recipe_materials`. A fonte já é baixada pelo importador.
+2. Custo do craft = materiais ao preço da cidade escolhida, menos retorno de
+   material, mais taxa de estação. Return rate e station fee ainda são
+   `UNKNOWN` — mesmo tratamento das taxas de mercado.
+3. `profit_per_focus` como ordenação principal (fase 9 estende isso).
+4. Reaproveitar `compute_trade` para a venda do item final.
+
+Critério de pronto: ranking por prata/focus com o custo de cada material
+mostrando cidade, idade e liquidez, e `UNKNOWN` onde faltar parâmetro.
 
 ## Linguagem visual da tela de mercado
 
@@ -250,6 +261,25 @@ encantamento já vai no próprio id e o serviço entende. Guardar 12 mil URLs em
 imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
+
+## Notas da fase 6
+
+- **Duas estratégias, taxas diferentes.** IMEDIATA consome ordens existentes e
+  não paga setup fee. PACIENTE cria ordem nas duas pontas, paga setup duas vezes
+  e paga mesmo que a ordem nunca execute. Tratar as duas igual é o erro que faz
+  uma arbitragem "de 9%" virar prejuízo.
+- **Margem e ROI medem coisas diferentes.** Margem sobre receita bruta, ROI sobre
+  capital imobilizado. Margem alta com ROI baixo é armadilha de capital parado.
+- **Score não é publicado com confiança abaixo de 50%.** Um smoke test mostrou
+  score 97 "excelente" ao lado de "lucro desconhecido", porque só frescor e
+  liquidez tinham dado. Um número alto ali dá confiança a uma oportunidade que
+  ninguém avaliou — pior do que não ter score.
+- **Componente ausente não pontua zero.** O peso é redistribuído e a confiança
+  cai. Pontuar zero puniria item novo como se fosse ruim.
+- **A idade exibida é a da ponta mais velha.** A operação só é tão confiável
+  quanto o pior dos dois preços.
+- **Black Market fora por padrão.** Semântica de ordens invertida e ainda não
+  validada empiricamente.
 
 ## Notas da fase 5
 

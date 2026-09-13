@@ -70,14 +70,27 @@ descobrir que o número veio de um patch antigo. Nunca gravar com
 `source = 'UNKNOWN'` preenchido, e nunca gravar um valor "de internet" sem dizer
 de qual página e de que data.
 
-## Enquanto não for verificado
+## Como a fase 6 resolveu isso
 
-A FASE 6 vai ser construída para funcionar assim:
+Sem esperar pela medição, e melhor do que o plano original: **a taxa é entrada do
+usuário.** O imposto depende de a conta ter Premium, então um valor único de
+servidor estaria errado para metade das pessoas de qualquer jeito.
 
-- as funções de `calculations/` recebem as taxas como **argumento obrigatório**;
-- o serviço lê de `config_parameters`;
-- parâmetro com `value = NULL` faz o endpoint responder `UNKNOWN` para lucro,
-  margem, ROI e score — em vez de devolver um número calculado com taxa zero.
+Precedência:
 
-Uma margem calculada sem imposto é sempre otimista. É melhor a plataforma dizer
-"não sei" do que dizer "18,4%" quando o número real é 11%.
+```
+parâmetro da requisição  →  config_parameters  →  UNKNOWN
+```
+
+- `calculations/fees.py` recebe `FeeProfile` como argumento obrigatório e nunca
+  lê configuração;
+- sem taxa, `economics.known = false` e o `reason` diz exatamente qual chave
+  falta;
+- o spread bruto continua visível, rotulado como bruto — é o número que engana
+  quando mostrado sozinho;
+- a resposta carrega as taxas usadas e a origem delas (`usuario` / `config`),
+  para que um lucro de 18% seja auditável.
+
+As cinco medições continuam valendo: elas definem o **padrão** que aparece
+pré-preenchido para quem não quiser configurar nada. Mas não travam mais o
+produto.

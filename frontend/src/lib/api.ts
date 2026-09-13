@@ -211,6 +211,54 @@ export async function fetchGold(server: string, days: string): Promise<GoldRespo
   }
 }
 
+export type Economics = {
+  known: boolean;
+  reason: string | null;
+  quantity: number;
+  unit_cost: number | null;
+  investment: number | null;
+  gross_revenue: number | null;
+  fees: number | null;
+  transport_cost: number | null;
+  net_profit: number | null;
+  margin_pct: number | null;
+  roi_pct: number | null;
+};
+
+export type Opportunity = {
+  item: string; item_name: string | null; icon_url: string | null;
+  tier: number | null; enchantment: number; quality: number;
+  strategy: string;
+  origin: string; origin_slug: string;
+  destination: string; destination_slug: string;
+  buy_price: number; sell_price: number; spread_pct: number;
+  worst_age_seconds: number;
+  liquidity_units_per_day: number | null;
+  economics: Economics;
+  score: { value: number | null; band: string; confidence: number;
+           components: Record<string, number>; missing: string[] };
+};
+
+export type ArbitrageResponse = {
+  server: string; strategy: string; quantity: number; total: number;
+  fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
+          premium: boolean | null; source: string; complete: boolean; missing: string[] };
+  generated_at: string; data_source_note: string;
+  opportunities: Opportunity[];
+};
+
+export async function fetchArbitrage(
+  query: Record<string, string | undefined>,
+): Promise<ArbitrageResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<ArbitrageResponse>(`/api/v1/arbitrage?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([
