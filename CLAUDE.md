@@ -22,8 +22,8 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 2 | Migrations, seed, catálogo de 12.237 itens | ✅ |
 | 3 | Client do AODP: rate limit, batching, retry, normalização | ✅ |
 | 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ✅ |
-| 5 | Histórico e gráficos | ⬜ próxima |
-| 6 | Opportunity Engine + arbitragem | ⬜ |
+| 5 | Histórico, outliers, gráficos, gold | ✅ |
+| 6 | Opportunity Engine + arbitragem | ⛔ bloqueada: taxas não verificadas |
 | 7–10 | Crafting, refino, Focus, dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
@@ -198,18 +198,39 @@ um único preço manipulado contamina a janela inteira (visto na validação: 3.
 - Black Market não é cidade (`kind = 'black_market'`) e a semântica de ordens é
   invertida. Não use como perna de arbitragem antes de validar empiricamente.
 
-## Próxima fase (5) — escopo
+## Próxima fase (6) — BLOQUEADA
 
-1. Collector de histórico: `time-scale` 1, 6 e 24, janelas de 24H a 90D.
-2. Marcação de outlier por mediana + MAD dentro de `(item, local, qualidade)`.
-   O valor cru fica; `is_outlier` marca. A UI mostra o ponto marcado, não apaga.
-3. Médias de referência por **mediana**, nunca por média — o endpoint do AODP já
-   entrega média, e um único preço manipulado contamina a janela.
-4. `GET /api/v1/market/history` e a tela `/market/history` com gráfico.
-5. `/gold` com a série de cotação.
+Arbitragem precisa de imposto de venda e setup fee. Os parâmetros existem em
+`config_parameters` com `value = NULL` e `source = 'UNKNOWN'`, e o levantamento
+em `docs/04-taxas.md` encontrou **conflito entre as fontes** sobre qual
+percentual é setup e qual é imposto de venda.
 
-Critério de pronto: o gráfico de um item mostra a série, marca visualmente o que
-foi considerado outlier, e a variação exibida usa mediana.
+Não preencher por conta própria. O caminho é medir no jogo (roteiro no doc) e
+gravar com `source` citando a medição.
+
+Quando destravar, o motor deve:
+
+1. Receber as taxas como **argumento obrigatório** das funções de
+   `calculations/` — nunca ler configuração de dentro da fórmula.
+2. Responder `UNKNOWN` para lucro, margem, ROI e score enquanto algum parâmetro
+   necessário estiver `NULL`. Margem sem imposto é sempre otimista, e é melhor
+   dizer "não sei" do que dizer "18,4%" quando o real é 11%.
+3. Considerar transporte e liquidez antes de publicar uma oportunidade.
+
+## Notas da fase 5
+
+- **Mediana, não média.** O AODP já entrega média por bucket; média de médias
+  contaminadas propaga outlier. As estatísticas do período usam mediana.
+- **Outlier é marcado, nunca apagado.** Um pico pode ser evento real (patch,
+  guerra, escassez). O ponto fica gravado, aparece no gráfico como círculo
+  vazado, e sai das estatísticas.
+- **MAD em vez de desvio padrão.** Desvio padrão é calculado a partir da média, e
+  num conjunto com um valor oito vezes maior o próprio outlier infla o desvio a
+  ponto de deixar de ser detectado.
+- **Séries com menos de 5 pontos não são avaliadas.** Qualquer critério marcaria
+  metade da amostra.
+- **A escala do gráfico ignora os outliers.** Incluir o pico de 29.790 numa série
+  de 3.700 achataria a variação real contra a base.
 
 ## Notas da fase 4
 

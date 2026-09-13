@@ -76,7 +76,7 @@ seguir. Sem pular (requisito 51).
 | **2** | Migrations + seed + catálogo de itens | `alembic upgrade head` idempotente; 12.237 itens importados do `ao-bin-dumps` ✔ |
 | **3** | Client AODP: prices, history, gold + limiter, retry, batch, cache | 122 testes verdes, zero chamada real à API ✔ |
 | **4** | Collector, normalização, `/api/v1/market/prices` e tela `/market` | Preço na tela com idade por campo e ordenação ✔ |
-| **5** | History + `/market/history` com gráfico e mediana | Períodos 24H…90D; outliers marcados |
+| **5** | History, `/market/history` com gráfico, `/gold` | Outliers marcados e fora da estatística; mediana como referência ✔ |
 | **6** | Opportunity Engine v1 + `/arbitrage` | Custo, taxa, transporte, lucro, margem, ROI, score |
 | **7** | Receitas + `/crafting` | Retorno de material, taxa de estação, focus |
 | **8** | `/refining` | Prata/focus por refino |
@@ -86,4 +86,4 @@ seguir. Sem pular (requisito 51).
 Fases posteriores (não planejadas em detalhe agora): contas, entitlements, licenças,
 API keys, pagamento, admin, alertas.
 
-**Estado atual: Fases 1 a 4 implementadas. Fase 5 não iniciada.**
+**Estado atual: Fases 1 a 5 implementadas. Fase 6 bloqueada até as taxas serem verificadas — ver `docs/04-taxas.md`.**
