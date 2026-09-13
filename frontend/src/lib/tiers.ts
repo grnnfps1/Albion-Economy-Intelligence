@@ -42,6 +42,27 @@ export function tierBorder(tier: number | null | undefined, opacity = 50): strin
 }
 
 /**
+ * Faixa de tier à esquerda da linha densa.
+ *
+ * Tier desconhecido devolve transparente, e não o token neutro: a faixa é o
+ * primeiro sinal que o olho pega numa lista de quarenta linhas, e uma faixa
+ * cinza afirma "tier baixo" quando a verdade é "não sei".
+ */
+export function tierBorderLeft(tier: number | null | undefined): string {
+  return isTier(tier) ? `border-l-t${tier}` : "border-l-transparent";
+}
+
+/**
+ * Fundo tingido pelo tier, bem fraco.
+ *
+ * 10% é o teto: acima disso o fundo começa a competir com o número que está
+ * por cima, e a moldura já carrega a mesma informação.
+ */
+export function tierTint(tier: number | null | undefined): string {
+  return `bg-${tierColor(tier)}/10`;
+}
+
+/**
  * Todas as classes que `tierColor` pode gerar, para o Tailwind não removê-las.
  *
  * O Tailwind 4 varre o código procurando nomes de classe literais. Uma classe
@@ -58,5 +79,11 @@ export const TIER_SAFELIST = [
   "border-t5/50", "border-t6/50", "border-t7/50", "border-t8/50",
   "border-t1/30", "border-t2/30", "border-t3/30", "border-t4/30",
   "border-t5/30", "border-t6/30", "border-t7/30", "border-t8/30",
+  "bg-t1/10", "bg-t2/10", "bg-t3/10", "bg-t4/10",
+  "bg-t5/10", "bg-t6/10", "bg-t7/10", "bg-t8/10",
+  "border-l-t1", "border-l-t2", "border-l-t3", "border-l-t4",
+  "border-l-t5", "border-l-t6", "border-l-t7", "border-l-t8",
+  "border-l-transparent",
   "text-line-strong", "bg-line-strong", "border-line-strong/50", "border-line-strong/30",
+  "bg-line-strong/10",
 ] as const;

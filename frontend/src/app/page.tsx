@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ItemIcon } from "@/components/ItemIcon";
+import { ItemIcon } from "@/components/ui/ItemIcon";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { fetchDashboard } from "@/lib/api";
 import { feeParams, getPreferences } from "@/lib/preferences";

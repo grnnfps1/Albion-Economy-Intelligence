@@ -30,7 +30,7 @@ export function ColumnHeader({
 
   return (
     <div
-      className="sticky top-0 z-10 grid border-line border-b bg-sunken px-4 py-[7px] text-[10px] text-dim uppercase tracking-[0.06em]"
+      className="lbl sticky top-0 z-10 grid border-line border-b bg-sunken/95 px-4 py-2 backdrop-blur-sm"
       style={{ gridTemplateColumns: columns }}
     >
       {colunas.map((coluna) => (
@@ -42,7 +42,9 @@ export function ColumnHeader({
             <button
               type="button"
               onClick={() => ordenar(coluna.ordenavel!)}
-              className={atual === coluna.ordenavel ? "text-warn" : "hover:text-body"}
+              className={`transition-colors duration-100 ${
+                atual === coluna.ordenavel ? "text-accent-bright" : "hover:text-body"
+              }`}
             >
               {coluna.rotulo}
             </button>

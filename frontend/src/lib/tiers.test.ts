@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { TIER_SAFELIST, tierBg, tierBorder, tierColor, tierText } from "./tiers";
+import {
+  TIER_SAFELIST,
+  tierBg,
+  tierBorder,
+  tierBorderLeft,
+  tierColor,
+  tierText,
+  tierTint,
+} from "./tiers";
 
 describe("cor de tier", () => {
   it("usa a escala do jogo de T1 a T8", () => {
@@ -17,11 +25,20 @@ describe("cor de tier", () => {
     expect(tierColor(9)).toBe("line-strong");
   });
 
+  it("faixa de tier desconhecido é transparente, não cinza", () => {
+    // Cinza afirmaria "tier baixo"; a verdade é "não sei". A faixa é o
+    // primeiro sinal que o olho pega na lista, então mentir nela é caro.
+    expect(tierBorderLeft(null)).toBe("border-l-transparent");
+    expect(tierBorderLeft(4)).toBe("border-l-t4");
+  });
+
   it("monta as classes de texto, fundo e borda a partir do mesmo token", () => {
     expect(tierText(5)).toBe("text-t5");
     expect(tierBg(5)).toBe("bg-t5");
     expect(tierBorder(5)).toBe("border-t5/50");
     expect(tierBorder(5, 30)).toBe("border-t5/30");
+    expect(tierTint(5)).toBe("bg-t5/10");
+    expect(tierBorderLeft(5)).toBe("border-l-t5");
   });
 
   it("toda classe gerada está na safelist", () => {
@@ -34,6 +51,8 @@ describe("cor de tier", () => {
       tierBg(tier),
       tierBorder(tier),
       tierBorder(tier, 30),
+      tierTint(tier),
+      tierBorderLeft(tier),
     ]);
 
     for (const classe of gerados) {

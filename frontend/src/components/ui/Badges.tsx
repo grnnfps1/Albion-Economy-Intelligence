@@ -1,15 +1,10 @@
-const TIER_BG: Record<number, string> = {
-  1: "bg-t1", 2: "bg-t2", 3: "bg-t3", 4: "bg-t4",
-  5: "bg-t5", 6: "bg-t6", 7: "bg-t7", 8: "bg-t8",
-};
+import { tierBg } from "@/lib/tiers";
 
 /** Tier e encantamento no formato do jogo: `T7.2`. */
 export function TierBadge({ tier, enchantment = 0 }: { tier: number | null; enchantment?: number }) {
   return (
     <span
-      className={`figure rounded-[3px] px-[5px] py-px font-bold text-[9.5px] text-ink ${
-        TIER_BG[tier ?? 0] ?? "bg-line-strong"
-      }`}
+      className={`figure rounded-[3px] px-[5px] py-px font-bold text-[9.5px] text-ink ${tierBg(tier)}`}
     >
       T{tier ?? "?"}.{enchantment}
     </span>

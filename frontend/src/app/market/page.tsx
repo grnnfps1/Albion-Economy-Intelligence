@@ -82,8 +82,8 @@ export default async function MarketPage({
         </p>
       )}
 
-      {page?.prices.map((p) => (
-        <MarketLine key={`${p.item}-${p.location}-${p.quality}`} price={p} />
+      {page?.prices.map((p, i) => (
+        <MarketLine key={`${p.item}-${p.location}-${p.quality}`} price={p} index={i} />
       ))}
     </PageShell>
   );
@@ -107,13 +107,13 @@ function Preco({ campo }: { campo: PriceField }) {
   );
 }
 
-function MarketLine({ price }: { price: MarketPrice }) {
+function MarketLine({ price, index }: { price: MarketPrice; index: number }) {
   const distancia = price.vs_median_pct;
   const liq = price.liquidity;
   const cobertura = liq.status === "KNOWN" ? liq.days_with_data / liq.period_days : 0;
 
   return (
-    <DenseRow tier={price.tier} positive={null} columns={COLUNAS}>
+    <DenseRow tier={price.tier} positive={null} columns={COLUNAS} index={index}>
       <div className="flex min-w-0 items-center gap-2.5">
         <ItemIcon url={price.icon_url} alt={price.item_name ?? price.item} tier={price.tier} />
         <div className="min-w-0">

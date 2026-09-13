@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { DashboardCard } from "@/lib/api";
 import { formatDataAge, formatSilver } from "@/lib/format";
 
-import { ItemIcon } from "./ItemIcon";
+import { ItemIcon } from "@/components/ui/ItemIcon";
 
 const TITULO: Record<string, string> = {
   ARBITRAGEM: "Melhor arbitragem",
