@@ -14,6 +14,12 @@ export const dynamic = "force-dynamic";
  * Escopos: `identify` traz nome e avatar; `guilds` traz a lista de servidores,
  * que é como o acesso é decidido. Nada além disso — pedir escopo a mais assusta
  * quem autoriza e aumenta o estrago se o token vazar.
+ *
+ * Sem `prompt=none`: ele pede ao Discord para pular a tela de autorização, mas
+ * o Discord responde com erro quando o usuário ainda não autorizou a aplicação
+ * — e a mensagem que ele devolve nesse caso ("redirect_uri inválido") aponta
+ * para o lugar errado e custa meia hora de investigação. O custo de tirar é o
+ * usuário ver a tela de autorizar, uma vez.
  */
 export async function GET() {
   const { clientId, redirectUri, habilitado } = authConfig();
@@ -28,7 +34,6 @@ export async function GET() {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "identify guilds");
   url.searchParams.set("state", state);
-  url.searchParams.set("prompt", "none");
 
   const resposta = NextResponse.redirect(url.toString());
   resposta.cookies.set("aei_state", state, {
