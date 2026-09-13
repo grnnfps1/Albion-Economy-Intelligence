@@ -207,6 +207,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove o seed.
+
+    Falha com ForeignKeyViolation se já houver dado de mercado apontando para
+    `data_sources` ou `servers` -- e isso é o comportamento certo. O RESTRICT
+    existe para impedir que uma reversão de schema apague em silêncio a
+    procedência de preços já coletados. Para reverter de verdade, limpe
+    `market_prices`, `market_history` e `gold_prices` antes.
+    """
     conn = op.get_bind()
     keys = [key for key, _, _ in CONFIG_UNVERIFIED] + [key for key, _, _ in CONFIG_PRODUCT]
     conn.execute(

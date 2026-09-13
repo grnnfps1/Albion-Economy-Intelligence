@@ -56,6 +56,19 @@ Cinco medições, todas de dentro do cliente:
 Com 100.000 de valor, cada ponto percentual são 1.000 de prata — a diferença é
 visível a olho nu no log de transações.
 
+## Sexto item para verificar: retorno de material
+
+Além das cinco medições acima, a classificação de **quais materiais retornam** no
+craft não foi verificada. O importador hoje trata `resources` e
+`refinedresources` como elegíveis, e deixa `cityresources` de fora — é onde o
+dump coloca os tokens de facção.
+
+Medição: craftar um item cuja receita inclua token de facção, com retorno ativo,
+e conferir se o token volta. Se voltar, incluir `cityresources` em
+`RETURNABLE_SUBCATEGORIES`.
+
+Errar para menos retorno subestima o lucro. É o lado conservador de errar.
+
 ## Como gravar depois
 
 ```sql

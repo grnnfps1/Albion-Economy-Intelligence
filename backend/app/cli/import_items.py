@@ -13,7 +13,8 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.catalog.importer import DEFAULT_TRACKED_SUBCATEGORIES, import_catalog
+from app.catalog.importer import DEFAULT_TRACKED_SUBCATEGORIES, import_catalog, load_sources
+from app.catalog.recipes_importer import import_recipes
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import dispose_engine, init_engine
@@ -32,21 +33,40 @@ async def _main(args: argparse.Namespace) -> int:
         else DEFAULT_TRACKED_SUBCATEGORIES
     )
 
+    names_path = Path(args.names_file) if args.names_file else None
+    metadata_path = Path(args.metadata_file) if args.metadata_file else None
+
     try:
         async with session_factory() as session:
             report = await import_catalog(
                 session,
-                names_path=Path(args.names_file) if args.names_file else None,
-                metadata_path=Path(args.metadata_file) if args.metadata_file else None,
+                names_path=names_path,
+                metadata_path=metadata_path,
                 tracked_subcategories=tracked,
                 apply_tracking=args.apply_tracking,
             )
+
+        recipes_report = None
+        if not args.skip_recipes:
+            # As receitas precisam do catálogo já gravado: elas referenciam
+            # items.id tanto na saída quanto em cada material.
+            _names, metadata = await load_sources(names_path, metadata_path)
+            async with session_factory() as session:
+                recipes_report = await import_recipes(session, metadata)
     finally:
         await dispose_engine()
 
-    width = max(len(key) for key in report.as_dict())
-    for key, value in report.as_dict().items():
-        print(f"{key.ljust(width)}  {value}")
+    def imprimir(titulo: str, dados: dict) -> None:
+        print(f"\n{titulo}")
+        width = max(len(key) for key in dados)
+        for key, value in dados.items():
+            print(f"  {key.ljust(width)}  {value}")
+
+    imprimir("catálogo", report.as_dict())
+    if recipes_report is not None:
+        imprimir("receitas", recipes_report.as_dict())
+        if recipes_report.missing_examples:
+            print(f"  exemplos fora do catálogo: {', '.join(recipes_report.missing_examples[:5])}")
     return 0
 
 
@@ -54,6 +74,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Importa o catálogo de itens do ao-bin-dumps.")
     parser.add_argument("--names-file", help="caminho local de formatted/items.json")
     parser.add_argument("--metadata-file", help="caminho local de items.json (raiz do dump)")
+    parser.add_argument(
+        "--skip-recipes", action="store_true", help="importa só o catálogo, sem receitas"
+    )
     parser.add_argument(
         "--apply-tracking",
         action="store_true",

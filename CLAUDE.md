@@ -24,7 +24,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 4 | Collector de mercado + `/api/v1/market/prices` + tela `/market` | ✅ |
 | 5 | Histórico, outliers, gráficos, gold | ✅ |
 | 6 | Opportunity Engine + arbitragem | ✅ taxas configuráveis pelo usuário |
-| 7 | Crafting | ⬜ próxima |
+| 7 | Crafting — receitas e cálculo prontos; falta API e tela | 🟡 em andamento |
 | 8–10 | Refino, Focus, dashboard | ⬜ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
@@ -215,18 +215,28 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
-## Próxima fase (7) — crafting
+## Fase 7 — o que já existe e o que falta
 
-1. Importar `craftingrequirements` do dump (focus, prata, materiais) para
-   `recipes` / `recipe_materials`. A fonte já é baixada pelo importador.
-2. Custo do craft = materiais ao preço da cidade escolhida, menos retorno de
-   material, mais taxa de estação. Return rate e station fee ainda são
-   `UNKNOWN` — mesmo tratamento das taxas de mercado.
-3. `profit_per_focus` como ordenação principal (fase 9 estende isso).
-4. Reaproveitar `compute_trade` para a venda do item final.
+**Pronto:** `recipes` / `recipe_materials` (migration `0003`), importador
+(`catalog/recipes_importer.py`) e o cálculo puro (`calculations/crafting.py`).
+12.515 receitas e 27.899 materiais importados do dump.
 
-Critério de pronto: ranking por prata/focus com o custo de cada material
-mostrando cidade, idade e liquidez, e `UNKNOWN` onde faltar parâmetro.
+**Falta:** `GET /api/v1/crafting/opportunities` e a tela `/crafting`. O serviço
+precisa juntar receita + preço de material por cidade + preço de venda do item
+final, e chamar `compute_craft`.
+
+Três parâmetros são **entrada do usuário**, pelo mesmo motivo das taxas de
+mercado — nenhum é fato fixo:
+
+| Parâmetro | Por que varia |
+|---|---|
+| taxa de retorno de material | Focus, especialização da estação, bônus da cidade |
+| taxa da estação | definida pelo dono, muda por cidade e por hora |
+| imposto de venda | muda com Premium |
+
+`profit_per_focus` é a ordenação principal: Focus é o recurso escasso, não a
+prata. Lucro absoluto alto com Focus alto pode ser pior negócio — há teste
+cobrindo exatamente isso.
 
 ## Linguagem visual da tela de mercado
 
@@ -261,6 +271,28 @@ encantamento já vai no próprio id e o serviço entende. Guardar 12 mil URLs em
 imagens vão direto do CDN da Sandbox para o browser: proxiá-las pelo nosso
 backend gastaria banda e latência sem benefício, e por isso também não se usa
 `next/image` aqui.
+
+## Notas da fase 7 (parcial)
+
+- **O dump é irregular e precisa ser tratado, não assumido.**
+  `craftingrequirements` pode ser objeto ou lista (receitas alternativas:
+  `T4_PLANKS` sai de 2× madeira **ou** de 1× madeira + token). `craftresource`
+  pode ser objeto, lista ou ausente.
+- **Material encantado vem sem o sufixo de mercado.** O dump diz `T4_ROCK_LEVEL1`
+  com `@enchantmentlevel: 1`; o catálogo e o AODP usam `T4_ROCK_LEVEL1@1`. Sem
+  recompor isso, 12 mil materiais ficam órfãos e o custo de craft encantado sai
+  errado para menos. Foi exatamente o que aconteceu na primeira importação.
+- **`quantity` é `Integer`, não `SmallInteger`.** Existe receita pedindo 40.000
+  unidades de um material. Descoberto importando o dump de verdade.
+- **Material sem cotação derruba o craft inteiro.** Custo parcial não é custo
+  menor — é custo desconhecido.
+- **`cityresources` ficou fora do retorno de material.** É onde o dump coloca os
+  tokens de facção, e token consumido quase certamente não volta. A
+  classificação não foi verificada no jogo e entra na lista de `docs/04-taxas.md`;
+  errar para menos retorno é o lado conservador.
+- **O downgrade do seed falha se houver dado de mercado.** É o RESTRICT
+  funcionando: reverter schema não pode apagar em silêncio a procedência de
+  preços coletados.
 
 ## Notas da fase 6
 
