@@ -1,4 +1,5 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
+import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
@@ -75,13 +76,13 @@ export default async function RefiningPage({
         ]}
       />
 
-      {data === null && <p className="p-4 text-[12px] text-down">A API não respondeu.</p>}
+      {data === null && <ApiDown />}
 
       {data?.total === 0 && (
-        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+        <EmptyState>
           Nenhum recurso refinado com dados suficientes. Um tier sem cotação interrompe o cálculo
           dos tiers acima dele.
-        </p>
+        </EmptyState>
       )}
 
       {data?.opportunities.map((op) => <RefiningLine key={op.item} op={op} />)}

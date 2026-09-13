@@ -34,10 +34,13 @@ export default async function Home({
     ...query,
   });
 
+  // Um destaque só: o primeiro card com dado. Dois destaques não destacam nada.
+  const destacado = data?.cards.findIndex((card) => card.available) ?? -1;
+
   return (
     <div className="px-4 py-4">
       <header className="mb-6">
-        <h1 className="font-semibold text-2xl text-body tracking-tight">Painel</h1>
+        <h1 className="display text-body text-h1">Painel</h1>
         <p className="mt-2 max-w-prose text-muted text-sm leading-relaxed">
           A melhor oportunidade de cada tipo, com a idade do dado que a sustenta. Um número
           grande sobre cotação de ontem não é oportunidade — é retrato antigo.
@@ -108,8 +111,8 @@ export default async function Home({
           )}
 
           <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {data.cards.map((card) => (
-              <OpportunityCard key={card.kind} card={card} />
+            {data.cards.map((card, i) => (
+              <OpportunityCard key={card.kind} card={card} destaque={i === destacado} />
             ))}
           </div>
 

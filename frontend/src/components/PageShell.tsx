@@ -31,9 +31,9 @@ export function PageShell({
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-4 pb-2">
-        <h1 className="font-semibold text-[17px] tracking-tight">{titulo}</h1>
+        <h1 className="display text-body text-h1">{titulo}</h1>
         {contagem && <span className="figure text-[11px] text-dim">{contagem}</span>}
-        <p className="w-full max-w-prose text-[11.5px] text-muted leading-relaxed">{descricao}</p>
+        <p className="w-full max-w-prose text-muted text-note leading-relaxed">{descricao}</p>
       </div>
 
       <Toolbar grupos={grupos} busca={busca} onConfig={() => setAberto((v) => !v)} />

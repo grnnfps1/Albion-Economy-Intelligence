@@ -1,4 +1,5 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
+import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
@@ -70,13 +71,13 @@ export default async function ArbitragePage({
         ]}
       />
 
-      {data === null && <p className="p-4 text-[12px] text-down">A API não respondeu.</p>}
+      {data === null && <ApiDown />}
 
       {data?.total === 0 && (
-        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+        <EmptyState>
           Nenhuma rota viável agora. Pode não haver spread suficiente, ou as cotações estarem
           velhas demais. Não é erro — é o mercado.
-        </p>
+        </EmptyState>
       )}
 
       {data?.opportunities.map((op) => (

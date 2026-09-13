@@ -1,4 +1,5 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
+import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow } from "@/components/ui/Figures";
@@ -73,13 +74,13 @@ export default async function MarketPage({
         ]}
       />
 
-      {page === null && <p className="p-4 text-[12px] text-down">A API não respondeu.</p>}
+      {page === null && <ApiDown />}
 
       {page?.total === 0 && (
-        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+        <EmptyState>
           Nenhum preço para este recorte. Pode ser banco vazio — rode a coleta — ou mercado que
           ninguém abriu no jogo. Ausência de cotação não é preço baixo.
-        </p>
+        </EmptyState>
       )}
 
       {page?.prices.map((p, i) => (

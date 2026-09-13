@@ -1,4 +1,5 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
+import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { TierBadge } from "@/components/ui/Badges";
 import { DenseRow, Figure } from "@/components/ui/Figures";
@@ -83,12 +84,12 @@ export default async function FocusPage({
         ]}
       />
 
-      {data === null && <p className="p-4 text-[12px] text-down">A API não respondeu.</p>}
+      {data === null && <ApiDown />}
 
       {data?.total === 0 && (
-        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+        <EmptyState>
           Nenhuma operação com focus e dados suficientes.
-        </p>
+        </EmptyState>
       )}
 
       {data?.plans.map((plano) => <FocusLine key={plano.item} plano={plano} dias={data.horizon_days} />)}

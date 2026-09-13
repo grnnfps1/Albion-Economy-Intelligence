@@ -26,16 +26,20 @@ const TOM: Record<string, string> = {
  * usuário decide sobre uma cotação de ontem sem saber. Idade, confiança e giro
  * vêm junto, sempre.
  */
-export function OpportunityCard({ card }: { card: DashboardCard }) {
+export function OpportunityCard({
+  card,
+  destaque = false,
+}: {
+  card: DashboardCard;
+  destaque?: boolean;
+}) {
   if (!card.available) {
     return (
       <Link
         href={card.href}
-        className="flex min-h-32 flex-col justify-between rounded-sm border border-line border-dashed p-3 hover:border-line-strong"
+        className="flex min-h-32 flex-col justify-between rounded-sm border border-line border-dashed p-3 transition-colors duration-150 hover:border-line-strong hover:bg-raised/30"
       >
-        <p className="text-muted text-[11px] uppercase tracking-wide">
-          {TITULO[card.kind] ?? card.kind}
-        </p>
+        <p className="lbl">{TITULO[card.kind] ?? card.kind}</p>
         <p className="text-muted text-sm leading-snug">{card.reason}</p>
         <p className="text-muted text-[11px]">abrir a tela →</p>
       </Link>
@@ -45,11 +49,16 @@ export function OpportunityCard({ card }: { card: DashboardCard }) {
   return (
     <Link
       href={card.href}
-      className="flex min-h-32 flex-col justify-between rounded-sm border border-line bg-raised/40 p-3 hover:border-line-strong"
+      className={`flex min-h-32 flex-col justify-between rounded-sm border p-3 transition-colors duration-150 ${
+        destaque
+          ? // O melhor card da tela ganha moldura dourada. É o único lugar do
+            // painel em que ouro aparece perto de número, e por isso ele é um
+            // só: dois destaques não destacam nada.
+            "border-accent/40 bg-[linear-gradient(160deg,rgba(200,162,83,0.10),transparent_55%)] hover:border-accent/70"
+          : "border-line bg-raised/40 hover:border-line-strong"
+      }`}
     >
-      <p className="text-muted text-[11px] uppercase tracking-wide">
-        {TITULO[card.kind] ?? card.kind}
-      </p>
+      <p className={`lbl ${destaque ? "text-accent" : ""}`}>{TITULO[card.kind] ?? card.kind}</p>
 
       <div className="flex items-center gap-2.5">
         <ItemIcon url={card.icon_url} alt={card.item_name ?? ""} tier={card.tier} size={36} />

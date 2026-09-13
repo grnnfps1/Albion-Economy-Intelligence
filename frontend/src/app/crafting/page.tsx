@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/PageShell";
 import { ColumnHeader } from "@/components/ColumnHeader";
+import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
@@ -85,14 +86,14 @@ export default async function CraftingPage({
       />
 
       {data === null && (
-        <p className="p-4 text-[12px] text-down">A API não respondeu.</p>
+        <ApiDown />
       )}
 
       {data?.total === 0 && (
-        <p className="max-w-prose p-4 text-[12px] text-muted leading-relaxed">
+        <EmptyState>
           Nenhuma receita com dados suficientes. O custo precisa de cotação de cada material em{" "}
           {prefs.buyLocation}. Rode a coleta ou tente outra cidade nas preferências.
-        </p>
+        </EmptyState>
       )}
 
       {data?.opportunities.map((op) => (
