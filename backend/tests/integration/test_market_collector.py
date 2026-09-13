@@ -1,5 +1,8 @@
 """Collector de mercado ponta a ponta: AODP mockado, Postgres e Redis reais."""
 
+import os
+from urllib.parse import urlsplit, urlunsplit
+
 import httpx
 import pytest
 import respx
@@ -45,14 +48,31 @@ PAYLOAD = [
 ]
 
 
+def _test_redis_url() -> str:
+    """URL do Redis de teste, sempre no banco 15.
+
+    O fixture roda `flushdb`, então não pode apontar para o banco da aplicação:
+    rodar a suíte apagaria cache, janela de rate limit e locks de coleta. Fixar
+    `localhost` também não serve — dentro do container o Redis atende em `redis`.
+    """
+    explicit = os.environ.get("TEST_REDIS_URL")
+    if explicit:
+        return explicit
+    parts = urlsplit(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+    return urlunsplit(parts._replace(path="/15"))
+
+
+TEST_REDIS_URL = _test_redis_url()
+
+
 @pytest.fixture
 async def redis_client():
-    client = Redis.from_url("redis://localhost:6379/15", decode_responses=True)
+    client = Redis.from_url(TEST_REDIS_URL, decode_responses=True)
     try:
         await client.ping()
     except Exception as exc:  # noqa: BLE001
         await client.aclose()
-        pytest.skip(f"Redis indisponível: {type(exc).__name__}")
+        pytest.skip(f"Redis indisponível em {TEST_REDIS_URL}: {type(exc).__name__}")
     await client.flushdb()
     yield client
     await client.flushdb()
