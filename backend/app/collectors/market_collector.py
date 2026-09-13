@@ -77,7 +77,7 @@ def _count_rejection(result: CollectionResult, rejected: RejectedRow) -> None:
     )
 
 
-async def _load_lookups(
+async def load_lookups(
     session: AsyncSession, server_code: str
 ) -> tuple[int, dict[str, int], dict[str, int], int]:
     """Carrega em memória o que a normalização precisa para resolver ids."""
@@ -115,7 +115,7 @@ async def collect_market_prices(
 
     async with collector_lock(redis, f"{COLLECTOR_NAME}:{server_code}", ttl_seconds=1800):
         async with session_factory() as session:
-            server_id, location_ids, item_ids, source_id = await _load_lookups(
+            server_id, location_ids, item_ids, source_id = await load_lookups(
                 session, server_code
             )
             run = await obs_repo.start_run(session, COLLECTOR_NAME, server_id)

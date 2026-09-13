@@ -4,9 +4,10 @@ Motor de inteligência econômica para Albion Online. Transforma os dados de mer
 Albion Online Data Project em oportunidades acionáveis: arbitragem, crafting,
 refinamento e prata por Focus.
 
-**Estado: FASE 4 concluída — mercado.** A plataforma já coleta preços reais do
-AODP, grava em `market_prices` com procedência e mostra na tela `/market` com a
-idade de cada cotação. Falta histórico, gráficos e o motor de oportunidades.
+**Estado: FASE 5 concluída — histórico.** A plataforma coleta preços e histórico
+reais do AODP, marca outliers, e mostra tudo em `/market`, `/market/history` e
+`/gold`. A fase 6 (arbitragem) está **bloqueada** até as taxas do jogo serem
+verificadas — ver [`docs/04-taxas.md`](docs/04-taxas.md).
 
 ---
 
@@ -147,6 +148,20 @@ docker compose exec postgres psql -U albion -d albion -c \
   "SELECT collector, status, rows_upserted, rows_rejected, http_requests, started_at
    FROM collector_runs ORDER BY started_at DESC LIMIT 5;"
 ```
+
+### Coletar histórico e gold
+
+```bash
+docker compose exec backend python -m app.cli.collect_history --server west --days 30
+docker compose exec backend python -m app.cli.collect_history --gold --server west
+```
+
+Frequência baixa de propósito: o bucket é de hora ou de dia, e recoletar de
+minuto em minuto gasta cota sem gerar informação nova.
+
+A marcação de outlier roda depois da gravação, com a janela inteira à vista. O
+valor suspeito **não é apagado** — ele aparece no gráfico como círculo vazado e
+fica fora das estatísticas do período.
 
 ### Testes
 

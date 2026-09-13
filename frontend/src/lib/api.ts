@@ -133,6 +133,73 @@ export async function fetchMarketPrices(query: MarketQuery): Promise<MarketPrice
   }
 }
 
+export type Trend = "ALTA" | "ESTAVEL" | "BAIXA" | "DESCONHECIDA";
+
+export type HistoryPoint = {
+  timestamp: string;
+  avg_price: number;
+  item_count: number;
+  is_outlier: boolean;
+};
+
+export type HistorySeries = {
+  location: string;
+  location_slug: string;
+  quality: number;
+  points: HistoryPoint[];
+  minimum: number | null;
+  maximum: number | null;
+  average: number | null;
+  median: number | null;
+  outlier_count: number;
+  change_pct: number | null;
+  trend: Trend;
+};
+
+export type HistoryResponse = {
+  server: string;
+  item: string;
+  item_name: string | null;
+  timescale: number;
+  period_days: number;
+  total_points: number;
+  series: HistorySeries[];
+  data_source_note: string;
+};
+
+export type GoldResponse = {
+  server: string;
+  points: { timestamp: string; price: number }[];
+  current: number | null;
+  minimum: number | null;
+  maximum: number | null;
+  median: number | null;
+  change_pct: number | null;
+  trend: Trend;
+};
+
+export async function fetchHistory(
+  query: Record<string, string | undefined>,
+): Promise<HistoryResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value) params.set(key, value);
+  }
+  try {
+    return await getJson<HistoryResponse>(`/api/v1/market/history?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGold(server: string, days: string): Promise<GoldResponse | null> {
+  try {
+    return await getJson<GoldResponse>(`/api/v1/gold?server=${server}&days=${days}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   try {
     const [live, infra, aodp] = await Promise.all([

@@ -8,12 +8,12 @@ import Link from "next/link";
 const SECTIONS: { label: string; href: string; phase: number | null }[] = [
   { label: "Painel", href: "/", phase: null },
   { label: "Mercado", href: "/market", phase: null },
-  { label: "Histórico", href: "/market/history", phase: 5 },
+  { label: "Histórico", href: "/market/history", phase: null },
   { label: "Arbitragem", href: "/arbitrage", phase: 6 },
   { label: "Crafting", href: "/crafting", phase: 7 },
   { label: "Refinamento", href: "/refining", phase: 8 },
   { label: "Focus", href: "/focus", phase: 9 },
-  { label: "Gold", href: "/gold", phase: 5 },
+  { label: "Gold", href: "/gold", phase: null },
   { label: "Transporte", href: "/transport", phase: 6 },
   { label: "Watchlist", href: "/watchlist", phase: null },
 ];
@@ -30,7 +30,7 @@ export function Sidebar() {
           <br />
           Intelligence
         </p>
-        <p className="mt-1 text-muted text-xs">Fase 4 — mercado</p>
+        <p className="mt-1 text-muted text-xs">Fase 5 — histórico</p>
       </div>
 
       <ul className="flex flex-row gap-1 overflow-x-auto md:flex-col md:overflow-visible">
