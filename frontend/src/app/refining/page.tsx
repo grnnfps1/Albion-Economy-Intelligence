@@ -147,7 +147,11 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
 
       <Figure value={op.cost_from_market} label="no mercado" />
       <Figure value={op.cost_from_crafting} label="a cadeia toda" />
-      <ProfitFigure profit={op.profit} marginPct={op.margin_pct} unknownReason={op.reason} />
+      <ProfitFigure
+        profit={op.profit}
+        marginPct={op.margin_pct}
+        unknownReason={op.reason}
+      />
 
       <div className="pr-3 text-right">
         <span

@@ -156,14 +156,23 @@ export function RiskProfitFigure({
   marginPct?: number | null;
 }) {
   if (grossProfit === null) {
-    return <ProfitFigure profit={null} marginPct={null} unknownReason={unknownReason} />;
+    return (
+      <ProfitFigure
+        profit={null}
+        marginPct={null}
+        unknownReason={unknownReason}
+      />
+    );
   }
 
   const modelado = lossProbability > 0;
   if (!modelado) {
     return (
       <div className="pr-3 text-right">
-        <ProfitFigure profit={grossProfit} marginPct={marginPct ?? null} />
+        <ProfitFigure
+          profit={grossProfit}
+          marginPct={marginPct ?? null}
+        />
         {crossesOpenWorld && (
           <span className="lbl mt-px block text-dim" title="Informe a perda esperada nas preferências para ver o lucro ajustado ao risco.">
             risco não modelado
