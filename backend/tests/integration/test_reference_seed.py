@@ -72,20 +72,66 @@ async def test_fonte_aodp_marcada_como_comunitaria(migrated_connection):
     assert community is True
 
 
-async def test_taxas_nao_verificadas_ficam_null_e_nao_zero(migrated_connection):
-    """Requisito 52: sem valor confirmado, o parâmetro é UNKNOWN, não um chute."""
+async def test_taxas_de_mercado_continuam_null_e_nao_zero(migrated_connection):
+    """Requisito 52: sem valor confirmado, o parâmetro é UNKNOWN, não um chute.
+
+    Imposto e setup fee seguem sem medição, então seguem NULL. É o que faz a
+    plataforma responder "não sei" em vez de um lucro calculado com taxa zero.
+    """
     rows = (
         await migrated_connection.execute(
-            text(
-                "SELECT key, value, source FROM config_parameters "
-                "WHERE key LIKE 'market.%' OR key LIKE 'crafting.return_rate%'"
-            )
+            text("SELECT key, value, source FROM config_parameters WHERE key LIKE 'market.%'")
         )
     ).all()
     assert rows, "parâmetros de taxa deveriam existir no seed"
     for key, value, source in rows:
         assert value is None, f"{key} não pode ter valor inventado"
         assert source == "UNKNOWN"
+
+
+async def test_retorno_tem_valor_e_procedencia_por_extenso(migrated_connection):
+    """A matriz de retorno tem número — e por isso **precisa** ter fonte.
+
+    A regra nunca foi "tudo NULL": era "nenhum número sem procedência". Estes
+    vieram de engenharia reversa da comunidade, não de medição no jogo, e a
+    string de `source` diz as duas coisas. Um valor com `source = 'UNKNOWN'`
+    seria o chute que o requisito 52 proíbe.
+    """
+    rows = (
+        await migrated_connection.execute(
+            text(
+                "SELECT key, value, source FROM config_parameters "
+                "WHERE key LIKE '%.return_rate.%'"
+            )
+        )
+    ).all()
+    assert len(rows) == 8, "a matriz é 2 atividades x 2 locais x 2 estados de Focus"
+
+    for key, value, source in rows:
+        assert value is not None, f"{key} ficou sem valor"
+        assert 0 < float(value) < 1, f"{key} fora da faixa de uma taxa de retorno"
+        assert source != "UNKNOWN", f"{key} tem número sem procedência"
+        # A procedência precisa dizer de onde veio e quando.
+        assert "consultado em" in source, f"{key} não diz a data da consulta"
+        assert "nao auditado" in source, f"{key} não diz o que ficou por verificar"
+
+
+async def test_bonus_de_refino_por_cidade_continua_unknown(migrated_connection):
+    """O mapeamento recurso -> cidade não foi levantado, e não se aproxima.
+
+    Sem ele, `/refining` não tem como dizer em qual cidade aquele material rende
+    0,367 em vez de 0,152 — e a tela precisa dizer isso, não inventar.
+    """
+    value, source = (
+        await migrated_connection.execute(
+            text(
+                "SELECT value, source FROM config_parameters "
+                "WHERE key = 'refining.city_bonus_resources'"
+            )
+        )
+    ).one()
+    assert value is None
+    assert source == "UNKNOWN"
 
 
 async def test_pesos_do_score_sao_configuraveis(migrated_connection):
