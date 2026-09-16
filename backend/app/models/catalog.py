@@ -60,6 +60,12 @@ class Item(Base, TimestampMixin):
     weight: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     max_quality: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
+    # Ração: `@nutrition` e `@foodcategory` do dump. Só existem em cultivo,
+    # carne e animal adulto, e são o que liga um filhote ao que ele come --
+    # sem isso não dá para custear uma criação sem chutar a quantidade.
+    nutrition: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    food_category: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # Marca o subconjunto que os collectors varrem. Varrer 12 mil itens a 1 req/s
     # não fecha a conta (risco R5); a coleta é priorizada por este campo.
     is_tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

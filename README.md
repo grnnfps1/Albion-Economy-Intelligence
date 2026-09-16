@@ -6,8 +6,8 @@ refinamento e prata por Focus.
 
 **Estado: as dez fases do plano original estão concluídas.** A plataforma coleta
 preços e histórico do AODP, marca outliers, e entrega `/market`,
-`/market/history`, `/gold`, `/arbitrage`, `/crafting`, `/refining`, `/focus` e o
-painel integrado em `/`.
+`/market/history`, `/gold`, `/arbitrage`, `/crafting`, `/refining`, `/focus`,
+`/farming` e o painel integrado em `/`.
 
 Imposto de venda, retorno de material e taxa de estação são **entrada do
 usuário** — nenhum é constante, e uma calculadora que os fixa está errada para
@@ -55,6 +55,11 @@ docker compose exec backend python -m app.cli.import_items
 O `upgrade head` cria as tabelas e semeia servidores, locais, fontes de dado e
 parâmetros. O import baixa cerca de 40 MB do `ao-bin-dumps`; roda separado das
 migrations de propósito, porque subir o schema não pode depender de rede.
+
+O mesmo comando importa catálogo, receitas **e agricultura**. Agricultura usa uma
+segunda fonte, `loot.json`: `harvest.@lootlist` no dump de itens é só o nome da
+lista, e o que a colheita entrega (`3-6` cenouras, mais uma minhoca a 10%) mora
+lá. Para pular: `--skip-farming`. Para usar arquivos locais: `--loot-file`.
 
 Saída esperada:
 
@@ -116,6 +121,34 @@ fora das estatísticas.
 **Configure as taxas na primeira visita.** O formulário está no topo do painel.
 Sem elas o sistema mostra `UNKNOWN` em vez de lucro, de propósito.
 
+#### Agricultura e criação
+
+`/farming` responde o que colocar na parcela hoje, com três tipos de plano:
+`CULTIVO` (semente → colheita), `CRIACAO` (filhote → adulto, comendo cultivo) e
+`PRODUTO` (adulto → leite ou ovo).
+
+**Tudo sai normalizado por dia.** Um ciclo de fazenda leva 22 horas
+(`activefarmcyclelengthseconds` = 79.200) e um filhote de montaria T8 leva quase
+um mês: ordenar por "lucro por ciclo" premiaria o que é lento. A ordenação padrão
+é `profit_per_day`; `profit_per_focus` responde a outra pergunta — quanto rende o
+Focus, em vez de quanto rende a parcela.
+
+```bash
+curl -s "http://localhost:8000/api/v1/farming/plans?sort_by=profit_per_day&station=pasture&limit=5"   | python3 -m json.tool
+```
+
+A criação é cadeia: a ração sai da fazenda, e a quantidade vem de
+`grow_seconds ÷ @secondspernutrition` convertida pelo `@nutrition` do alimento
+mais barato da categoria aceita. O que o dump **não** decide — quantos ciclos de
+Focus uma criação aceita, o que `@activefarmbonus` multiplica — vai em
+`params.assumptions` na resposta e na lista de medição de
+[`docs/04-taxas.md`](docs/04-taxas.md). Número interpretado não pode sair com a
+mesma cara de número medido.
+
+Semente, filhote, cultivo e ração precisam estar na coleta. Eles entraram na
+lista padrão de `is_tracked`; num banco que já existia, reaplique com
+`python -m app.cli.import_items --apply-tracking`.
+
 #### Onde comprar cada material
 
 `/crafting` e `/refining` aceitam `sourcing_mode`, que decide em qual cidade
@@ -138,7 +171,6 @@ frescor não entra na comparação, e desviar nunca pode sair mais caro que a
 cidade base. Na tela, o material comprado fora ganha moldura âmbar e a linha
 avisa quando a rota passa de duas cidades — economizar 3% espalhado por quatro
 mercados custa quatro viagens.
-
 
 ### Verificar
 

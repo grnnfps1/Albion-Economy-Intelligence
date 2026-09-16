@@ -44,8 +44,22 @@ METADATA_URL = f"{DUMPS_BASE}/items.json"
 # Estes códigos são os valores reais de `@shopsubcategory1` no dump, conferidos
 # contra o banco depois da primeira importação. A intuição erra aqui: recurso
 # bruto é `resources`, não `rawresources`.
+# `farm`, `herbgarden`, `pasture` e `kennel` entram porque a fase de agricultura
+# precisa do preço da semente, do filhote e do adulto; `farmingproducts` é onde
+# ficam carne, leite e ovo. São ~150 identificadores a mais — cabem no orçamento
+# de 1 req/s. Sem eles a tela de agricultura calcula UNKNOWN por falta de preço.
 DEFAULT_TRACKED_SUBCATEGORIES = frozenset(
-    {"resources", "refinedresources", "cityresources", "tokens"}
+    {
+        "resources",
+        "refinedresources",
+        "cityresources",
+        "tokens",
+        "farm",
+        "herbgarden",
+        "pasture",
+        "kennel",
+        "farmingproducts",
+    }
 )
 
 
@@ -156,6 +170,9 @@ class NormalizedItem:
     display_name_pt: str | None
     weight: float | None
     max_quality: int | None
+    # Ração. Só cultivo, carne e animal adulto têm; nos outros é NULL.
+    nutrition: int | None
+    food_category: str | None
     is_tracked: bool
     has_metadata: bool
 
@@ -198,6 +215,8 @@ def normalize(
         display_name_pt=localized.get("PT-BR"),
         weight=_as_float(meta.get("@weight")),
         max_quality=_as_int(meta.get("@maxqualitylevel")),
+        nutrition=_as_int(meta.get("@nutrition")),
+        food_category=meta.get("@foodcategory"),
         is_tracked=subcategory in tracked_subcategories,
         has_metadata=bool(meta),
     )
@@ -262,6 +281,8 @@ async def _upsert_items(
             "display_name_pt": item.display_name_pt,
             "weight": item.weight,
             "max_quality": item.max_quality,
+            "nutrition": item.nutrition,
+            "food_category": item.food_category,
             "is_tracked": item.is_tracked,
             "active": True,
         }
@@ -285,6 +306,8 @@ async def _upsert_items(
                 "display_name_pt": statement.excluded.display_name_pt,
                 "weight": statement.excluded.weight,
                 "max_quality": statement.excluded.max_quality,
+                "nutrition": statement.excluded.nutrition,
+                "food_category": statement.excluded.food_category,
                 "active": statement.excluded.active,
                 **(
                     {"is_tracked": statement.excluded.is_tracked} if apply_tracking else {}

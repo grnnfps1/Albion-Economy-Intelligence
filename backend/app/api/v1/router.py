@@ -4,6 +4,7 @@ from app.api.v1.routes import (
     arbitrage,
     crafting,
     dashboard,
+    farming,
     focus,
     history,
     items,
@@ -23,3 +24,4 @@ api_router.include_router(arbitrage.router)
 api_router.include_router(crafting.router)
 api_router.include_router(refining.router)
 api_router.include_router(focus.router)
+api_router.include_router(farming.router)

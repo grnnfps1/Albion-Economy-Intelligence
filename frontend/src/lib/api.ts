@@ -462,3 +462,60 @@ export async function fetchPlatformStatus(): Promise<PlatformStatus> {
     };
   }
 }
+
+export type FarmInput = {
+  item: string; item_name: string | null; icon_url: string | null;
+  role: string; quantity: number; unit_price: number | null; total_price: number | null;
+  location: string | null; location_slug: string | null; age_seconds: number | null;
+  is_alternate_city: boolean; savings_vs_base: number | null;
+};
+
+export type FarmOutput = {
+  item: string; item_name: string | null; icon_url: string | null;
+  role: string; amount_min: number; amount_max: number; chance: number;
+  expected_amount: number; unit_price: number | null; primary: boolean;
+};
+
+export type FarmPlan = {
+  item: string; item_name: string | null; icon_url: string | null;
+  tier: number | null; station: string; station_label: string; kind: string;
+  buy_location: string; sell_location: string;
+  focus_cycles: number | null; liquidity_units_per_day: number | null;
+  npc_silver_cost: number | null;
+  inputs: FarmInput[]; outputs: FarmOutput[];
+  material_sourcing: MaterialSourcing;
+  economics: {
+    known: boolean; reason: string | null; kind: string;
+    cycle_seconds: number; cycle_days: number; focus_cost: number;
+    input_cost: number | null; gross_revenue: number | null;
+    sale_revenue_net: number | null; market_fees: number | null;
+    profit_per_cycle: number | null; profit_per_day: number | null;
+    profit_per_focus: number | null; focus_per_day: number | null;
+    margin_pct: number | null; roi_pct: number | null;
+    outputs_without_price: string[];
+  };
+};
+
+export type FarmingResponse = {
+  server: string; buy_location: string; sell_location: string;
+  sort_by: string; sourcing_mode: string; total: number;
+  params: {
+    fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
+            premium: boolean | null; source: string; complete: boolean; missing: string[] };
+    complete: boolean; missing: string[]; assumptions: string[];
+  };
+  generated_at: string; data_source_note: string;
+  stations: string[]; plans: FarmPlan[];
+};
+
+export async function fetchFarming(
+  query: Record<string, string | undefined>,
+): Promise<FarmingResponse | null> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  try {
+    return await getJson<FarmingResponse>(`/api/v1/farming/plans?${params.toString()}`);
+  } catch {
+    return null;
+  }
+}

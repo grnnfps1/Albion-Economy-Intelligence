@@ -1,7 +1,7 @@
 /**
  * Ícones da navegação, desenhados aqui em vez de vir de biblioteca.
  *
- * São onze ícones. Uma biblioteca traria algumas centenas junto, e o projeto já
+ * São doze ícones. Uma biblioteca traria algumas centenas junto, e o projeto já
  * desenha os gráficos em SVG à mão — manter o mesmo traço custa menos que
  * alinhar um pacote externo ao resto.
  *
@@ -29,6 +29,8 @@ const TRACOS: Record<string, string> = {
   gold: "M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3zM5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5",
   // Transporte: carroça.
   transporte: "M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19a2 2 0 100-4 2 2 0 000 4zM18 19a2 2 0 100-4 2 2 0 000 4z",
+  // Agricultura: broto saindo do canteiro.
+  agricultura: "M4 20h16M12 20v-7M12 13c0-3 2-5 5-5 0 3-2 5-5 5zM12 13c0-3-2-5-5-5 0 3 2 5 5 5z",
   // Watchlist: olho que vigia.
   watchlist: "M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6zM12 15a3 3 0 100-6 3 3 0 000 6z",
 };

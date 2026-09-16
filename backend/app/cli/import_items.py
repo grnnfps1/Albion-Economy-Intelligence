@@ -13,6 +13,7 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.catalog.farming_importer import import_farmables, load_loot
 from app.catalog.importer import DEFAULT_TRACKED_SUBCATEGORIES, import_catalog, load_sources
 from app.catalog.recipes_importer import import_recipes
 from app.core.config import get_settings
@@ -47,12 +48,23 @@ async def _main(args: argparse.Namespace) -> int:
             )
 
         recipes_report = None
+        farming_report = None
+        metadata = None
         if not args.skip_recipes:
             # As receitas precisam do catálogo já gravado: elas referenciam
             # items.id tanto na saída quanto em cada material.
             _names, metadata = await load_sources(names_path, metadata_path)
             async with session_factory() as session:
                 recipes_report = await import_recipes(session, metadata)
+
+        if not args.skip_farming:
+            # Agricultura precisa de uma segunda fonte: `harvest.@lootlist` é só
+            # o nome da lista, e o que ela entrega mora em loot.json.
+            if metadata is None:
+                _names, metadata = await load_sources(names_path, metadata_path)
+            loot = await load_loot(Path(args.loot_file) if args.loot_file else None)
+            async with session_factory() as session:
+                farming_report = await import_farmables(session, metadata, loot)
     finally:
         await dispose_engine()
 
@@ -67,6 +79,10 @@ async def _main(args: argparse.Namespace) -> int:
         imprimir("receitas", recipes_report.as_dict())
         if recipes_report.missing_examples:
             print(f"  exemplos fora do catálogo: {', '.join(recipes_report.missing_examples[:5])}")
+    if farming_report is not None:
+        imprimir("agricultura", farming_report.as_dict())
+        if farming_report.missing_examples:
+            print(f"  exemplos fora do catálogo: {', '.join(farming_report.missing_examples[:5])}")
     return 0
 
 
@@ -77,6 +93,10 @@ def main() -> int:
     parser.add_argument(
         "--skip-recipes", action="store_true", help="importa só o catálogo, sem receitas"
     )
+    parser.add_argument(
+        "--skip-farming", action="store_true", help="não importa agricultura e criação"
+    )
+    parser.add_argument("--loot-file", help="caminho local de loot.json (o que cada colheita dá)")
     parser.add_argument(
         "--apply-tracking",
         action="store_true",

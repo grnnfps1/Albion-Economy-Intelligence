@@ -29,6 +29,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 9 | Focus | ✅ |
 | 10 | Dashboard | ✅ |
 | 11 | Onde comprar cada material (`sourcing_mode`) | ✅ |
+| 12 | Agricultura e animais | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -117,7 +118,7 @@ backend/app/
   db/ cache/         engine Postgres, cliente Redis
   models/            tabelas SQLAlchemy
   repositories/      queries (único lugar com SQL)
-  catalog/           parser + importador do catálogo de itens
+  catalog/           parser + importador do catálogo, receitas e agricultura
   collectors/aodp/   client do AODP
   calculations/      funções puras de taxa/lucro     (fase 6+)
   opportunities/     motor de score                  (fase 6+)
@@ -159,6 +160,10 @@ O teste do collector também precisa de Redis, em `TEST_REDIS_URL` — **banco 1
 nunca o da aplicação**: o fixture roda `flushdb`. Sem a variável ele deriva a URL
 de `REDIS_URL` trocando o número do banco, o que faz o mesmo comando funcionar
 dentro e fora do compose (`localhost` fixo não funcionava dentro do container).
+
+O schema de teste sai de `create_all()` e **não é migrado**: depois de acrescentar
+coluna a uma tabela existente, rode `drop schema public cascade; create schema
+public;` em `albion_test` antes da suíte, ou a coluna nova não existe lá.
 
 ## Sobre a fonte de dados
 
@@ -254,6 +259,36 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
+## Notas da fase 12 — agricultura e animais
+
+- **O tempo é o ponto.** Um ciclo de fazenda leva 22 horas
+  (`activefarmcyclelengthseconds` = 79.200) e um filhote de montaria T8 leva
+  quase um mês. "Lucro por ciclo" ao lado de "lucro por craft" não compara nada:
+  tudo sai em **prata por dia** e **prata por Focus**, e ordenar por ciclo
+  premiaria o que é lento. Há teste demonstrando.
+- **Duas fontes, não uma.** `farmableitem` diz o tempo, o Focus e a ração;
+  `harvest.@lootlist` é só o *nome* da lista, e o que a colheita entrega mora em
+  `loot.json`. Sem a segunda fonte não se sabe nem qual item sai nem quantos.
+- **Nem tudo que cai é o motivo de plantar.** `T1_CARROT_LOOT` traz a cenoura a
+  100% **e uma minhoca a 10%**. Tratar as duas como saída principal fez todo
+  cultivo virar UNKNOWN na primeira rodada com preço real, porque ninguém cota
+  minhoca. Chance 1.0 é o que separa as duas.
+- **Quantidade é faixa.** O dump diz `3-6`, não `4`. A faixa fica nas duas
+  colunas do banco e o cálculo usa a média — achatar na importação apagaria a
+  incerteza antes de alguém poder vê-la.
+- **Criação é cadeia**, e por isso reaproveita a política de compra do refino: a
+  ração sai da fazenda, e a quantidade é `grow_seconds ÷ @secondspernutrition`
+  convertida pelo `@nutrition` do alimento mais barato da categoria aceita.
+- **A semente que volta não paga imposto de venda.** Ela é replantada, não
+  vendida; cobrar imposto ali inventaria uma taxa que ninguém paga.
+- **O que foi interpretado vai etiquetado.** `@activefarmmaxcycles` e
+  `@activefarmbonus` não são inequívocos, e a resposta carrega
+  `params.assumptions` dizendo isso. A lista de medição está em
+  `docs/04-taxas.md`, itens 7 a 10. Um número plausível ao lado de um medido,
+  sem etiqueta, vira medido.
+- **Adulto que não produz nada não vira plano.** Ele é saída de uma criação, não
+  uma decisão que alguém toma.
+
 ## Notas da fase 11 — onde comprar cada material
 
 - **`sourcing_mode` é política de serviço, não fórmula.** Vive em
@@ -275,12 +310,14 @@ obrigatório. Nenhuma delas lê configuração.
 
 ## O plano original terminou
 
-As dez fases estão implementadas. O que vem agora não está planejado em detalhe;
+As dez fases do plano original estão implementadas, e mais duas vieram depois. O que vem agora não está planejado em detalhe;
 é o que o documento original listava como "futuro". Em ordem de valor:
 
 1. **Medir as taxas no jogo** (`docs/04-taxas.md`). Não bloqueia mais nada, mas
-   define o padrão pré-preenchido. Seis medições, incluindo se token de facção
-   retorna no craft.
+   define o padrão pré-preenchido. Dez medições: as seis de mercado e craft, mais
+   as quatro que a agricultura trouxe (ciclos de Focus da criação, o que
+   `@activefarmbonus` multiplica, o bônus de comida favorita e o preço fixo do
+   comerciante de fazenda).
 2. **Contas e preferências.** Hoje os parâmetros do usuário vivem na URL. Com
    login, viram preferência salva — o cálculo não muda, só a origem do valor.
 3. **Watchlist e alertas.** A arquitetura já está preparada; falta a tabela e o

@@ -35,6 +35,7 @@ const GRUPOS: Grupo[] = [
     itens: [
       { label: "Crafting", href: "/crafting", icon: "crafting" },
       { label: "Refinamento", href: "/refining", icon: "refino" },
+      { label: "Agricultura", href: "/farming", icon: "agricultura" },
       { label: "Focus", href: "/focus", icon: "focus" },
     ],
   },

@@ -69,6 +69,24 @@ e conferir se o token volta. Se voltar, incluir `cityresources` em
 
 Errar para menos retorno subestima o lucro. É o lado conservador de errar.
 
+## Sétimo ao décimo item: agricultura e criação
+
+A fase de agricultura trouxe quatro leituras que o dump **não** decide sozinho.
+Todas aparecem em `params.assumptions` na resposta de `/farming/plans`, para que
+número interpretado não passe por número medido.
+
+| # | O que verificar | Medição no jogo | Efeito de errar |
+|---|---|---|---|
+| 7 | Quantos ciclos de Focus uma criação aceita | Colocar um filhote no pasto e contar quantas vezes o Focus pode ser aplicado até ele virar adulto. Comparar com `@activefarmmaxcycles` | Prata/Focus de criação sai errada por um fator inteiro |
+| 8 | O que `@activefarmbonus` multiplica | Colher o mesmo cultivo com e sem Focus e comparar a quantidade | Hoje o campo é gravado e **não** usado: o lucro sai subestimado, que é o lado conservador |
+| 9 | Se a comida favorita (`@favoritebonus`) reduz o consumo | Criar dois filhotes iguais, um com a comida favorita e outro sem, e comparar a ração gasta | Custo de ração superestimado no caso favorito |
+| 10 | Se o comerciante de fazenda vende semente e filhote a preço fixo para todos | Comprar uma semente no NPC e comparar com `craftingrequirements.@silver` do dump | Hoje o cálculo usa o preço de mercado e mostra o valor do NPC ao lado; se o NPC for sempre mais barato, o custo real é menor que o exibido |
+
+O que **não** precisa de medição, porque o dump diz literalmente: a duração do
+ciclo (79.200 s = 22 h), o tempo de crescimento de cada filhote, o consumo de
+nutrição (`@secondspernutrition`) e a faixa da colheita (`3-6` por pé, em
+`loot.json`).
+
 ## Como gravar depois
 
 ```sql
