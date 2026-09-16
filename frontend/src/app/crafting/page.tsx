@@ -1,8 +1,14 @@
 import { PageShell } from "@/components/PageShell";
 import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
-import { CityTag, QualityBadge, SpreadWarning, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
+import {
+  CityTag,
+  QualityBadge,
+  SpreadWarning,
+  TierBadge,
+  ZoneTag,
+} from "@/components/ui/Badges";
+import { AgeTag, DenseRow, Figure, RiskProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchCrafting, type CraftOpportunity } from "@/lib/api";
 import { formatSilver } from "@/lib/format";
@@ -89,7 +95,7 @@ export default async function CraftingPage({
           { rotulo: "item" },
           { rotulo: "você gasta", alinhamento: "right" },
           { rotulo: "você recebe", alinhamento: "right" },
-          { rotulo: "lucro", ordenavel: "profit", alinhamento: "right" },
+          { rotulo: "lucro ajustado", ordenavel: "profit", alinhamento: "right" },
           { rotulo: "prata / focus", ordenavel: "profit_per_focus", alinhamento: "right" },
           { rotulo: "materiais · onde comprar" },
           { rotulo: "vender em", alinhamento: "right" },
@@ -118,6 +124,9 @@ export default async function CraftingPage({
           número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
           tier. Material com moldura âmbar vem de outra cidade — e o aviso de cidades aparece a
           partir da terceira, porque economia espalhada por quatro mercados custa quatro viagens.
+          Vender fora da cidade onde se compra cria uma rota, e rota tem zona: qualquer ponta em
+          Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b>, onde
+          a carga inteira pode não chegar. O Black Market aceita equipamento, nunca recurso.
         </p>
       )}
     </PageShell>
@@ -160,7 +169,14 @@ function CraftLine({ op }: { op: CraftOpportunity }) {
 
       <Figure value={eco.material_cost_net} label="materiais + taxas" />
       <Figure value={eco.sale_revenue_net} label="após imposto" />
-      <ProfitFigure profit={eco.profit} marginPct={eco.margin_pct} unknownReason={eco.reason} />
+      <RiskProfitFigure
+        grossProfit={eco.profit}
+        expectedProfit={op.risk.expected_profit}
+        lossProbability={op.risk.loss_probability}
+        crossesOpenWorld={op.risk.crosses_open_world}
+        marginPct={eco.margin_pct}
+        unknownReason={eco.reason}
+      />
 
       <div className="pr-3 text-right">
         <span
@@ -207,6 +223,9 @@ function CraftLine({ op }: { op: CraftOpportunity }) {
 
       <div className="text-right">
         <CityTag city={op.sell_location} className="justify-end text-[12px]" />
+        <div className="mt-[3px] flex justify-end">
+          <ZoneTag zone={op.risk.zone} label={op.risk.zone_label} />
+        </div>
         <div className="mt-px flex justify-end gap-1.5">
           <AgeTag seconds={op.sell_age_seconds} />
           <span className="figure text-[9.5px] text-dim">

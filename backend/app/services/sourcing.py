@@ -15,8 +15,8 @@ Quatro regras que este módulo materializa:
   -- mesmo que a dela esteja velha. O modo MAIS_BARATO não pode piorar o custo.
 - **Empate fica na cidade base.** Uma segunda cidade só se paga quando economiza
   de fato; empate com viagem é prejuízo.
-- **Black Market fora.** A semântica de ordens é invertida e não foi validada
-  empiricamente; ele não entra como perna de compra.
+- **Black Market fora.** Como *destino de venda* ele foi validado (fase 13), mas
+  comprar material lá não foi medido — e é de compra que este módulo trata.
 """
 
 from collections.abc import Mapping, Sequence

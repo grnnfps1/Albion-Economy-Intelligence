@@ -104,7 +104,9 @@ async def build_dashboard(
         session, server=server, strategy=Strategy.FAST, quantity=100,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         transport_cost_per_unit=0.0, max_age_seconds=settings.freshness_stale_seconds,
-        include_black_market=False, min_profit=1.0, tracked_only=True, limit=10,
+        # Destino validado na fase 13: ele preenche buy_price_max sempre, e a
+        # orientação é normal (docs/02-aodp.md).
+        include_black_market=True, min_profit=1.0, tracked_only=True, limit=10,
     )
     craft = await find_crafting_opportunities(
         session, **comum, crafts=1, sort_by="profit_per_focus",

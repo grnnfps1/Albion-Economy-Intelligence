@@ -117,6 +117,22 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
           onChange={(e) => atualizar({ quantity: parseFloat(e.target.value) || 1 })} />
       </label>
 
+      {/* Risco de rota. Zero é o padrão e significa "não estou modelando
+          perda" — o lucro ajustado sai igual ao bruto, à vista. */}
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Perda % · zona azul</span>
+        <input className={campo} value={(prefs.lossPctBlue * 100).toFixed(1)}
+          onChange={(e) => atualizar({ lossPctBlue: (parseFloat(e.target.value) || 0) / 100 })} />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Perda % · vermelha/preta</span>
+        <input className={campo} value={(prefs.lossPctRedBlack * 100).toFixed(1)}
+          onChange={(e) =>
+            atualizar({ lossPctRedBlack: (parseFloat(e.target.value) || 0) / 100 })
+          } />
+      </label>
+
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}
           className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-[12px] text-body hover:border-warn disabled:opacity-50">
@@ -129,6 +145,14 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         São o que a comunidade reporta. O imposto muda com Premium; o retorno muda com Focus e
         especialização; a taxa da estação é definida pelo dono e varia por cidade. Ajuste uma
         vez — vale para todas as telas.
+      </p>
+
+      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+        <b className="font-semibold text-body">Perda de carga começa em zero</b>, e zero não é
+        um chute: é dizer que você não está modelando perda, e nesse caso o lucro ajustado sai
+        igual ao bruto. Rota entre cidades reais é zona azul; qualquer ponta em Caerleon ou no
+        Black Market atravessa vermelha/preta. Informe o número que a sua própria experiência
+        mostra — ninguém tem esse dado além de você.
       </p>
     </div>
   );

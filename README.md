@@ -149,6 +149,40 @@ Semente, filhote, cultivo e ração precisam estar na coleta. Eles entraram na
 lista padrão de `is_tracked`; num banco que já existia, reaplique com
 `python -m app.cli.import_items --apply-tracking`.
 
+#### Risco de rota e Black Market
+
+Toda rota tem zona. Cidade real ↔ cidade real é **azul**; qualquer ponta em
+Caerleon ou no Black Market atravessa **vermelha/preta**, onde a carga inteira
+pode não chegar. A classificação vive em `transport_routes`, semeada para os 56
+pares dos oito locais.
+
+O lucro aparece em dois números lado a lado — o bruto e o ajustado ao risco:
+
+```
+esperado = lucro × (1 − p) − investimento × p
+```
+
+O segundo termo é o que quase toda calculadora esquece: perder a carga não é
+ganhar zero, é perder também o que se investiu nela. Uma rota com 20% de perda
+não rende 80% do lucro — pode render negativo.
+
+`p` é **preferência do usuário**, com padrão **zero** (`loss_pct_blue` e
+`loss_pct_red_black`, em `/arbitrage` e `/crafting` ou no formulário de
+preferências). Zero significa "não estou modelando perda", e nesse caso o
+ajustado sai idêntico ao bruto — diferente das taxas, onde ausência vira
+`UNKNOWN`, porque calcular sem imposto inventaria lucro.
+
+```bash
+curl -s "http://localhost:8000/api/v1/arbitrage?loss_pct_red_black=0.25&loss_pct_blue=0.01&limit=5"   | python3 -m json.tool
+```
+
+**Black Market.** Validado empiricamente em 16/09/2026
+([`docs/02-aodp.md`](docs/02-aodp.md)): ele preenche `buy_price_max` em 40 de 40
+equipamentos, com orientação normal — a suposição de "semântica invertida" era
+falsa. Entra como **destino de venda** em `/arbitrage` e `/crafting`; como
+origem de compra continua fora, porque comprar lá não foi medido. E ele não
+negocia recurso: 7 de 7 vieram zerados.
+
 #### Onde comprar cada material
 
 `/crafting` e `/refining` aceitam `sourcing_mode`, que decide em qual cidade

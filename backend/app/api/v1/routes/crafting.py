@@ -25,7 +25,13 @@ async def crafting_opportunities(
     session: SessionDep,
     server: str = Query("west"),
     buy_location: str = Query("caerleon", description="slug da cidade onde comprar material"),
-    sell_location: str | None = Query(None, description="padrão: mesma cidade da compra"),
+    sell_location: str | None = Query(
+        None,
+        description=(
+            "padrão: mesma cidade da compra. Aceita black-market como destino: ele "
+            "compra equipamento, nunca recurso (docs/02-aodp.md)."
+        ),
+    ),
     # Nenhum destes é fato fixo. Retorno muda com Focus e especialização, taxa
     # de estação muda por cidade e por hora, imposto muda com Premium.
     return_rate: float | None = Query(None, ge=0, le=1, description="Ex.: 0.15 para 15%."),
@@ -42,6 +48,16 @@ async def crafting_opportunities(
     # rota espalhada custa viagem: só vale quando a economia paga o desvio.
     sourcing_mode: str = Query(
         "CIDADE_UNICA", description="CIDADE_UNICA | MAIS_BARATO | COMPARAR"
+    ),
+    # Probabilidade de perder a carga na rota. Preferência do usuário, como as
+    # taxas, mas com padrão ZERO em vez de UNKNOWN: zero significa "não estou
+    # modelando perda", e o lucro ajustado sai igual ao bruto, à vista.
+    loss_pct_blue: float | None = Query(
+        None, ge=0, le=1, description="Perda esperada entre cidades reais. Ex.: 0.01 para 1%."
+    ),
+    loss_pct_red_black: float | None = Query(
+        None, ge=0, le=1,
+        description="Perda esperada em rota por Caerleon ou Black Market. Ex.: 0.15 para 15%.",
     ),
     limit: int = Query(30, ge=1, le=100),
 ) -> CraftingResponse:
@@ -61,5 +77,7 @@ async def crafting_opportunities(
         tier=tier,
         station_category=station_category,
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
+        loss_pct_blue=loss_pct_blue,
+        loss_pct_red_black=loss_pct_red_black,
         limit=limit,
     )

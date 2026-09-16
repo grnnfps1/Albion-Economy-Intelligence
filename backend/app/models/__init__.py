@@ -10,6 +10,7 @@ from app.models.observability import CollectorRun, RawResponse
 from app.models.recipes import Recipe, RecipeMaterial
 from app.models.reference import DataSource, ItemCategory, Location, Server
 from app.models.settings import ConfigParameter
+from app.models.transport import TransportRoute
 
 __all__ = [
     "CollectorRun",
@@ -27,4 +28,5 @@ __all__ = [
     "Recipe",
     "RecipeMaterial",
     "Server",
+    "TransportRoute",
 ]

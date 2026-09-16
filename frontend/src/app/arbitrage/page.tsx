@@ -1,8 +1,8 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
-import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
+import { CityTag, QualityBadge, TierBadge, ZoneTag } from "@/components/ui/Badges";
+import { AgeTag, DenseRow, Figure, RiskProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchArbitrage, type Opportunity } from "@/lib/api";
 import { formatSilver } from "@/lib/format";
@@ -21,10 +21,12 @@ const GRUPOS = [
     ],
   },
   {
-    chave: "include_black_market", padrao: "false",
+    // Validado em 16/09/2026 (docs/02-aodp.md): ele preenche buy_price_max em
+    // 40/40 equipamentos, com orientação normal. Entra ligado, como destino.
+    chave: "include_black_market", padrao: "true",
     opcoes: [
-      { valor: "false", rotulo: "só cidades" },
       { valor: "true", rotulo: "com black market" },
+      { valor: "false", rotulo: "só cidades" },
     ],
   },
 ];
@@ -65,7 +67,7 @@ export default async function ArbitragePage({
           { rotulo: "rota" },
           { rotulo: "você gasta", alinhamento: "right" },
           { rotulo: "você recebe", alinhamento: "right" },
-          { rotulo: "lucro", alinhamento: "right" },
+          { rotulo: "lucro ajustado ao risco", alinhamento: "right" },
           { rotulo: "score", alinhamento: "right" },
           { rotulo: "dado", alinhamento: "right" },
         ]}
@@ -86,6 +88,29 @@ export default async function ArbitragePage({
           op={op}
         />
       ))}
+
+      {data && data.opportunities.length > 0 && (
+        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
+          <b>Zona da rota.</b> Cidade real para cidade real é <i>zona azul</i>. Qualquer ponta em
+          Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b> — e
+          é por isso que essas rotas pagam mais: o spread maior é o preço do risco de perder a
+          carga inteira, não uma vantagem escondida.{" "}
+          {data.risk.modelled ? (
+            <>
+              Com {(data.risk.loss_pct_red_black * 100).toFixed(1)}% de perda em zona aberta e{" "}
+              {(data.risk.loss_pct_blue * 100).toFixed(1)}% em azul, o lucro exibido já é o
+              esperado: <i>lucro × (1 − p) − investimento × p</i>. O bruto fica riscado ao lado,
+              para o desconto continuar auditável.
+            </>
+          ) : (
+            <>
+              Você ainda não informou perda esperada, então o lucro exibido é o bruto. Preencha{" "}
+              <i>perda %</i> nas preferências para ver o ajustado — perder a carga não custa o
+              lucro, custa o lucro <b>e</b> o investimento.
+            </>
+          )}
+        </p>
+      )}
     </PageShell>
   );
 }
@@ -127,11 +152,21 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
           <CityTag city={op.destination} className="text-[11.5px]" />
           <span className="figure text-[11px] text-muted">{formatSilver(op.sell_price)}</span>
         </div>
+        <div className="mt-[3px]">
+          <ZoneTag zone={op.risk.zone} label={op.risk.zone_label} />
+        </div>
       </div>
 
       <Figure value={eco.investment} label="investido" />
       <Figure value={eco.gross_revenue} label="antes de taxas" />
-      <ProfitFigure profit={eco.net_profit} marginPct={eco.margin_pct} unknownReason={eco.reason} />
+      <RiskProfitFigure
+        grossProfit={eco.net_profit}
+        expectedProfit={op.risk.expected_profit}
+        lossProbability={op.risk.loss_probability}
+        crossesOpenWorld={op.risk.crosses_open_world}
+        marginPct={eco.margin_pct}
+        unknownReason={eco.reason}
+      />
 
       <div className="pr-3 text-right">
         <span

@@ -108,3 +108,38 @@ export function SpreadWarning({
     </span>
   );
 }
+
+/**
+ * Zona da rota.
+ *
+ * Não é decoração: uma rota que atravessa vermelha ou preta pode custar a carga
+ * inteira, e o spread maior dela é pagamento por esse risco — não vantagem. Por
+ * isso a marca é vermelha e não âmbar: âmbar neste projeto é "atenção, dado
+ * incerto"; isto aqui é "você pode perder tudo".
+ */
+export function ZoneTag({ zone, label }: { zone: string; label: string }) {
+  if (zone === "MESMA_CIDADE") {
+    return (
+      <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-dim">
+        sem viagem
+      </span>
+    );
+  }
+
+  const aberta = zone === "VERMELHA_PRETA";
+  return (
+    <span
+      title={
+        aberta
+          ? "A rota passa por Caerleon ou pelo Black Market: zona aberta, onde a carga inteira pode não chegar."
+          : "Rota entre cidades reais."
+      }
+      className={`figure rounded-[3px] border px-[5px] py-px font-bold text-[9.5px] ${
+        aberta ? "border-down/50 bg-down-dim text-down" : "border-line bg-raised text-muted"
+      }`}
+    >
+      {aberta ? "⚔ " : ""}
+      {label}
+    </span>
+  );
+}

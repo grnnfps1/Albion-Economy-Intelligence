@@ -39,6 +39,15 @@ class ScoreInputs:
     liquidity_units_per_day: float | None = None
     trend_pct: float | None = None
 
+    # Os dois pesos que existiam em `config_parameters` desde a fase 0 e nunca
+    # tinham de onde sair. Agora saem da zona da rota e da preferência de risco
+    # do usuário (`calculations/risk.py`).
+    loss_probability: float | None = None
+    """Probabilidade de perder a carga na rota, de 0 a 1."""
+
+    distance_factor: float | None = None
+    """Proximidade já normalizada, de 0 (longe/perigoso) a 1 (mesma cidade)."""
+
 
 @dataclass(frozen=True)
 class ScoreResult:
@@ -113,6 +122,17 @@ def compute_score(
         )
     else:
         faltando.append("liquidity")
+
+    if inputs.loss_probability is not None:
+        # Risco entra invertido: probabilidade de perda alta é score baixo.
+        normalizados["risk"] = _clamp(1 - inputs.loss_probability)
+    else:
+        faltando.append("risk")
+
+    if inputs.distance_factor is not None:
+        normalizados["distance"] = _clamp(inputs.distance_factor)
+    else:
+        faltando.append("distance")
 
     if inputs.trend_pct is not None:
         # Tendência de alta no destino favorece; de queda penaliza. Centrado em

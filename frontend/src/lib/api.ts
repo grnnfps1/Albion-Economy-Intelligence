@@ -234,6 +234,7 @@ export type Opportunity = {
   buy_price: number; sell_price: number; spread_pct: number;
   worst_age_seconds: number;
   liquidity_units_per_day: number | null;
+  risk: RouteRisk;
   economics: Economics;
   score: { value: number | null; band: string; confidence: number;
            components: Record<string, number>; missing: string[] };
@@ -243,6 +244,7 @@ export type ArbitrageResponse = {
   server: string; strategy: string; quantity: number; total: number;
   fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
           premium: boolean | null; source: string; complete: boolean; missing: string[] };
+  risk: RiskUsed;
   generated_at: string; data_source_note: string;
   opportunities: Opportunity[];
 };
@@ -258,6 +260,20 @@ export async function fetchArbitrage(
     return null;
   }
 }
+
+/** Risco de rota: os dois números lado a lado, o bruto e o ajustado. */
+export type RouteRisk = {
+  zone: string; zone_label: string; crosses_open_world: boolean;
+  loss_probability: number;
+  gross_profit: number | null; investment: number | null;
+  expected_profit: number | null; expected_loss: number | null;
+  survives_risk: boolean;
+};
+
+export type RiskUsed = {
+  loss_pct_blue: number; loss_pct_red_black: number;
+  source: string; modelled: boolean;
+};
 
 export type CraftMaterial = {
   item: string; item_name: string | null; icon_url: string | null;
@@ -285,6 +301,7 @@ export type CraftOpportunity = {
   liquidity_units_per_day: number | null;
   materials: CraftMaterial[];
   material_sourcing: MaterialSourcing;
+  risk: RouteRisk;
   economics: {
     known: boolean; reason: string | null;
     output_quantity: number; focus_cost: number;
@@ -305,6 +322,7 @@ export type CraftingResponse = {
             premium: boolean | null; source: string; complete: boolean; missing: string[] };
     complete: boolean; missing: string[];
   };
+  risk: RiskUsed;
   generated_at: string; data_source_note: string;
   opportunities: CraftOpportunity[];
 };

@@ -211,3 +211,129 @@ async def test_parametros_usados_vao_na_resposta(session, cenario):
     assert resposta.params.fees.sales_tax_pct == 0.04
     assert resposta.params.fees.premium is True
     assert resposta.params.complete is True
+
+
+async def test_rota_dentro_da_mesma_cidade_nao_tem_risco(session, cenario):
+    """Sem viagem não há emboscada, mesmo com risco informado."""
+    p = cenario["preco"]
+    await semear(session, cenario, [
+        p(cenario["wood"], 1000, 900),
+        p(cenario["t3"], 800, 700),
+        p(cenario["planks"], 5000, 4500),
+    ])
+
+    resposta = await find_crafting_opportunities(
+        session, **(PADRAO | {"loss_pct_blue": 0.1, "loss_pct_red_black": 0.5})
+    )
+    op = resposta.opportunities[0]
+
+    assert op.risk.zone == "MESMA_CIDADE"
+    assert op.risk.loss_probability == 0.0
+    assert op.risk.expected_profit == op.economics.profit
+
+
+async def test_vender_em_outra_cidade_desconta_o_risco(session, cenario):
+    """Os dois números lado a lado: o bruto e o ajustado.
+
+    Comprando em Caerleon, *qualquer* venda fora dela atravessa zona aberta —
+    a classificação é pelas pontas, e uma delas já é Caerleon.
+    """
+    p = cenario["preco"]
+    lymhurst = Location(aodp_name="Lymhurst", slug="lymhurst",
+                        display_name="Lymhurst", kind="royal_city")
+    session.add(lymhurst)
+    await session.flush()
+
+    quando = AGORA - timedelta(minutes=5)
+    await semear(session, cenario, [
+        p(cenario["wood"], 1000, 900),
+        p(cenario["t3"], 800, 700),
+        MarketPriceRecord(
+            server_id=cenario["server"].id, location_id=lymhurst.id,
+            item_id=cenario["planks"].id, quality=1,
+            sell_price_min=5000, sell_price_min_date=quando,
+            sell_price_max=5000, sell_price_max_date=quando,
+            buy_price_min=None, buy_price_min_date=None,
+            buy_price_max=4500, buy_price_max_date=quando,
+            observed_at=AGORA, source_id=cenario["source"].id,
+        ),
+    ])
+
+    resposta = await find_crafting_opportunities(
+        session, **(PADRAO | {"sell_location": "lymhurst", "loss_pct_red_black": 0.1})
+    )
+    op = resposta.opportunities[0]
+
+    assert op.risk.zone == "VERMELHA_PRETA"
+    assert op.risk.loss_probability == 0.1
+    assert op.risk.gross_profit == op.economics.profit
+    assert op.risk.expected_profit < op.risk.gross_profit
+    # O desconto inclui o capital: não é só lucro x 0,9.
+    assert op.risk.expected_profit < op.economics.profit * 0.9
+
+
+async def test_vender_no_black_market_atravessa_zona_aberta(session, cenario):
+    """O destino validado em 16/09/2026 — e ele não é de graça."""
+    p = cenario["preco"]
+    bm = Location(aodp_name="Black Market", slug="black-market",
+                  display_name="Black Market", kind="black_market")
+    session.add(bm)
+    await session.flush()
+
+    quando = AGORA - timedelta(minutes=5)
+    await semear(session, cenario, [
+        p(cenario["wood"], 1000, 900),
+        p(cenario["t3"], 800, 700),
+        MarketPriceRecord(
+            server_id=cenario["server"].id, location_id=bm.id,
+            item_id=cenario["planks"].id, quality=1,
+            sell_price_min=7000, sell_price_min_date=quando,
+            sell_price_max=7000, sell_price_max_date=quando,
+            buy_price_min=None, buy_price_min_date=None,
+            buy_price_max=6500, buy_price_max_date=quando,
+            observed_at=AGORA, source_id=cenario["source"].id,
+        ),
+    ])
+
+    resposta = await find_crafting_opportunities(
+        session, **(PADRAO | {"sell_location": "black-market", "loss_pct_red_black": 0.3})
+    )
+    op = resposta.opportunities[0]
+
+    assert op.risk.zone == "VERMELHA_PRETA"
+    assert op.risk.crosses_open_world is True
+    assert op.risk.loss_probability == 0.3
+    assert op.economics.known is True
+
+
+async def test_risco_alto_pode_derrubar_um_craft_lucrativo(session, cenario):
+    """Lucrativo no bruto, negativo no ajustado. É o caso que a tela precisa mostrar."""
+    p = cenario["preco"]
+    bm = Location(aodp_name="Black Market", slug="black-market",
+                  display_name="Black Market", kind="black_market")
+    session.add(bm)
+    await session.flush()
+
+    quando = AGORA - timedelta(minutes=5)
+    await semear(session, cenario, [
+        p(cenario["wood"], 1000, 900),
+        p(cenario["t3"], 800, 700),
+        MarketPriceRecord(
+            server_id=cenario["server"].id, location_id=bm.id,
+            item_id=cenario["planks"].id, quality=1,
+            sell_price_min=3200, sell_price_min_date=quando,
+            sell_price_max=3200, sell_price_max_date=quando,
+            buy_price_min=None, buy_price_min_date=None,
+            buy_price_max=3100, buy_price_max_date=quando,
+            observed_at=AGORA, source_id=cenario["source"].id,
+        ),
+    ])
+
+    resposta = await find_crafting_opportunities(
+        session, **(PADRAO | {"sell_location": "black-market", "loss_pct_red_black": 0.35})
+    )
+    op = resposta.opportunities[0]
+
+    assert op.risk.gross_profit > 0
+    assert op.risk.survives_risk is False
+    assert op.risk.expected_profit < 0

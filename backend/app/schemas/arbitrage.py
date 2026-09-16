@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.catalog import CategoryOut  # noqa: F401  (mantém o módulo coeso)
+from app.schemas.risk import RiskOut, RiskUsed
 
 
 class FeesUsed(BaseModel):
@@ -61,6 +62,7 @@ class OpportunityOut(BaseModel):
     worst_age_seconds: int
     liquidity_units_per_day: float | None
     economics: EconomicsOut
+    risk: RiskOut
     score: ScoreOut
 
 
@@ -70,6 +72,7 @@ class ArbitrageResponse(BaseModel):
     quantity: int
     total: int
     fees: FeesUsed
+    risk: RiskUsed
     generated_at: str
     data_source_note: str
     opportunities: list[OpportunityOut]

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.arbitrage import FeesUsed
+from app.schemas.risk import RiskOut, RiskUsed
 
 
 class CraftParamsUsed(BaseModel):
@@ -96,6 +97,7 @@ class CraftOpportunityOut(BaseModel):
     liquidity_units_per_day: float | None
     materials: list[MaterialOut]
     material_sourcing: SourcingOut
+    risk: RiskOut
     economics: CraftEconomicsOut
 
 
@@ -108,6 +110,7 @@ class CraftingResponse(BaseModel):
     sourcing_mode: str = "CIDADE_UNICA"
     total: int
     params: CraftParamsUsed
+    risk: RiskUsed
     generated_at: str
     data_source_note: str
     opportunities: list[CraftOpportunityOut]

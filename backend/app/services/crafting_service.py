@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craft
 from app.calculations.fees import FeeProfile, Strategy
+from app.calculations.risk import adjust_for_risk
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
 from app.models.market import MarketPrice
@@ -30,6 +31,7 @@ from app.schemas.crafting import (
     SourcingOut,
 )
 from app.services.arbitrage_service import resolve_fees
+from app.services.risk_service import load_route_zones, resolve_risk, risk_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
 
 DATA_SOURCE_NOTE = (
@@ -64,8 +66,15 @@ async def find_crafting_opportunities(
     limit: int,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
     max_age_seconds: int | None = None,
+    loss_pct_blue: float | None = None,
+    loss_pct_red_black: float | None = None,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
+    perfil_risco, resumo_risco = await resolve_risk(session, loss_pct_blue, loss_pct_red_black)
+    # A rota do craft é uma só para a resposta inteira: compra numa cidade,
+    # vende em outra. Basta classificar uma vez.
+    zonas = await load_route_zones(session)
+    zona = zonas.of(buy_location, sell_location)
 
     # Preferência do usuário vence a configuração; configuração vence nada.
     if return_rate is None:
@@ -95,7 +104,10 @@ async def find_crafting_opportunities(
         session, station_category=station_category, tier=tier, tracked_only=True, limit=limit * 6
     )
     if not receitas:
-        return _empty(server, buy_location, sell_location, crafts, sort_by, sourcing_mode, params)
+        return _empty(
+            server, buy_location, sell_location, crafts, sort_by, sourcing_mode,
+            params, resumo_risco,
+        )
 
     ids = {r.output_item_id for r in receitas}
     for receita in receitas:
@@ -170,6 +182,15 @@ async def find_crafting_opportunities(
         economia = contexto.calcular(receita, materiais)
         roteiro = _roteiro(sourcing_mode, cidades, economia, receita, catalogo, compras, contexto)
 
+        # O capital em risco é o que sai do bolso antes de vender: material pelo
+        # preço cheio (o retorno só se realiza depois) mais a taxa da estação.
+        investimento = (
+            None
+            if economia.material_cost_gross is None
+            else economia.material_cost_gross + (economia.station_fee or 0.0)
+        )
+        risco = adjust_for_risk(economia.profit, investimento, zona, perfil_risco)
+
         # Giro do item final no mercado onde se pretende vender.
         sinal = next(
             (
@@ -196,6 +217,7 @@ async def find_crafting_opportunities(
                 liquidity_units_per_day=sinal.units_per_day if sinal and sinal.known else None,
                 materials=materiais_out,
                 material_sourcing=roteiro,
+                risk=risk_out(risco),
                 economics=CraftEconomicsOut(
                     known=economia.known,
                     reason=economia.reason,
@@ -220,11 +242,20 @@ async def find_crafting_opportunities(
     def chave(op: CraftOpportunityOut) -> float:
         if not op.economics.known:
             return float("-inf")
+        # Ordena pelo lucro **ajustado ao risco**. Com risco em zero os dois são
+        # iguais; quando não são, ranquear pelo bruto colocaria a rota que
+        # atravessa zona aberta no topo justamente por ela pagar o prêmio.
+        lucro = (
+            op.risk.expected_profit
+            if op.risk.expected_profit is not None
+            else (op.economics.profit or 0.0)
+        )
         if sort_by == "profit":
-            return op.economics.profit or 0.0
+            return lucro
         if sort_by == "roi":
             return op.economics.roi_pct or 0.0
-        return op.economics.profit_per_focus if op.economics.profit_per_focus is not None else -1
+        focus = op.economics.focus_cost
+        return lucro / focus if focus > 0 else -1
 
     resultados.sort(key=chave, reverse=True)
 
@@ -237,6 +268,7 @@ async def find_crafting_opportunities(
         sourcing_mode=str(sourcing_mode),
         total=len(resultados),
         params=params,
+        risk=resumo_risco,
         generated_at=now.isoformat(),
         data_source_note=DATA_SOURCE_NOTE,
         opportunities=resultados[:limit],
@@ -411,7 +443,7 @@ def _roteiro(
 
 
 def _empty(
-    server, buy_location, sell_location, crafts, sort_by, sourcing_mode, params
+    server, buy_location, sell_location, crafts, sort_by, sourcing_mode, params, risco
 ) -> CraftingResponse:
     return CraftingResponse(
         server=server,
@@ -422,6 +454,7 @@ def _empty(
         sourcing_mode=str(sourcing_mode),
         total=0,
         params=params,
+        risk=risco,
         generated_at=datetime.now(UTC).isoformat(),
         data_source_note=DATA_SOURCE_NOTE,
         opportunities=[],

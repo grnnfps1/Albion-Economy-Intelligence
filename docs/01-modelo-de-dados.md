@@ -228,10 +228,29 @@ raiz do dump traz `craftingrequirements` com `@craftingfocus`, `@silver`,
 segundo passe sobre o arquivo que o importador já baixa.
 
 ### `transport_routes`
-`id, origin_location_id, destination_location_id, distance_label, base_cost_per_weight,
-estimated_minutes, risk_level, is_manual`.
+`id, origin_location_id, destination_location_id, zone, distance_label,
+base_cost_per_weight, estimated_minutes, is_manual`.
 
-Fase 6 começa com custo manual (item 25).
+Criada na fase 13. `risk_level` do esboço virou **`zone`**, com três valores:
+`MESMA_CIDADE`, `AZUL` e `VERMELHA_PRETA`. A diferença não é só de nome: "nível
+de risco" sugeria um número, e o que existe é uma classificação.
+
+A classificação é **pelas pontas, não pelo caminho**. Dá para ir de Martlock a
+Caerleon por rotas diferentes; o que o dado tem são os dois mercados. Cidade real
+↔ cidade real é azul; qualquer ponta em Caerleon ou no Black Market é
+vermelha/preta. O seed preenche os 56 pares dos oito locais ativos.
+
+`is_manual` protege a linha de um re-seed, como `items.is_tracked` protege a
+marcação de coleta. O caso conhecido é Brecilien: está como `royal_city` mas só
+se alcança por portal das Brumas, e classificá-la como azul é a leitura otimista.
+
+`distance_label`, `base_cost_per_weight` e `estimated_minutes` continuam `NULL`:
+não foram medidos, e distância inventada viraria componente de score inventado.
+O componente `distance` do score sai da zona, que é o que de fato se sabe.
+
+A probabilidade de perda **não** mora aqui: ela é preferência do usuário
+(`risk.loss_probability.blue` e `.red_black` em `config_parameters`, ambas em
+zero), porque depende de quem transporta, de quando e de com quem — não da rota.
 
 ### `opportunities`
 `id, kind, server_id, item_id, quality, origin_location_id, destination_location_id,

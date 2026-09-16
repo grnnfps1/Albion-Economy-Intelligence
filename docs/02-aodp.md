@@ -118,12 +118,67 @@ o client rodando. Consequências que a UI **precisa** comunicar (itens 4 e 21):
 
 Por isso `liquidity_status = UNKNOWN` é um estado de primeira classe, não um erro.
 
-## Black Market
+## Black Market — validado empiricamente em 16/09/2026
 
-Tratado como `kind = black_market`. A semântica de ordens é invertida em relação a uma
-cidade: o jogador vende para ordens de compra de NPC. Antes de usar BM em cálculo de
-crafting (Fase 7+), **validar empiricamente** qual campo o AODP preenche para BM e como.
-Até essa validação, BM entra só como exibição, nunca como perna de arbitragem.
+A suposição que estava aqui era de que **a semântica de ordens é invertida**. A
+consulta real desmentiu isso. O que segue substitui o texto anterior.
+
+### A consulta
+
+`GET /api/v2/stats/prices/{40 equipamentos T4–T7}?locations=Black Market,Caerleon&qualities=1`,
+servidor west, 16/09/2026. 40 linhas de cada local. Uma segunda rodada incluiu 7
+recursos (`T4_PLANKS`, `T5_METALBAR`, `T4_LEATHER`, `T6_CLOTH`, `T4_WOOD`,
+`T5_ORE`, `T5_PLANKS`).
+
+### O que o AODP preenche
+
+| | `sell_price_min` | `buy_price_max` | idade mediana |
+|---|---|---|---|
+| Black Market | 38/40 | **40/40** | 1,2 h |
+| Caerleon | 37/40 | 4/40 | 11,8 h |
+
+Quatro conclusões, todas com número atrás:
+
+1. **O campo que o Black Market sempre preenche é `buy_price_max`** — 40 de 40,
+   contra 4 de 40 em Caerleon. É o que se espera de um local onde as ordens de
+   compra são de NPC e estão sempre lá. É também o campo que interessa para
+   vender: quem vende na hora recebe `buy_price_max` (regra 7 do CLAUDE.md), e
+   isso vale no Black Market exatamente como numa cidade.
+
+2. **A orientação é normal, não invertida.** Em 38 linhas com os dois preços,
+   `sell_price_min >= buy_price_max` em **38 de 38**. Nenhuma inversão. A nota
+   antiga estava errada e foi removida — nenhum tratamento especial de sinal é
+   necessário.
+
+3. **O Black Market não negocia recurso.** Dos 7 recursos consultados, os quatro
+   campos vieram zerados em 7 de 7. Ele só tem linha para equipamento. Não é
+   regra de negócio nossa: é ausência de dado, e o cálculo trata como sempre —
+   sem cotação, resultado `UNKNOWN`.
+
+4. **O dado do Black Market é mais fresco que o da cidade** (1,2 h contra 11,8 h
+   na mediana), porque é um local muito visitado. Isso inverte a intuição: o
+   ponto mais arriscado da rota costuma ter o preço mais confiável.
+
+Para calibrar a expectativa: `buy_price_max` do Black Market é, na mediana,
+**0,77×** o `sell_price_min` de Caerleon (n=37; mínimo 0,07×, máximo 1,29×).
+Vender na hora no Black Market costuma render menos do que listar na cidade —
+mas executa na hora, sem esperar comprador, e em alguns itens paga mais.
+
+O campo de local continua sendo `city` neste endpoint, inclusive para o Black
+Market (o histórico é que chama de `location`).
+
+### O que isso libera, e o que continua fora
+
+Com a validação feita, o Black Market entra como **destino de venda** em
+`/arbitrage` e `/crafting`.
+
+Continua **fora como origem de compra**: as 40 linhas mostram que ele tem ordens
+de venda listadas, mas comprar equipamento lá para revender não foi medido, e a
+regra do projeto é não habilitar perna não verificada. Vender é o que foi
+validado; comprar fica para uma medição própria.
+
+E vender no Black Market não é de graça: ele fica em zona vermelha/preta. Ver
+`transport_routes` e o lucro ajustado ao risco em `docs/01-modelo-de-dados.md`.
 
 ## Catálogo de itens
 

@@ -30,6 +30,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 10 | Dashboard | ✅ |
 | 11 | Onde comprar cada material (`sourcing_mode`) | ✅ |
 | 12 | Agricultura e animais | ✅ |
+| 13 | Black Market validado + risco de rota | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -240,8 +241,12 @@ paralela que alguém precise lembrar de atualizar.
   preço em horas.
 - Nomes de local têm espaço: `Fort Sterling`, `Black Market`. A chave de lookup é
   a string exata da API, guardada em `locations.aodp_name`.
-- Black Market não é cidade (`kind = 'black_market'`) e a semântica de ordens é
-  invertida. Não use como perna de arbitragem antes de validar empiricamente.
+- Black Market não é cidade (`kind = 'black_market'`), mas a semântica de ordens
+  **não** é invertida — isso foi suposição, e a validação de 16/09/2026 a
+  desmentiu (`docs/02-aodp.md`). Ele preenche `buy_price_max` em 40/40
+  equipamentos, com `sell_price_min >= buy_price_max` em 38/38. Entra como
+  **destino de venda**; como origem de compra continua fora, porque comprar lá
+  não foi medido. E ele não negocia recurso: 7 de 7 recursos vieram zerados.
 
 ## Taxas: configuração do usuário, não do servidor
 
@@ -258,6 +263,45 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 13 — Black Market e risco de rota
+
+- **A suposição estava errada, e só a consulta real mostrou.** Estava escrito
+  aqui que a semântica de ordens do Black Market era invertida. Não é:
+  `sell_price_min >= buy_price_max` em 38 de 38 linhas. O que ele tem de
+  particular é encher `buy_price_max` **sempre** (40/40, contra 4/40 em
+  Caerleon), porque as ordens de compra são de NPC. Número e amostra em
+  `docs/02-aodp.md`.
+- **Ele não negocia recurso.** 7 de 7 recursos consultados vieram com os quatro
+  campos zerados. Não virou regra de negócio: é ausência de dado, e o cálculo
+  responde `UNKNOWN` como sempre.
+- **Destino sim, origem não.** Vender no Black Market foi medido; comprar lá
+  não. Perna não medida não entra, mesmo quando o preço parece convidativo — há
+  teste que falha se ele voltar a aparecer como origem.
+- **Perder a carga não é ganhar zero.** A conta é
+  `lucro × (1 − p) − investimento × p`. O segundo termo é o que quase toda
+  calculadora esquece, e sem ele uma rota com 20% de perda parece render 80% do
+  lucro quando na verdade também queima 20% do capital. Há teste comparando as
+  duas contas lado a lado.
+- **Risco tem padrão zero, e isso é diferente das taxas de propósito.** Taxa
+  ausente vira `UNKNOWN` porque calcular sem imposto inventa lucro. Risco
+  ausente vira zero porque significa "não estou modelando perda", e o ajustado
+  sai idêntico ao bruto, à vista. Travar a tela por um número que só o usuário
+  tem seria esconder o produto.
+- **A zona é classificada pelas pontas, não pelo caminho.** O caminho é escolha
+  do jogador; o que o dado tem são os dois mercados. Cidade real ↔ cidade real é
+  azul; qualquer ponta em Caerleon ou no Black Market é vermelha/preta.
+  `transport_routes.is_manual` existe para o caso em que a regra genérica erra —
+  Brecilien é o exemplo conhecido, `royal_city` no cadastro mas só alcançável
+  por portal das Brumas.
+- **Os dois números sempre juntos.** Só o bruto esconde o risco; só o ajustado
+  esconde de onde veio o desconto. Quando o risco é zero, aparece **um** número
+  — repetir o mesmo valor duas vezes faria parecer que há diferença onde não há.
+- **`risk` e `distance` do score saíram do papel.** Estavam em
+  `config_parameters` desde a fase 0 sem fonte. Agora `risk` vem da preferência
+  do usuário e `distance` vem da zona da rota. E o `profit` que alimenta o score
+  passou a ser o **ajustado**: ranquear pelo bruto colocaria a rota de zona
+  vermelha no topo justamente por ela pagar o prêmio do risco.
 
 ## Notas da fase 12 — agricultura e animais
 
@@ -495,8 +539,9 @@ backend gastaria banda e latência sem benefício, e por isso também não se us
   cai. Pontuar zero puniria item novo como se fosse ruim.
 - **A idade exibida é a da ponta mais velha.** A operação só é tão confiável
   quanto o pior dos dois preços.
-- **Black Market fora por padrão.** Semântica de ordens invertida e ainda não
-  validada empiricamente.
+- **Black Market fora por padrão.** ~~Semântica de ordens invertida~~ — corrigido
+  na fase 13: a suposição era falsa e ele entra como destino de venda. Ver as
+  notas da fase 13.
 
 ## Notas da fase 5
 

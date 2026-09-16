@@ -20,6 +20,16 @@ export type Preferences = {
   stationFee: number;
   focusBudget: number;
   quantity: number;
+  /**
+   * Probabilidade de perder a carga na rota, por zona.
+   *
+   * Preferência como as taxas, mas com padrão **zero** em vez de "não
+   * verificado": zero significa "não estou modelando perda", e o lucro
+   * ajustado sai idêntico ao bruto — à vista, sem esconder nada. Quem já
+   * perdeu carga sabe o próprio número melhor que qualquer padrão.
+   */
+  lossPctBlue: number;
+  lossPctRedBlack: number;
 };
 
 export const DEFAULTS: Preferences = {
@@ -33,6 +43,8 @@ export const DEFAULTS: Preferences = {
   stationFee: 100,
   focusBudget: 10_000,
   quantity: 100,
+  lossPctBlue: 0,
+  lossPctRedBlack: 0,
 };
 
 export const COOKIE = "aei_prefs";
@@ -46,5 +58,7 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     premium: String(prefs.premium),
     return_rate: String(prefs.returnRate),
     station_fee: String(prefs.stationFee),
+    loss_pct_blue: String(prefs.lossPctBlue),
+    loss_pct_red_black: String(prefs.lossPctRedBlack),
   };
 }
