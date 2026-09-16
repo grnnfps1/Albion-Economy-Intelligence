@@ -262,7 +262,18 @@ export async function fetchArbitrage(
 export type CraftMaterial = {
   item: string; item_name: string | null; icon_url: string | null;
   quantity: number; unit_price: number | null; total_price: number | null;
-  is_returnable: boolean; location: string | null; age_seconds: number | null;
+  is_returnable: boolean; location: string | null; location_slug: string | null;
+  age_seconds: number | null;
+  is_alternate_city: boolean; base_unit_price: number | null;
+  savings_vs_base: number | null;
+};
+
+/** O roteiro de compra: por quantas cidades ele passa e quanto isso rende. */
+export type MaterialSourcing = {
+  mode: string; cities_involved: number; cities: string[];
+  cost_single_city: number | null; cost_cheapest: number | null;
+  savings: number | null; savings_pct: number | null;
+  profit_single_city: number | null; profit_cheapest: number | null;
 };
 
 export type CraftOpportunity = {
@@ -273,6 +284,7 @@ export type CraftOpportunity = {
   sell_price: number | null; sell_age_seconds: number | null;
   liquidity_units_per_day: number | null;
   materials: CraftMaterial[];
+  material_sourcing: MaterialSourcing;
   economics: {
     known: boolean; reason: string | null;
     output_quantity: number; focus_cost: number;
@@ -286,7 +298,7 @@ export type CraftOpportunity = {
 
 export type CraftingResponse = {
   server: string; buy_location: string; sell_location: string;
-  crafts: number; sort_by: string; total: number;
+  crafts: number; sort_by: string; sourcing_mode: string; total: number;
   params: {
     return_rate: number | null; station_fee: number | null;
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
@@ -313,6 +325,9 @@ export type ChainStep = {
   item: string; item_name: string | null; icon_url: string | null;
   sourcing: string; unit_cost: number | null;
   market_price: number | null; craft_cost: number | null; depth: number;
+  location: string | null; location_slug: string | null;
+  is_alternate_city: boolean; base_unit_price: number | null;
+  savings_vs_base: number | null;
 };
 
 export type RefiningOpportunity = {
@@ -323,6 +338,7 @@ export type RefiningOpportunity = {
   liquidity_units_per_day: number | null;
   sourcing: string; unit_cost: number | null; focus_per_unit: number;
   chain: ChainStep[];
+  material_sourcing: MaterialSourcing;
   cost_from_market: number | null; cost_from_crafting: number | null;
   known: boolean; reason: string | null;
   profit: number | null; margin_pct: number | null; profit_per_focus: number | null;
@@ -330,7 +346,7 @@ export type RefiningOpportunity = {
 
 export type RefiningResponse = {
   server: string; buy_location: string; sell_location: string; sourcing: string;
-  total: number; families: string[];
+  sourcing_mode: string; total: number; families: string[];
   params: CraftingResponse["params"];
   generated_at: string; data_source_note: string;
   opportunities: RefiningOpportunity[];

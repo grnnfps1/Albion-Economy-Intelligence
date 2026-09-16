@@ -5,16 +5,19 @@ materiais (mercado da cidade onde se compra) e o preço de venda do item final
 (mercado da cidade onde se vende).
 
 O cálculo em si é puro e mora em `calculations/crafting.py`. Aqui fica a
-política: onde comprar, onde vender, o que descartar antes de calcular.
+política: onde comprar, onde vender, o que descartar antes de calcular. Em qual
+cidade comprar cada material é política também, e mora em `sourcing.py`.
 """
 
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.calculations.crafting import MaterialCost, compute_craft
-from app.calculations.fees import Strategy
+from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craft
+from app.calculations.fees import FeeProfile, Strategy
 from app.catalog.icons import item_icon_url
+from app.core.config import get_settings
+from app.models.market import MarketPrice
 from app.repositories import market as market_repo
 from app.repositories import recipes_repo, settings_repo
 from app.repositories.liquidity import liquidity_by_item_location
@@ -24,8 +27,10 @@ from app.schemas.crafting import (
     CraftOpportunityOut,
     CraftParamsUsed,
     MaterialOut,
+    SourcingOut,
 )
 from app.services.arbitrage_service import resolve_fees
+from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
 
 DATA_SOURCE_NOTE = (
     "Custos e receita vêm da coleta comunitária do AODP; as receitas vêm do dump "
@@ -57,6 +62,8 @@ async def find_crafting_opportunities(
     tier: int | None,
     station_category: str | None,
     limit: int,
+    sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
+    max_age_seconds: int | None = None,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
 
@@ -65,6 +72,10 @@ async def find_crafting_opportunities(
         return_rate = await settings_repo.get_value(session, RETURN_RATE_KEY)
     if station_fee is None:
         station_fee = await settings_repo.get_value(session, STATION_FEE_KEY)
+    if max_age_seconds is None:
+        # Acima do limite de frescor o preço deixa de justificar um desvio de
+        # cidade: a ordem que o barateava provavelmente já foi consumida.
+        max_age_seconds = get_settings().freshness_stale_seconds
 
     faltando = list(resumo_taxas.missing)
     if return_rate is None:
@@ -84,31 +95,46 @@ async def find_crafting_opportunities(
         session, station_category=station_category, tier=tier, tracked_only=True, limit=limit * 6
     )
     if not receitas:
-        return _empty(server, buy_location, sell_location, crafts, sort_by, params)
+        return _empty(server, buy_location, sell_location, crafts, sort_by, sourcing_mode, params)
 
-    # Uma consulta de preços para tudo que interessa, em vez de uma por receita.
     ids = {r.output_item_id for r in receitas}
     for receita in receitas:
         ids.update(m.item_id for m in receita.materials)
 
+    catalogo = await recipes_repo.load_items(session, sorted(ids))
+    now = datetime.now(UTC)
+
+    # Preço do item final: só interessa na cidade onde se vende.
     linhas, _ = await market_repo.search_prices(
+        session, server_code=server, location_slugs=[sell_location], limit=20_000
+    )
+    precos_venda: dict[int, MarketPrice] = {}
+    for price, item, _location in linhas:
+        # Qualidade 1 e 2 são as que interessam para craft normal; fica com a
+        # primeira encontrada para não misturar qualidades.
+        precos_venda.setdefault(item.id, price)
+
+    # Onde comprar cada material. Em CIDADE_UNICA a consulta se restringe à
+    # cidade base; nos outros modos ela varre as cidades ativas.
+    nomes_materiais = sorted(
+        {
+            catalogo[m.item_id].unique_name
+            for receita in receitas
+            for m in receita.materials
+            if m.item_id in catalogo
+        }
+    )
+    compras = await load_material_sourcing(
         session,
         server_code=server,
-        location_slugs=sorted({buy_location, sell_location}),
-        limit=20_000,
+        item_unique_names=nomes_materiais,
+        base_slug=buy_location,
+        mode=sourcing_mode,
+        max_age_seconds=max_age_seconds,
+        now=now,
     )
-    precos: dict[tuple[int, str], tuple] = {}
-    for price, item, location in linhas:
-        # Qualidade 1 e 2 são as que interessam para material e craft normal;
-        # fica com a primeira encontrada para não misturar qualidades no custo.
-        chave = (item.id, location.slug)
-        if chave not in precos:
-            precos[chave] = (price, item, location)
 
-    catalogo = await recipes_repo.load_items(session, sorted(ids))
     sinais = await liquidity_by_item_location(session, server, sorted(ids))
-
-    now = datetime.now(UTC)
     resultados: list[CraftOpportunityOut] = []
 
     for receita in receitas:
@@ -116,11 +142,10 @@ async def find_crafting_opportunities(
         if saida is None:
             continue
 
-        venda = precos.get((saida.id, sell_location))
+        preco_venda = precos_venda.get(saida.id)
         sell_price = None
         sell_age = None
-        if venda is not None:
-            preco_venda = venda[0]
+        if preco_venda is not None:
             # Estratégia imediata entrega para ordem de compra; paciente cria
             # ordem de venda. Preços e taxas diferentes.
             if strategy is Strategy.FAST:
@@ -132,53 +157,18 @@ async def find_crafting_opportunities(
                     preco_venda.sell_price_min_date, now
                 )
 
-        materiais: list[MaterialCost] = []
-        materiais_out: list[MaterialOut] = []
-        for material in receita.materials:
-            item_material = catalogo.get(material.item_id)
-            if item_material is None:
-                continue
-            compra = precos.get((material.item_id, buy_location))
-            unit = compra[0].sell_price_min if compra else None
-            idade = _age(compra[0].sell_price_min_date, now) if compra else None
-
-            materiais.append(
-                MaterialCost(
-                    unique_name=item_material.unique_name,
-                    display_name=item_material.display_name_pt
-                    or item_material.display_name_en,
-                    quantity=material.quantity,
-                    unit_price=unit,
-                    is_returnable=material.is_returnable,
-                    location=compra[2].display_name if compra else None,
-                    age_seconds=idade,
-                )
-            )
-            materiais_out.append(
-                MaterialOut(
-                    item=item_material.unique_name,
-                    item_name=item_material.display_name_pt or item_material.display_name_en,
-                    icon_url=item_icon_url(item_material.unique_name),
-                    quantity=material.quantity,
-                    unit_price=unit,
-                    total_price=None if unit is None else unit * material.quantity,
-                    is_returnable=material.is_returnable,
-                    location=compra[2].display_name if compra else None,
-                    age_seconds=idade,
-                )
-            )
-
-        economia = compute_craft(
-            materials=materiais,
+        contexto = _Contexto(
             sell_price=sell_price,
             fees=fees,
             return_rate=return_rate,
             station_fee=station_fee,
-            output_quantity=receita.output_quantity,
-            focus_cost=receita.focus_cost,
             crafts=crafts,
             strategy=strategy,
         )
+
+        materiais, materiais_out, cidades = _materiais_da_rota(receita, catalogo, compras)
+        economia = contexto.calcular(receita, materiais)
+        roteiro = _roteiro(sourcing_mode, cidades, economia, receita, catalogo, compras, contexto)
 
         # Giro do item final no mercado onde se pretende vender.
         sinal = next(
@@ -205,6 +195,7 @@ async def find_crafting_opportunities(
                 sell_age_seconds=sell_age,
                 liquidity_units_per_day=sinal.units_per_day if sinal and sinal.known else None,
                 materials=materiais_out,
+                material_sourcing=roteiro,
                 economics=CraftEconomicsOut(
                     known=economia.known,
                     reason=economia.reason,
@@ -243,6 +234,7 @@ async def find_crafting_opportunities(
         sell_location=sell_location,
         crafts=crafts,
         sort_by=sort_by,
+        sourcing_mode=str(sourcing_mode),
         total=len(resultados),
         params=params,
         generated_at=now.isoformat(),
@@ -251,13 +243,183 @@ async def find_crafting_opportunities(
     )
 
 
-def _empty(server, buy_location, sell_location, crafts, sort_by, params) -> CraftingResponse:
+class _Contexto:
+    """Tudo que não muda entre os dois roteiros de compra da mesma receita.
+
+    Existe para que o roteiro de comparação seja o mesmo cálculo com outro
+    conjunto de preços -- e não uma segunda fórmula que pode divergir da
+    primeira.
+    """
+
+    def __init__(
+        self,
+        sell_price: int | None,
+        fees: FeeProfile,
+        return_rate: float | None,
+        station_fee: float | None,
+        crafts: int,
+        strategy: Strategy,
+    ) -> None:
+        self.sell_price = sell_price
+        self.fees = fees
+        self.return_rate = return_rate
+        self.station_fee = station_fee
+        self.crafts = crafts
+        self.strategy = strategy
+
+    def calcular(self, receita, materiais: list[MaterialCost]) -> CraftEconomics:
+        return compute_craft(
+            materials=materiais,
+            sell_price=self.sell_price,
+            fees=self.fees,
+            return_rate=self.return_rate,
+            station_fee=self.station_fee,
+            output_quantity=receita.output_quantity,
+            focus_cost=receita.focus_cost,
+            crafts=self.crafts,
+            strategy=self.strategy,
+        )
+
+
+def _materiais_da_rota(
+    receita, catalogo, compras: MaterialSourcing
+) -> tuple[list[MaterialCost], list[MaterialOut], list[str]]:
+    """Materiais com a cidade que a política escolheu para cada um."""
+    custos: list[MaterialCost] = []
+    saida: list[MaterialOut] = []
+    cidades: list[str] = []
+
+    for material in receita.materials:
+        item = catalogo.get(material.item_id)
+        if item is None:
+            continue
+
+        escolha = compras.choose(item.unique_name)
+        cotacao = escolha.quote if escolha.known else None
+        unit = escolha.unit_price
+        nome_cidade = cotacao.location_name if cotacao else None
+        idade = cotacao.age_seconds if cotacao else None
+        if nome_cidade is not None:
+            cidades.append(nome_cidade)
+
+        economia_linha = (
+            None
+            if escolha.savings_per_unit is None
+            else round(escolha.savings_per_unit * material.quantity, 2)
+        )
+        base = escolha.base
+
+        custos.append(
+            MaterialCost(
+                unique_name=item.unique_name,
+                display_name=item.display_name_pt or item.display_name_en,
+                quantity=material.quantity,
+                unit_price=unit,
+                is_returnable=material.is_returnable,
+                location=nome_cidade,
+                age_seconds=idade,
+            )
+        )
+        saida.append(
+            MaterialOut(
+                item=item.unique_name,
+                item_name=item.display_name_pt or item.display_name_en,
+                icon_url=item_icon_url(item.unique_name),
+                quantity=material.quantity,
+                unit_price=unit,
+                total_price=None if unit is None else unit * material.quantity,
+                is_returnable=material.is_returnable,
+                location=nome_cidade,
+                location_slug=cotacao.location_slug if cotacao else None,
+                age_seconds=idade,
+                is_alternate_city=escolha.is_alternate,
+                base_unit_price=base.unit_price if base is not None else None,
+                savings_vs_base=economia_linha,
+            )
+        )
+
+    return custos, saida, cidades
+
+
+def _materiais_da_cidade_base(receita, catalogo, compras: MaterialSourcing) -> list[MaterialCost]:
+    """O mesmo craft comprando tudo na cidade base -- o roteiro de comparação."""
+    return [
+        MaterialCost(
+            unique_name=catalogo[m.item_id].unique_name,
+            display_name=None,
+            quantity=m.quantity,
+            unit_price=compras.base_price_of(catalogo[m.item_id].unique_name),
+            is_returnable=m.is_returnable,
+        )
+        for m in receita.materials
+        if m.item_id in catalogo
+    ]
+
+
+def _roteiro(
+    mode: SourcingMode,
+    cidades: list[str],
+    economia: CraftEconomics,
+    receita,
+    catalogo,
+    compras: MaterialSourcing,
+    contexto: _Contexto,
+) -> SourcingOut:
+    """Em quantas cidades a rota cai, e quanto o espalhamento rende.
+
+    Economia sem o número de cidades engana: 3% espalhados por quatro cidades
+    custam quatro viagens e não são economia nenhuma. Por isso os dois números
+    saem juntos.
+    """
+    distintas = sorted(set(cidades))
+
+    if mode is SourcingMode.SINGLE_CITY:
+        return SourcingOut(
+            mode=str(mode),
+            cities_involved=len(distintas),
+            cities=distintas,
+            cost_single_city=economia.material_cost_net,
+        )
+
+    base = contexto.calcular(receita, _materiais_da_cidade_base(receita, catalogo, compras))
+    custo_unica = base.material_cost_net
+    custo_barato = economia.material_cost_net
+    # Custo desconhecido de um lado não vira economia do outro: quando a cidade
+    # base não consegue custear a receita, não há comparação a fazer.
+    economia_total = (
+        None
+        if custo_unica is None or custo_barato is None
+        else round(custo_unica - custo_barato, 2)
+    )
+
+    return SourcingOut(
+        mode=str(mode),
+        cities_involved=len(distintas),
+        cities=distintas,
+        cost_single_city=custo_unica,
+        cost_cheapest=custo_barato,
+        savings=economia_total,
+        savings_pct=(
+            round(economia_total / custo_unica * 100, 2)
+            if economia_total is not None and custo_unica
+            else None
+        ),
+        # COMPARAR leva os dois roteiros até o lucro, não só até o custo.
+        profit_single_city=base.profit if mode is SourcingMode.COMPARE else None,
+        profit_cheapest=economia.profit if mode is SourcingMode.COMPARE else None,
+    )
+
+
+def _empty(
+    server, buy_location, sell_location, crafts, sort_by, sourcing_mode, params
+) -> CraftingResponse:
     return CraftingResponse(
         server=server,
         buy_location=buy_location,
         sell_location=sell_location,
         crafts=crafts,
         sort_by=sort_by,
+        sourcing_mode=str(sourcing_mode),
         total=0,
         params=params,
         generated_at=datetime.now(UTC).isoformat(),

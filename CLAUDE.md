@@ -28,6 +28,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 8 | Refino | ✅ |
 | 9 | Focus | ✅ |
 | 10 | Dashboard | ✅ |
+| 11 | Onde comprar cada material (`sourcing_mode`) | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -120,6 +121,7 @@ backend/app/
   collectors/aodp/   client do AODP
   calculations/      funções puras de taxa/lucro     (fase 6+)
   opportunities/     motor de score                  (fase 6+)
+  services/sourcing.py  política de em qual cidade comprar cada material
   cli/               comandos operacionais
 frontend/src/
   app/               rotas do App Router
@@ -251,6 +253,25 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 11 — onde comprar cada material
+
+- **`sourcing_mode` é política de serviço, não fórmula.** Vive em
+  `services/sourcing.py`; `calculations/` continua recebendo só preço. Três
+  valores: `CIDADE_UNICA` (padrão e comportamento histórico), `MAIS_BARATO` e
+  `COMPARAR`.
+- **MAIS_BARATO nunca pode sair mais caro.** Se a única cotação fresca de fora
+  está acima da cotação da cidade base — mesmo velha —, a base continua sendo a
+  resposta. Sem essa trava, "mais barato" mandaria o usuário viajar para pagar
+  mais.
+- **Preço velho não entra na escolha.** Acima do limite de frescor, a ordem que
+  justificava o desvio provavelmente já foi consumida. Ele ainda serve de
+  fallback na cidade base, mas nunca ganha uma comparação.
+- **Empate fica na cidade base.** Uma segunda cidade só se paga quando economiza;
+  empate com viagem é prejuízo.
+- **Economia sem número de cidades engana.** A resposta traz `cities_involved`
+  junto de `savings`, e a tela avisa a partir da terceira cidade: 3% espalhados
+  por quatro mercados custam quatro viagens.
 
 ## O plano original terminou
 

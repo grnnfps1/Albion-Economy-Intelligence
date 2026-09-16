@@ -7,11 +7,22 @@ from app.calculations.chain import Sourcing
 from app.calculations.fees import Strategy
 from app.schemas.refining import RefiningResponse
 from app.services.refining_service import find_refining_opportunities
+from app.services.sourcing import SourcingMode
 
 router = APIRouter(prefix="/refining", tags=["refining"])
 
+# Duas escolhas independentes, e o nome parecido engana: `sourcing` decide se
+# o insumo do tier anterior é comprado ou produzido; `sourcing_mode` decide em
+# qual cidade é comprado o que for comprado.
 SOURCING = {"MERCADO": Sourcing.MARKET, "PRODUZIR": Sourcing.CRAFT,
             "MAIS_BARATO": Sourcing.CHEAPEST}
+
+SOURCING_MODE = {
+    "CIDADE_UNICA": SourcingMode.SINGLE_CITY,
+    "MAIS_BARATO": SourcingMode.CHEAPEST,
+    "COMPARAR": SourcingMode.COMPARE,
+}
+
 
 
 @router.get("/opportunities", response_model=RefiningResponse)
@@ -31,6 +42,9 @@ async def refining_opportunities(
     family: str | None = Query(None, description="PLANKS, METALBAR, LEATHER, CLOTH, STONEBLOCK"),
     tier: int | None = Query(None, ge=2, le=8),
     strategy: str = Query("IMEDIATA"),
+    sourcing_mode: str = Query(
+        "CIDADE_UNICA", description="CIDADE_UNICA | MAIS_BARATO | COMPARAR"
+    ),
     limit: int = Query(40, ge=1, le=200),
 ) -> RefiningResponse:
     return await find_refining_opportunities(
@@ -47,5 +61,6 @@ async def refining_opportunities(
         family=family,
         tier=tier,
         strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
+        sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
         limit=limit,
     )

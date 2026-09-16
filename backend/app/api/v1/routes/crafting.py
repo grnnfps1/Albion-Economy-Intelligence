@@ -6,10 +6,18 @@ from app.api.deps import SessionDep
 from app.calculations.fees import Strategy
 from app.schemas.crafting import CraftingResponse
 from app.services.crafting_service import find_crafting_opportunities
+from app.services.sourcing import SourcingMode
 
 router = APIRouter(prefix="/crafting", tags=["crafting"])
 
 ORDENACOES = ("profit_per_focus", "profit", "roi")
+
+SOURCING_MODE = {
+    "CIDADE_UNICA": SourcingMode.SINGLE_CITY,
+    "MAIS_BARATO": SourcingMode.CHEAPEST,
+    "COMPARAR": SourcingMode.COMPARE,
+}
+
 
 
 @router.get("/opportunities", response_model=CraftingResponse)
@@ -30,6 +38,11 @@ async def crafting_opportunities(
     sort_by: str = Query("profit_per_focus", description=f"um de {ORDENACOES}"),
     tier: int | None = Query(None, ge=1, le=8),
     station_category: str | None = Query(None, description="Ex.: wood, metal, cloth."),
+    # Em qual cidade comprar cada material. CIDADE_UNICA é o padrão porque uma
+    # rota espalhada custa viagem: só vale quando a economia paga o desvio.
+    sourcing_mode: str = Query(
+        "CIDADE_UNICA", description="CIDADE_UNICA | MAIS_BARATO | COMPARAR"
+    ),
     limit: int = Query(30, ge=1, le=100),
 ) -> CraftingResponse:
     return await find_crafting_opportunities(
@@ -47,5 +60,6 @@ async def crafting_opportunities(
         sort_by=sort_by if sort_by in ORDENACOES else "profit_per_focus",
         tier=tier,
         station_category=station_category,
+        sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
         limit=limit,
     )

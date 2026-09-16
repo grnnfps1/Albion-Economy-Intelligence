@@ -26,8 +26,42 @@ class MaterialOut(BaseModel):
     unit_price: int | None
     total_price: float | None
     is_returnable: bool
-    location: str | None
+    location: str | None = Field(default=None, description="Cidade onde esta compra acontece.")
+    location_slug: str | None = None
     age_seconds: int | None
+
+    # Quando a compra sai da cidade base, a resposta precisa dizer quanto o
+    # desvio vale. Economia sem o número é só uma promessa.
+    is_alternate_city: bool = False
+    base_unit_price: int | None = Field(
+        default=None, description="Preço na cidade base, para comparação."
+    )
+    savings_vs_base: float | None = Field(
+        default=None,
+        description="Economia desta linha contra a cidade base. None quando a base "
+        "não tem cotação: aí não há o que comparar.",
+    )
+
+
+class SourcingOut(BaseModel):
+    """O roteiro de compra: em quantas cidades ele cai e quanto isso rende.
+
+    `cities_involved` é informação de primeira classe porque economia espalhada
+    não é economia: 3% distribuídos por quatro cidades custam quatro viagens.
+    """
+
+    mode: str
+    cities_involved: int
+    cities: list[str] = Field(default_factory=list)
+
+    cost_single_city: float | None = None
+    cost_cheapest: float | None = None
+    savings: float | None = None
+    savings_pct: float | None = None
+
+    # Só em COMPARAR: os dois roteiros calculados até o fim, não só o custo.
+    profit_single_city: float | None = None
+    profit_cheapest: float | None = None
 
 
 class CraftEconomicsOut(BaseModel):
@@ -61,6 +95,7 @@ class CraftOpportunityOut(BaseModel):
     sell_age_seconds: int | None
     liquidity_units_per_day: float | None
     materials: list[MaterialOut]
+    material_sourcing: SourcingOut
     economics: CraftEconomicsOut
 
 
@@ -70,6 +105,7 @@ class CraftingResponse(BaseModel):
     sell_location: str
     crafts: int
     sort_by: str
+    sourcing_mode: str = "CIDADE_UNICA"
     total: int
     params: CraftParamsUsed
     generated_at: str

@@ -116,6 +116,30 @@ fora das estatísticas.
 **Configure as taxas na primeira visita.** O formulário está no topo do painel.
 Sem elas o sistema mostra `UNKNOWN` em vez de lucro, de propósito.
 
+#### Onde comprar cada material
+
+`/crafting` e `/refining` aceitam `sourcing_mode`, que decide em qual cidade
+cada material é comprado:
+
+| Valor | O quê |
+|---|---|
+| `CIDADE_UNICA` | tudo na cidade base. Padrão, e o comportamento histórico |
+| `MAIS_BARATO` | cada material na cidade ativa mais barata |
+| `COMPARAR` | calcula os dois roteiros e devolve a diferença |
+
+```bash
+curl -s "http://localhost:8000/api/v1/crafting/opportunities?sourcing_mode=COMPARAR&limit=3"   | python3 -m json.tool
+```
+
+Cada material volta com a cidade escolhida e quanto ela economiza contra a
+cidade base; a oportunidade volta com `material_sourcing.cities_involved`. Três
+regras que a escolha respeita: Black Market fora, cotação acima do limite de
+frescor não entra na comparação, e desviar nunca pode sair mais caro que a
+cidade base. Na tela, o material comprado fora ganha moldura âmbar e a linha
+avisa quando a rota passa de duas cidades — economizar 3% espalhado por quatro
+mercados custa quatro viagens.
+
+
 ### Verificar
 
 ```bash

@@ -1,7 +1,7 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
-import { TierBadge } from "@/components/ui/Badges";
+import { CityTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchRefining, type RefiningOpportunity } from "@/lib/api";
@@ -19,6 +19,16 @@ const GRUPOS = [
       { valor: "MAIS_BARATO", rotulo: "mais barato por elo" },
       { valor: "MERCADO", rotulo: "comprar pronto" },
       { valor: "PRODUZIR", rotulo: "produzir a cadeia" },
+    ],
+  },
+  {
+    // Escolha independente da de cima: aquela decide comprar ou produzir o elo,
+    // esta decide em qual cidade comprar o que for comprado.
+    chave: "sourcing_mode", padrao: "CIDADE_UNICA",
+    opcoes: [
+      { valor: "CIDADE_UNICA", rotulo: "uma cidade" },
+      { valor: "MAIS_BARATO", rotulo: "mais barato" },
+      { valor: "COMPARAR", rotulo: "comparar" },
     ],
   },
   {
@@ -85,20 +95,34 @@ export default async function RefiningPage({
         </EmptyState>
       )}
 
-      {data?.opportunities.map((op) => <RefiningLine key={op.item} op={op} />)}
+      {data?.opportunities.map((op) => (
+        <RefiningLine key={op.item} op={op} base={data.buy_location} />
+      ))}
 
       {data && data.opportunities.length > 0 && (
         <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
           Cada elo da cadeia paga a taxa da estação, não só o último — em refino isso pesa muito
           mais que em craft avulso. As duas colunas de custo são as duas respostas certas: quem
-          compra tudo pronto olha a primeira, quem já tem a cadeia montada olha a segunda.
+          compra tudo pronto olha a primeira, quem já tem a cadeia montada olha a segunda. O elo
+          com moldura âmbar é comprado fora da cidade base; o aviso de cidades aparece a partir da
+          terceira, porque cada cidade a mais é uma viagem a mais.
         </p>
       )}
     </PageShell>
   );
 }
 
-function RefiningLine({ op }: { op: RefiningOpportunity }) {
+/** Tooltip do elo: as duas alternativas de custo e o que a cidade muda. */
+function titulo(passo: RefiningOpportunity["chain"][number], base: string): string {
+  const linha = `${passo.item}: mercado ${formatSilver(passo.market_price)} · produzir ${formatSilver(passo.craft_cost)}`;
+  if (passo.sourcing !== "MERCADO" || !passo.is_alternate_city) return linha;
+  if (passo.savings_vs_base === null) {
+    return `${linha} · ${base} não tem cotação deste elo; só ${passo.location} tem.`;
+  }
+  return `${linha} · comprando em ${passo.location} você economiza ${formatSilver(passo.savings_vs_base)} por unidade contra ${base}.`;
+}
+
+function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
   const positivo = op.known ? (op.profit ?? 0) > 0 : null;
   const elos = op.chain.filter((p) => p.craft_cost !== null);
 
@@ -145,17 +169,27 @@ function RefiningLine({ op }: { op: RefiningOpportunity }) {
           elos.map((passo) => (
             <span
               key={passo.item}
-              title={`${passo.item}: mercado ${formatSilver(passo.market_price)} · produzir ${formatSilver(passo.craft_cost)}`}
-              className={`figure shrink-0 rounded-[3px] border px-[5px] py-px text-[9.5px] ${
-                passo.sourcing === "MERCADO"
-                  ? "border-line bg-raised text-muted"
-                  : "border-up/30 bg-up/10 text-up"
+              title={titulo(passo, base)}
+              className={`figure inline-flex shrink-0 items-center gap-[5px] rounded-[3px] border px-[5px] py-px text-[9.5px] ${
+                passo.sourcing !== "MERCADO"
+                  ? "border-up/30 bg-up/10 text-up"
+                  : passo.is_alternate_city
+                    ? "border-warn/40 bg-raised text-muted"
+                    : "border-line bg-raised text-muted"
               }`}
             >
               {passo.item.split("_")[0]} {passo.sourcing === "MERCADO" ? "comprar" : "produzir"}
+              {passo.sourcing === "MERCADO" && passo.location && (
+                <CityTag city={passo.location} alternate={passo.is_alternate_city} />
+              )}
             </span>
           ))
         )}
+        <SpreadWarning
+          cities={op.material_sourcing.cities_involved}
+          savings={op.material_sourcing.savings}
+          savingsPct={op.material_sourcing.savings_pct}
+        />
       </div>
 
       <div className="pr-3 text-right">

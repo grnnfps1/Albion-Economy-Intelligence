@@ -164,3 +164,53 @@ async def count_prices(session: AsyncSession, server_code: str) -> int:
         )
         or 0
     )
+
+
+async def sell_quotes_by_city(
+    session: AsyncSession,
+    server_code: str,
+    item_unique_names: list[str],
+    location_slugs: list[str],
+) -> list[tuple[str, str, str, int | None, datetime | None]]:
+    """Ordem de venda mais barata de cada item em cada cidade pedida.
+
+    É o preço que quem *compra* material paga (requisito 7: quem compra do
+    mercado paga `sell_price_min`). Devolve uma linha por (item, cidade), a da
+    menor qualidade encontrada -- misturar qualidades no custo compararia coisas
+    diferentes.
+
+    `sell_price_min` volta como `None` quando não há ordem naquela cidade. Isso
+    é ausência de dado, não preço zero: quem chama decide o que fazer com ela.
+    """
+    if not item_unique_names or not location_slugs:
+        return []
+
+    statement = (
+        select(
+            Item.unique_name,
+            Location.slug,
+            Location.display_name,
+            MarketPrice.sell_price_min,
+            MarketPrice.sell_price_min_date,
+            MarketPrice.quality,
+        )
+        .join(Item, MarketPrice.item_id == Item.id)
+        .join(Location, MarketPrice.location_id == Location.id)
+        .join(Server, MarketPrice.server_id == Server.id)
+        .where(
+            Server.code == server_code,
+            Item.unique_name.in_(item_unique_names),
+            Location.slug.in_(location_slugs),
+        )
+        .order_by(Item.unique_name, Location.slug, MarketPrice.quality)
+    )
+
+    vistos: set[tuple[str, str]] = set()
+    linhas: list[tuple[str, str, str, int | None, datetime | None]] = []
+    for nome, slug, display, preco, data, _quality in (await session.execute(statement)).all():
+        chave = (nome, slug)
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        linhas.append((nome, slug, display, preco, data))
+    return linhas

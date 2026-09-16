@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.crafting import CraftParamsUsed
+from app.schemas.crafting import CraftParamsUsed, SourcingOut
 
 
 class ChainStepOut(BaseModel):
@@ -14,6 +14,13 @@ class ChainStepOut(BaseModel):
         default=None, description="Custo de produzir esta unidade, quando há receita."
     )
     depth: int
+
+    # Só nos elos comprados: elo produzido não exige viagem nenhuma.
+    location: str | None = None
+    location_slug: str | None = None
+    is_alternate_city: bool = False
+    base_unit_price: int | None = None
+    savings_vs_base: float | None = None
 
 
 class RefiningOut(BaseModel):
@@ -33,6 +40,7 @@ class RefiningOut(BaseModel):
     unit_cost: float | None
     focus_per_unit: float
     chain: list[ChainStepOut]
+    material_sourcing: SourcingOut
 
     # Comparação explícita: as duas respostas são certas, para pessoas
     # diferentes. Quem compra tudo pronto olha a primeira; quem já tem a cadeia
@@ -52,6 +60,7 @@ class RefiningResponse(BaseModel):
     buy_location: str
     sell_location: str
     sourcing: str
+    sourcing_mode: str = "CIDADE_UNICA"
     total: int
     params: CraftParamsUsed
     generated_at: str

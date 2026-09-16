@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/PageShell";
 import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
-import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
+import { CityTag, QualityBadge, SpreadWarning, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchCrafting, type CraftOpportunity } from "@/lib/api";
@@ -21,6 +21,17 @@ const GRUPOS = [
       { valor: "profit_per_focus", rotulo: "prata/focus" },
       { valor: "profit", rotulo: "lucro" },
       { valor: "roi", rotulo: "ROI" },
+    ],
+  },
+  {
+    // Onde comprar cada material. Uma cidade é o padrão porque rota espalhada
+    // custa viagem: só vale quando a economia paga o desvio.
+    chave: "sourcing_mode",
+    padrao: "CIDADE_UNICA",
+    opcoes: [
+      { valor: "CIDADE_UNICA", rotulo: "uma cidade" },
+      { valor: "MAIS_BARATO", rotulo: "mais barato" },
+      { valor: "COMPARAR", rotulo: "comparar" },
     ],
   },
   {
@@ -105,11 +116,27 @@ export default async function CraftingPage({
           <b>Como ler:</b> <i>você gasta</i> é o custo dos materiais depois do retorno, mais a
           taxa da estação. <i>Você recebe</i> já desconta o imposto de venda. Nos materiais, o
           número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
-          tier.
+          tier. Material com moldura âmbar vem de outra cidade — e o aviso de cidades aparece a
+          partir da terceira, porque economia espalhada por quatro mercados custa quatro viagens.
         </p>
       )}
     </PageShell>
   );
+}
+
+/**
+ * Tooltip do material: preço, e o que o desvio de cidade compra.
+ *
+ * O rótulo diz a consequência, não o nome do campo: "economiza X contra
+ * Caerleon" responde a pergunta que "cidade alternativa" só levanta.
+ */
+function titulo(m: CraftOpportunity["materials"][number], base: string): string {
+  const linha = `${m.item_name ?? m.item}: ${m.quantity} × ${formatSilver(m.unit_price)} = ${formatSilver(m.total_price)}`;
+  if (!m.is_alternate_city) return linha;
+  if (m.savings_vs_base === null) {
+    return `${linha} · ${base} não tem cotação deste material; só ${m.location} tem.`;
+  }
+  return `${linha} · comprando em ${m.location} você economiza ${formatSilver(m.savings_vs_base)} contra ${base}.`;
 }
 
 function CraftLine({ op }: { op: CraftOpportunity }) {
@@ -152,8 +179,10 @@ function CraftLine({ op }: { op: CraftOpportunity }) {
         {op.materials.map((m) => (
           <span
             key={m.item}
-            title={`${m.item_name ?? m.item}: ${m.quantity} × ${formatSilver(m.unit_price)} = ${formatSilver(m.total_price)}`}
-            className="flex shrink-0 items-center gap-1.5 rounded border border-line bg-raised px-1.5 py-[3px]"
+            title={titulo(m, op.buy_location)}
+            className={`flex shrink-0 items-center gap-1.5 rounded border bg-raised px-1.5 py-[3px] ${
+              m.is_alternate_city ? "border-warn/40" : "border-line"
+            }`}
           >
             <ItemIcon url={m.icon_url} alt={m.item} tier={op.tier} quantity={m.quantity} size={28} />
             <span className="flex flex-col leading-[1.15]">
@@ -161,10 +190,19 @@ function CraftLine({ op }: { op: CraftOpportunity }) {
                 {formatSilver(m.unit_price)}
                 <span className="ml-px text-[9px] text-dim">/un</span>
               </span>
-              <CityTag city={m.location ?? "—"} className="text-[9.5px] text-muted" />
+              <CityTag
+                city={m.location ?? "—"}
+                alternate={m.is_alternate_city}
+                className="text-[9.5px] text-muted"
+              />
             </span>
           </span>
         ))}
+        <SpreadWarning
+          cities={op.material_sourcing.cities_involved}
+          savings={op.material_sourcing.savings}
+          savingsPct={op.material_sourcing.savings_pct}
+        />
       </div>
 
       <div className="text-right">
