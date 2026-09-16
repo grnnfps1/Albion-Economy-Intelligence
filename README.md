@@ -154,6 +154,12 @@ Os testes em `backend/tests/integration/` precisam de PostgreSQL e usam o banco
 `albion_test`. Sem banco eles **pulam**, com a razão impressa — nunca passam
 fingindo ter testado. O `-rs` mostra os skips.
 
+O teste do collector também precisa de Redis, em `TEST_REDIS_URL` — banco 15 por
+padrão, nunca o da aplicação: o fixture roda `flushdb` e apagaria cache, janela
+de rate limit e locks de coleta. Sem a variável, ele deriva a URL de `REDIS_URL`
+trocando o número do banco, o que faz o mesmo comando funcionar dentro e fora do
+compose.
+
 ### Logs e manutenção
 
 ```bash

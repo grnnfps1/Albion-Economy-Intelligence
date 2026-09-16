@@ -44,6 +44,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-albion}:${POSTGRES_PASSWORD:-albion}@postgres:5432/${POSTGRES_DB:-albion}
       REDIS_URL: redis://redis:6379/0
       TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-albion}:${POSTGRES_PASSWORD:-albion}@postgres:5432/${POSTGRES_DB:-albion}_test
+      TEST_REDIS_URL: redis://redis:6379/15
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

@@ -153,6 +153,11 @@ Testes de integração (`backend/tests/integration/`) precisam de Postgres e usa
 banco `albion_test`. Sem banco eles **pulam** com a razão impressa — nunca passam
 fingindo ter testado. Use `-rs` para ver os skips.
 
+O teste do collector também precisa de Redis, em `TEST_REDIS_URL` — **banco 15,
+nunca o da aplicação**: o fixture roda `flushdb`. Sem a variável ele deriva a URL
+de `REDIS_URL` trocando o número do banco, o que faz o mesmo comando funcionar
+dentro e fora do compose (`localhost` fixo não funcionava dentro do container).
+
 ## Sobre a fonte de dados
 
 Os preços vêm do Albion Online Data Project, coleta **comunitária**: o dado existe
