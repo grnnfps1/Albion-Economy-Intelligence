@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.crafting import CraftParamsUsed, SourcingOut
+from app.schemas.crafting import CraftParamsUsed, ReturnOut, SourcingOut
 
 
 class ChainStepOut(BaseModel):
@@ -41,6 +41,7 @@ class RefiningOut(BaseModel):
     focus_per_unit: float
     chain: list[ChainStepOut]
     material_sourcing: SourcingOut
+    material_return: ReturnOut
 
     # Comparação explícita: as duas respostas são certas, para pessoas
     # diferentes. Quem compra tudo pronto olha a primeira; quem já tem a cadeia

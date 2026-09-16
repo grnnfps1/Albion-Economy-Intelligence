@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.chain import ChainResult, RecipeSpec, Sourcing, resolve_unit_cost
 from app.calculations.fees import Strategy, compute_trade
+from app.calculations.returns import Activity
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
 from app.models.catalog import Item
@@ -27,10 +28,12 @@ from app.models.recipes import Recipe
 from app.repositories import market as market_repo
 from app.repositories import recipes_repo, settings_repo
 from app.repositories.liquidity import liquidity_by_item_location
+from app.repositories.reference import list_locations
 from app.schemas.crafting import CraftParamsUsed, SourcingOut
 from app.schemas.refining import ChainStepOut, RefiningOut, RefiningResponse
 from app.services.arbitrage_service import resolve_fees
-from app.services.crafting_service import RETURN_RATE_KEY, STATION_FEE_KEY
+from app.services.crafting_service import STATION_FEE_KEY
+from app.services.return_service import load_return_policy, return_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
 
 DATA_SOURCE_NOTE = (
@@ -71,24 +74,34 @@ async def find_refining_opportunities(
     limit: int,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
     max_age_seconds: int | None = None,
+    use_focus: bool = False,
+    daily_production_bonus: float = 0.0,
 ) -> RefiningResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
-    if return_rate is None:
-        return_rate = await settings_repo.get_value(session, RETURN_RATE_KEY)
+    # O bônus de refino segue o recurso, e dentro de uma cadeia o recurso é o
+    # mesmo do começo ao fim: madeira bruta e tábua têm a mesma cidade. Por isso
+    # basta resolver uma vez por item refinado.
+    retornos = await load_return_policy(session)
+    nomes_de_cidade = {
+        local.slug: local.display_name for local in await list_locations(session)
+    }
     if station_fee is None:
         station_fee = await settings_repo.get_value(session, STATION_FEE_KEY)
     if max_age_seconds is None:
         max_age_seconds = get_settings().freshness_stale_seconds
 
     faltando = list(resumo_taxas.missing)
-    if return_rate is None:
-        faltando.append("crafting.return_rate")
+    matriz = retornos.matrices[Activity.REFINING]
+    if return_rate is None and not matriz.complete:
+        faltando.append("refining.return_rate")
     if station_fee is None:
         faltando.append("crafting.station_fee")
 
     params = CraftParamsUsed(
-        return_rate=return_rate, station_fee=station_fee, fees=resumo_taxas,
-        complete=not faltando, missing=faltando,
+        return_rate=return_rate, station_fee=station_fee,
+        use_focus=use_focus, daily_production_bonus=daily_production_bonus,
+        return_rate_source="preferencia" if return_rate is not None else "matriz",
+        fees=resumo_taxas, complete=not faltando, missing=faltando,
     )
 
     # Só recursos refinados: é o que forma cadeia.
@@ -169,17 +182,27 @@ async def find_refining_opportunities(
         )
         return RecipeSpec(receita.output_quantity, receita.focus_cost, materiais)
 
-    def resolver(nome: str, modo: Sourcing, preco) -> ChainResult:
+    def resolver(nome: str, modo: Sourcing, preco, taxa_retorno) -> ChainResult:
         return resolve_unit_cost(
-            nome, modo, preco, receita_de, return_rate, station_fee
+            nome, modo, preco, receita_de, taxa_retorno, station_fee
         )
 
     resultados: list[RefiningOut] = []
     for item in refinados:
-        cadeia = resolver(item.unique_name, sourcing, compras.price_of)
+        retorno, melhor_cidade = retornos.resolve(
+            Activity.REFINING,
+            item.unique_name,
+            city_slug=buy_location,
+            use_focus=use_focus,
+            daily_bonus=daily_production_bonus,
+            override=return_rate,
+        )
+        taxa = retorno.rate
+
+        cadeia = resolver(item.unique_name, sourcing, compras.price_of, taxa)
         # As duas alternativas puras, sempre, para a comparação ficar explícita.
-        so_mercado = resolver(item.unique_name, Sourcing.MARKET, compras.price_of)
-        so_producao = resolver(item.unique_name, Sourcing.CRAFT, compras.price_of)
+        so_mercado = resolver(item.unique_name, Sourcing.MARKET, compras.price_of, taxa)
+        so_producao = resolver(item.unique_name, Sourcing.CRAFT, compras.price_of, taxa)
 
         venda, idade_venda = precos_venda.get(item.unique_name, (None, None))
         lucro = margem = por_focus = None
@@ -196,7 +219,9 @@ async def find_refining_opportunities(
         elos = _elos_unicos(cadeia.steps)
         roteiro = _roteiro(
             sourcing_mode, elos, compras, cadeia,
-            lambda nome=item.unique_name: resolver(nome, sourcing, compras.base_price_of),
+            lambda nome=item.unique_name, t=taxa: resolver(
+                nome, sourcing, compras.base_price_of, t
+            ),
             venda, fees, strategy,
         )
 
@@ -222,6 +247,7 @@ async def find_refining_opportunities(
                 focus_per_unit=round(cadeia.focus_per_unit, 2),
                 chain=[_elo_out(passo, por_nome, compras) for passo in elos],
                 material_sourcing=roteiro,
+                material_return=return_out(retorno, melhor_cidade, nomes_de_cidade),
                 cost_from_market=round(so_mercado.unit_cost, 2) if so_mercado.known else None,
                 cost_from_crafting=round(so_producao.unit_cost, 2) if so_producao.known else None,
                 known=conhecido,

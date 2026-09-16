@@ -94,9 +94,22 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className={rotulo}>Retorno de material</span>
-        <input className={campo} value={(prefs.returnRate * 100).toFixed(1)}
-          onChange={(e) => atualizar({ returnRate: (parseFloat(e.target.value) || 0) / 100 })} />
+        <span className={rotulo}>Focus ligado</span>
+        <select className={campo} value={prefs.useFocus ? "1" : "0"}
+          onChange={(e) => atualizar({ useFocus: e.target.value === "1" })}>
+          <option value="0">não</option>
+          <option value="1">sim</option>
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Bônus diário</span>
+        <select className={campo} value={String(prefs.dailyProductionBonus)}
+          onChange={(e) => atualizar({ dailyProductionBonus: parseFloat(e.target.value) })}>
+          <option value="0">nenhum</option>
+          <option value="0.1">10%</option>
+          <option value="0.2">20%</option>
+        </select>
       </label>
 
       <label className="flex flex-col gap-1">
@@ -145,6 +158,13 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         São o que a comunidade reporta. O imposto muda com Premium; o retorno muda com Focus e
         especialização; a taxa da estação é definida pelo dono e varia por cidade. Ajuste uma
         vez — vale para todas as telas.
+      </p>
+
+      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+        <b className="font-semibold text-body">O retorno de material não é mais um campo.</b>{" "}
+        Ele sai de uma matriz por cidade, atividade e Focus — refinar minério em Thetford rende
+        36,7%, e em qualquer outra cidade rende 15,2%. As telas mostram por linha onde rende
+        mais. Estes dois campos escolhem a coluna da matriz e somam o sorteio do dia.
       </p>
 
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">

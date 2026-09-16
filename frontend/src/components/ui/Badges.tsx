@@ -143,3 +143,66 @@ export function ZoneTag({ zone, label }: { zone: string; label: string }) {
     </span>
   );
 }
+
+/**
+ * Retorno de material e onde ele seria maior.
+ *
+ * É a pergunta que as telas de craft e refino não respondiam: refinar minério
+ * em Thetford devolve 36,7% do material e em qualquer outra cidade devolve
+ * 15,2%. Com um número só, essa diferença — que é maior que a do Focus — não
+ * aparecia em lugar nenhum.
+ *
+ * Quando já se está na cidade certa, a marca é verde e não há o que recomendar.
+ */
+export function ReturnTag({
+  rate,
+  isBestCity,
+  bestCityName,
+  delta,
+  mappingKnown,
+}: {
+  rate: number | null;
+  isBestCity: boolean;
+  bestCityName: string | null;
+  delta: number | null;
+  mappingKnown: boolean;
+}) {
+  if (rate === null) {
+    return <span className="figure text-[9.5px] text-dim">retorno ?</span>;
+  }
+
+  const pct = `${(rate * 100).toFixed(1)}%`;
+
+  if (isBestCity) {
+    return (
+      <span
+        title="Esta já é a cidade com bônus para este item."
+        className="figure inline-flex items-center gap-[4px] rounded-[3px] border border-up/40 bg-up-dim px-[5px] py-px text-[9.5px] text-up"
+      >
+        ↩ {pct} · melhor cidade
+      </span>
+    );
+  }
+
+  // Sem mapa não é o mesmo que sem bônus: um é "não levantamos", o outro é
+  // "não existe". A tela precisa saber a diferença.
+  if (!mappingKnown || bestCityName === null || delta === null) {
+    return (
+      <span
+        title="O mapeamento de bônus desta família não foi levantado — o cálculo usa o retorno sem bônus, que é o lado conservador."
+        className="figure inline-flex items-center gap-[4px] rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted"
+      >
+        ↩ {pct} · bônus não mapeado
+      </span>
+    );
+  }
+
+  return (
+    <span
+      title={`Aqui o retorno é ${pct}. Em ${bestCityName} seria ${((rate + delta) * 100).toFixed(1)}% — ${(delta * 100).toFixed(1)} pontos percentuais a mais do material de volta.`}
+      className="figure inline-flex items-center gap-[4px] rounded-[3px] border border-warn/40 bg-warn/10 px-[5px] py-px text-[9.5px] text-warn"
+    >
+      ↩ {pct} · {bestCityName} +{(delta * 100).toFixed(1)}pp
+    </span>
+  );
+}

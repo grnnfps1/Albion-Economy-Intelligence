@@ -71,6 +71,21 @@ services:
       # Variáveis de servidor: nenhuma chega ao browser (sem prefixo NEXT_PUBLIC_).
       BACKEND_INTERNAL_URL: http://backend:8000
       NEXT_TELEMETRY_DISABLED: "1"
+      # Bind mount no Windows não propaga evento de inotify: o dev server não
+      # recompila arquivo alterado, e rota nova chega a devolver 404 até alguém
+      # reiniciar o container.
+      #
+      # MEDIDO EM 16/09/2026: estas duas variáveis NÃO resolveram o caso. Elas
+      # são do webpack (watchpack) e do chokidar, e este projeto roda Next 16
+      # com Turbopack, cujo watcher não as lê. Duas medições de ~2 min cada, com
+      # o arquivo alterado e visível dentro do container, não produziram nenhuma
+      # recompilação. `watchOptions.pollIntervalMs` no next.config, que é a
+      # opção nativa do Turbopack, também não resolveu.
+      #
+      # Ficam porque não custam nada e voltam a valer se o projeto sair do
+      # Turbopack. O que funciona hoje é reiniciar o serviço frontend.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:

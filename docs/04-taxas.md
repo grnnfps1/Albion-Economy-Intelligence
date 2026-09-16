@@ -56,6 +56,79 @@ Cinco medições, todas de dentro do cliente:
 Com 100.000 de valor, cada ponto percentual são 1.000 de prata — a diferença é
 visível a olho nu no log de transações.
 
+## Item 6 — retorno de material: de "sem fonte" para estimativa de alta fidelidade
+
+> **Status em 16/09/2026:** os números estão gravados e os cálculos rodam. O item
+> **continua aberto**, porque nada disto foi medido dentro do jogo.
+
+### A matriz
+
+| Atividade | Local | Sem Focus | Com Focus |
+|---|---|---|---|
+| Refino | cidade com bônus do recurso | **0,367** | **0,539** |
+| Refino | sem bônus | 0,152 | 0,435 |
+| Craft | cidade com bônus do item | **0,248** | **0,477** |
+| Craft | sem bônus | 0,152 | 0,435 |
+
+`source`, gravado em cada uma das oito chaves:
+
+```
+engenharia reversa da comunidade (logs de transacao + simulacao de alta
+amostragem); albioncodex, albionfreemarket, albiononlinegrind; consultado em
+16/09/2026; nao auditado contra codigo da Sandbox
+```
+
+### Por que 36,7% e não 40%
+
+A documentação oficial cita **+40%** e a comunidade mediu **36,7%**. Os dois
+estão certos: **não descrevem a mesma coisa.**
+
+- O número oficial é o **bônus bruto** da estação — o modificador que o jogo
+  aplica.
+- O número da comunidade é o **efeito realizado**: quanto do material de fato
+  volta para o inventário, depois de como o retorno é sorteado por unidade e
+  arredondado.
+
+É por isso que os números da comunidade têm casa decimal e o oficial é redondo:
+um é parâmetro de sistema, o outro é resultado medido. Usar 40% no cálculo
+superestimaria o retorno em ~9% relativos — e superestimar retorno é
+superestimar lucro, que é o lado errado de errar neste projeto.
+
+### O bônus por cidade
+
+Refino segue o **recurso**, que segue o bioma:
+
+| Cidade | Recurso |
+|---|---|
+| Fort Sterling | madeira / tábuas |
+| Lymhurst | fibra / tecido |
+| Bridgewatch | pedra / blocos |
+| Martlock | couro / peles curtidas |
+| Thetford | minério / barras |
+| Caerleon | nenhum dos cinco básicos |
+
+Craft segue a **família do item**, que é outra divisão. Conferido: em 9 de 9
+peças de armadura, a cidade que refina o material **não** é a que dá bônus para
+craftá-la. Isso não é inconsistência entre as duas tabelas — é o que obriga o
+material a viajar.
+
+Fonte do mapeamento de refino: guia oficial de refino da Albion Online +
+tabelas de bônus locais de albiononlinegrind, consultados em 16/09/2026.
+
+### O que continua aberto
+
+1. **Medição direta no jogo.** Refinar um lote de tamanho conhecido na cidade
+   com bônus e fora dela, com e sem Focus, e contar o material devolvido. É o
+   que troca "estimativa de alta fidelidade" por "medido".
+2. **O bônus de Focus.** A matriz traz o resultado com Focus, mas não a fórmula:
+   não se sabe se o Focus multiplica o bônus da cidade ou soma a ele.
+3. **O bônus diário de produção** (0, 10% ou 20%). O cálculo o soma à célula da
+   matriz. A soma é a leitura mais simples e **não foi verificada**.
+4. **Famílias de craft não mapeadas.** "Cajados de quartzo" não existe no dump; o
+   candidato é `2H_QUARTERSTAFF` e a tradução não confirma. As linhas HALBERD,
+   SCYTHE, GLAIVE, CLAWPAIR, FLAIL, KNUCKLES, SHAPESHIFTER e as de bastão também
+   ficaram sem confirmação. Todas caem no retorno sem bônus — errar para menos.
+
 ## Sexto item para verificar: retorno de material
 
 Além das cinco medições acima, a classificação de **quais materiais retornam** no

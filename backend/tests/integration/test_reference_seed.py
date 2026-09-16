@@ -4,6 +4,7 @@ Roda contra o banco criado pelas MIGRATIONS (não pelos modelos), porque o que s
 está verificando aqui é o resultado de `alembic upgrade head`.
 """
 
+import json
 import os
 
 import pytest
@@ -116,11 +117,11 @@ async def test_retorno_tem_valor_e_procedencia_por_extenso(migrated_connection):
         assert "nao auditado" in source, f"{key} não diz o que ficou por verificar"
 
 
-async def test_bonus_de_refino_por_cidade_continua_unknown(migrated_connection):
-    """O mapeamento recurso -> cidade não foi levantado, e não se aproxima.
+async def test_bonus_de_refino_cobre_as_cinco_linhas_de_recurso(migrated_connection):
+    """Cada cidade leva o bruto e o refinado da mesma linha.
 
-    Sem ele, `/refining` não tem como dizer em qual cidade aquele material rende
-    0,367 em vez de 0,152 — e a tela precisa dizer isso, não inventar.
+    E as cinco linhas precisam estar todas lá: faltar uma faria o material
+    daquela linha cair no retorno base em qualquer cidade, sem ninguém notar.
     """
     value, source = (
         await migrated_connection.execute(
@@ -130,8 +131,26 @@ async def test_bonus_de_refino_por_cidade_continua_unknown(migrated_connection):
             )
         )
     ).one()
-    assert value is None
-    assert source == "UNKNOWN"
+
+    assert source != "UNKNOWN", "mapeamento com valor precisa de procedência"
+    mapa = value if isinstance(value, dict) else json.loads(value)
+
+    esperado = {
+        "fort-sterling": ["WOOD", "PLANKS"],
+        "lymhurst": ["FIBER", "CLOTH"],
+        "bridgewatch": ["ROCK", "STONEBLOCK"],
+        "martlock": ["HIDE", "LEATHER"],
+        "thetford": ["ORE", "METALBAR"],
+    }
+    for cidade, familias in esperado.items():
+        assert mapa[cidade] == familias, f"{cidade} com a linha de recurso errada"
+
+    # Caerleon entra com lista vazia: é afirmação de "sem bônus", não lacuna.
+    assert mapa["caerleon"] == []
+
+    # Nenhuma família em duas cidades — seria bônus duplicado.
+    todas = [f for familias in mapa.values() for f in familias]
+    assert len(todas) == len(set(todas))
 
 
 async def test_pesos_do_score_sao_configuraveis(migrated_connection):

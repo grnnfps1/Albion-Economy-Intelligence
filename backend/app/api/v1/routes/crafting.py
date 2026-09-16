@@ -34,7 +34,10 @@ async def crafting_opportunities(
     ),
     # Nenhum destes é fato fixo. Retorno muda com Focus e especialização, taxa
     # de estação muda por cidade e por hora, imposto muda com Premium.
-    return_rate: float | None = Query(None, ge=0, le=1, description="Ex.: 0.15 para 15%."),
+    return_rate: float | None = Query(
+        None, ge=0, le=1,
+        description="Sobrescreve a matriz. Ex.: 0.15 para 15%.",
+    ),
     station_fee: float | None = Query(None, ge=0, description="Prata por craft."),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
@@ -59,6 +62,12 @@ async def crafting_opportunities(
         None, ge=0, le=1,
         description="Perda esperada em rota por Caerleon ou Black Market. Ex.: 0.15 para 15%.",
     ),
+    # O retorno sai da matriz por (cidade, atividade, Focus). `return_rate`
+    # continua aceito, mas agora como sobrescrita.
+    use_focus: bool = Query(False, description="Focus ligado muda a coluna da matriz."),
+    daily_production_bonus: float = Query(
+        0.0, ge=0, le=1, description="Bônus diário de produção: 0, 0.10 ou 0.20."
+    ),
     limit: int = Query(30, ge=1, le=100),
 ) -> CraftingResponse:
     return await find_crafting_opportunities(
@@ -79,5 +88,7 @@ async def crafting_opportunities(
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
         loss_pct_blue=loss_pct_blue,
         loss_pct_red_black=loss_pct_red_black,
+        use_focus=use_focus,
+        daily_production_bonus=daily_production_bonus,
         limit=limit,
     )

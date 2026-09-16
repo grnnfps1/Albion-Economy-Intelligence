@@ -34,7 +34,9 @@ async def refining_opportunities(
     # A escolha que define a resposta: quem compra tudo pronto usa MERCADO;
     # quem já tem a cadeia montada usa PRODUZIR. MAIS_BARATO decide tier a tier.
     sourcing: str = Query("MAIS_BARATO", description="MERCADO | PRODUZIR | MAIS_BARATO"),
-    return_rate: float | None = Query(None, ge=0, le=1),
+    return_rate: float | None = Query(
+        None, ge=0, le=1, description="Sobrescreve a matriz de retorno."
+    ),
     station_fee: float | None = Query(None, ge=0),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
@@ -44,6 +46,12 @@ async def refining_opportunities(
     strategy: str = Query("IMEDIATA"),
     sourcing_mode: str = Query(
         "CIDADE_UNICA", description="CIDADE_UNICA | MAIS_BARATO | COMPARAR"
+    ),
+    # O retorno sai da matriz por (cidade, atividade, Focus). `return_rate`
+    # continua aceito, mas agora como sobrescrita.
+    use_focus: bool = Query(False, description="Focus ligado muda a coluna da matriz."),
+    daily_production_bonus: float = Query(
+        0.0, ge=0, le=1, description="Bônus diário de produção: 0, 0.10 ou 0.20."
     ),
     limit: int = Query(40, ge=1, le=200),
 ) -> RefiningResponse:
@@ -62,5 +70,7 @@ async def refining_opportunities(
         tier=tier,
         strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
+        use_focus=use_focus,
+        daily_production_bonus=daily_production_bonus,
         limit=limit,
     )

@@ -261,6 +261,16 @@ export async function fetchArbitrage(
   }
 }
 
+/** Retorno de material em uso, e onde ele seria maior. */
+export type MaterialReturn = {
+  rate: number | null; source: string;
+  has_city_bonus: boolean; use_focus: boolean; daily_bonus: number;
+  matrix_rate: number | null;
+  best_city: string | null; best_city_name: string | null;
+  rate_at_best_city: number | null; delta: number | null;
+  is_best_city: boolean; mapping_known: boolean;
+};
+
 /** Risco de rota: os dois números lado a lado, o bruto e o ajustado. */
 export type RouteRisk = {
   zone: string; zone_label: string; crosses_open_world: boolean;
@@ -302,6 +312,7 @@ export type CraftOpportunity = {
   materials: CraftMaterial[];
   material_sourcing: MaterialSourcing;
   risk: RouteRisk;
+  material_return: MaterialReturn;
   economics: {
     known: boolean; reason: string | null;
     output_quantity: number; focus_cost: number;
@@ -318,6 +329,7 @@ export type CraftingResponse = {
   crafts: number; sort_by: string; sourcing_mode: string; total: number;
   params: {
     return_rate: number | null; station_fee: number | null;
+    use_focus: boolean; daily_production_bonus: number; return_rate_source: string;
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
             premium: boolean | null; source: string; complete: boolean; missing: string[] };
     complete: boolean; missing: string[];
@@ -357,6 +369,7 @@ export type RefiningOpportunity = {
   sourcing: string; unit_cost: number | null; focus_per_unit: number;
   chain: ChainStep[];
   material_sourcing: MaterialSourcing;
+  material_return: MaterialReturn;
   cost_from_market: number | null; cost_from_crafting: number | null;
   known: boolean; reason: string | null;
   profit: number | null; margin_pct: number | null; profit_per_focus: number | null;

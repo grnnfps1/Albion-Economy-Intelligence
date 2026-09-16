@@ -14,9 +14,42 @@ class CraftParamsUsed(BaseModel):
 
     return_rate: float | None = None
     station_fee: float | None = None
+    use_focus: bool = False
+    daily_production_bonus: float = 0.0
+    return_rate_source: str = "UNKNOWN"
     fees: FeesUsed = Field(default_factory=FeesUsed)
     complete: bool = False
     missing: list[str] = Field(default_factory=list)
+
+
+class ReturnOut(BaseModel):
+    """A taxa de retorno em uso e onde ela seria maior.
+
+    A segunda metade é a pergunta que a tela não respondia: refinar ou craftar
+    isto em qual cidade rende mais, e quanto muda. Sem ela, a diferença entre
+    0,152 e 0,367 era invisível.
+    """
+
+    rate: float | None = None
+    source: str = "UNKNOWN"
+    has_city_bonus: bool = False
+    use_focus: bool = False
+    daily_bonus: float = 0.0
+    matrix_rate: float | None = Field(
+        default=None, description="A célula da matriz, antes do bônus diário e de sobrescrita."
+    )
+
+    best_city: str | None = None
+    best_city_name: str | None = None
+    rate_at_best_city: float | None = None
+    delta: float | None = Field(
+        default=None, description="Quanto o retorno sobe indo para a cidade do bônus."
+    )
+    is_best_city: bool = False
+    mapping_known: bool = Field(
+        default=True,
+        description="False quando o mapeamento de bônus daquela atividade não foi levantado.",
+    )
 
 
 class MaterialOut(BaseModel):
@@ -98,6 +131,7 @@ class CraftOpportunityOut(BaseModel):
     materials: list[MaterialOut]
     material_sourcing: SourcingOut
     risk: RiskOut
+    material_return: ReturnOut
     economics: CraftEconomicsOut
 
 

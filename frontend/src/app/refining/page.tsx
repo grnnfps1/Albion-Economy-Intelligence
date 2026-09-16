@@ -1,7 +1,7 @@
 import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
-import { CityTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
+import { CityTag, ReturnTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchRefining, type RefiningOpportunity } from "@/lib/api";
@@ -105,7 +105,9 @@ export default async function RefiningPage({
           mais que em craft avulso. As duas colunas de custo são as duas respostas certas: quem
           compra tudo pronto olha a primeira, quem já tem a cadeia montada olha a segunda. O elo
           com moldura âmbar é comprado fora da cidade base; o aviso de cidades aparece a partir da
-          terceira, porque cada cidade a mais é uma viagem a mais.
+          terceira, porque cada cidade a mais é uma viagem a mais. A marca <i>↩</i> é o retorno
+          de material, e ele segue o <b>recurso</b>: minério rende 36,7% em Thetford e 15,2% em
+          qualquer outra cidade. A diferença é maior que a que o Focus dá sozinho.
         </p>
       )}
     </PageShell>
@@ -141,6 +143,15 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
           </div>
           <div className="truncate text-[12.5px] leading-tight" title={op.item}>
             {op.item_name ?? op.item}
+          </div>
+          <div className="mt-[3px]">
+            <ReturnTag
+              rate={op.material_return.rate}
+              isBestCity={op.material_return.is_best_city}
+              bestCityName={op.material_return.best_city_name}
+              delta={op.material_return.delta}
+              mappingKnown={op.material_return.mapping_known}
+            />
           </div>
         </div>
       </div>

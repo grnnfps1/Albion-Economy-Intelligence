@@ -4,6 +4,7 @@ import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import {
   CityTag,
   QualityBadge,
+  ReturnTag,
   SpreadWarning,
   TierBadge,
   ZoneTag,
@@ -127,6 +128,8 @@ export default async function CraftingPage({
           Vender fora da cidade onde se compra cria uma rota, e rota tem zona: qualquer ponta em
           Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b>, onde
           a carga inteira pode não chegar. O Black Market aceita equipamento, nunca recurso.
+          A marca <i>↩</i> é o retorno de material: ele muda com a cidade, e craftar na cidade
+          com bônus da família devolve 24,8% do material em vez de 15,2%.
         </p>
       )}
     </PageShell>
@@ -163,6 +166,15 @@ function CraftLine({ op }: { op: CraftOpportunity }) {
           </div>
           <div className="truncate text-[12.5px] leading-tight" title={op.item}>
             {op.item_name ?? op.item}
+          </div>
+          <div className="mt-[3px]">
+            <ReturnTag
+              rate={op.material_return.rate}
+              isBestCity={op.material_return.is_best_city}
+              bestCityName={op.material_return.best_city_name}
+              delta={op.material_return.delta}
+              mappingKnown={op.material_return.mapping_known}
+            />
           </div>
         </div>
       </div>

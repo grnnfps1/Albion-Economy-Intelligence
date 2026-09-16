@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craft
 from app.calculations.fees import FeeProfile, Strategy
+from app.calculations.returns import Activity
 from app.calculations.risk import adjust_for_risk
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
@@ -22,6 +23,7 @@ from app.models.market import MarketPrice
 from app.repositories import market as market_repo
 from app.repositories import recipes_repo, settings_repo
 from app.repositories.liquidity import liquidity_by_item_location
+from app.repositories.reference import list_locations
 from app.schemas.crafting import (
     CraftEconomicsOut,
     CraftingResponse,
@@ -31,6 +33,7 @@ from app.schemas.crafting import (
     SourcingOut,
 )
 from app.services.arbitrage_service import resolve_fees
+from app.services.return_service import load_return_policy, return_out
 from app.services.risk_service import load_route_zones, resolve_risk, risk_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
 
@@ -68,6 +71,8 @@ async def find_crafting_opportunities(
     max_age_seconds: int | None = None,
     loss_pct_blue: float | None = None,
     loss_pct_red_black: float | None = None,
+    use_focus: bool = False,
+    daily_production_bonus: float = 0.0,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     perfil_risco, resumo_risco = await resolve_risk(session, loss_pct_blue, loss_pct_red_black)
@@ -76,9 +81,14 @@ async def find_crafting_opportunities(
     zonas = await load_route_zones(session)
     zona = zonas.of(buy_location, sell_location)
 
-    # Preferência do usuário vence a configuração; configuração vence nada.
-    if return_rate is None:
-        return_rate = await settings_repo.get_value(session, RETURN_RATE_KEY)
+    # O retorno é resolvido por item: depende da cidade onde se crafta e de o
+    # Focus estar ligado. `return_rate` deixou de ser o valor primário e virou
+    # sobrescrita opcional — o contrário da precedência das taxas de mercado.
+    retornos = await load_return_policy(session)
+    nomes_de_cidade = {
+        local.slug: local.display_name for local in await list_locations(session)
+    }
+
     if station_fee is None:
         station_fee = await settings_repo.get_value(session, STATION_FEE_KEY)
     if max_age_seconds is None:
@@ -87,7 +97,8 @@ async def find_crafting_opportunities(
         max_age_seconds = get_settings().freshness_stale_seconds
 
     faltando = list(resumo_taxas.missing)
-    if return_rate is None:
+    matriz = retornos.matrices[Activity.CRAFTING]
+    if return_rate is None and not matriz.complete:
         faltando.append("crafting.return_rate")
     if station_fee is None:
         faltando.append("crafting.station_fee")
@@ -95,6 +106,9 @@ async def find_crafting_opportunities(
     params = CraftParamsUsed(
         return_rate=return_rate,
         station_fee=station_fee,
+        use_focus=use_focus,
+        daily_production_bonus=daily_production_bonus,
+        return_rate_source="preferencia" if return_rate is not None else "matriz",
         fees=resumo_taxas,
         complete=not faltando,
         missing=faltando,
@@ -169,10 +183,21 @@ async def find_crafting_opportunities(
                     preco_venda.sell_price_min_date, now
                 )
 
+        # O bônus de craft segue a família do item e vale na cidade onde se
+        # produz — aqui, a mesma em que se compra material.
+        retorno, melhor_cidade = retornos.resolve(
+            Activity.CRAFTING,
+            saida.unique_name,
+            city_slug=buy_location,
+            use_focus=use_focus,
+            daily_bonus=daily_production_bonus,
+            override=return_rate,
+        )
+
         contexto = _Contexto(
             sell_price=sell_price,
             fees=fees,
-            return_rate=return_rate,
+            return_rate=retorno.rate,
             station_fee=station_fee,
             crafts=crafts,
             strategy=strategy,
@@ -218,6 +243,7 @@ async def find_crafting_opportunities(
                 materials=materiais_out,
                 material_sourcing=roteiro,
                 risk=risk_out(risco),
+                material_return=return_out(retorno, melhor_cidade, nomes_de_cidade),
                 economics=CraftEconomicsOut(
                     known=economia.known,
                     reason=economia.reason,

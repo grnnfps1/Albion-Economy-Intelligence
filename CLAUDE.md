@@ -31,6 +31,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 11 | Onde comprar cada material (`sourcing_mode`) | ✅ |
 | 12 | Agricultura e animais | ✅ |
 | 13 | Black Market validado + risco de rota | ✅ |
+| 14 | Matriz de retorno por cidade, atividade e Focus | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -264,6 +265,34 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
+## Notas da fase 14 — matriz de retorno
+
+- **O retorno deixou de ser um número e virou uma matriz** de (atividade ×
+  cidade × Focus). O motivo é que a cidade pesa mais que o Focus em refino:
+  0,152 → 0,367 só mudando de cidade. Com um valor único, essa decisão era
+  invisível na tela.
+- **Refino e craft têm bônus em eixos diferentes.** Refino segue o recurso (que
+  segue o bioma da cidade); craft segue a família do item. Conferido: em 9 de 9
+  peças de armadura a cidade que refina o material não é a que dá bônus para
+  craftá-la. Não é inconsistência — é o que obriga o material a viajar.
+- **A precedência inverteu em relação às taxas.** Nas taxas de mercado o valor
+  do usuário é primário. Aqui a matriz é primária e a preferência é sobrescrita
+  opcional, porque a matriz depende de (cidade, atividade, Focus) — coisas que
+  o sistema sabe — e o usuário só precisa intervir quando a situação dele é
+  atípica.
+- **Número com valor exige procedência.** O teste que travava chute foi
+  dividido, não afrouxado: imposto e setup fee seguem NULL/UNKNOWN; a matriz
+  exige valor na faixa, `source` diferente de UNKNOWN, data de consulta e a
+  ressalva do que não foi auditado.
+- **40% oficial e 36,7% medido não se contradizem.** Um é o bônus bruto da
+  estação, o outro é o efeito realizado depois do sorteio por unidade. É por
+  isso que o número da comunidade tem decimal. Detalhe em `docs/04-taxas.md`.
+- **Prefixo, não substring, no mapeamento de família.** `2H_BOW` pega
+  `2H_BOW_AVALON` e não pega `2H_CROSSBOW`, que é de outra cidade.
+- **Bug corrigido de carona:** o refino lia `crafting.return_rate.base`. Enquanto
+  as duas chaves eram NULL ninguém via; com a matriz preenchida, o refino usaria
+  a taxa do craft.
+
 ## Notas da fase 13 — Black Market e risco de rota
 
 - **A suposição estava errada, e só a consulta real mostrou.** Estava escrito
@@ -351,6 +380,16 @@ obrigatório. Nenhuma delas lê configuração.
 - **Economia sem número de cidades engana.** A resposta traz `cities_involved`
   junto de `savings`, e a tela avisa a partir da terceira cidade: 3% espalhados
   por quatro mercados custam quatro viagens.
+
+## Backlog
+
+- **Hideout em zona preta chega a 58–60% de retorno com Focus.** Fora de escopo:
+  a plataforma modela as cidades reais, onde está a esmagadora maioria dos
+  jogadores. Registrado para não se perder.
+- **Mapeamento de família de craft incompleto.** "Cajados de quartzo" e as linhas
+  HALBERD, SCYTHE, GLAIVE, CLAWPAIR, FLAIL, KNUCKLES, SHAPESHIFTER e de bastão
+  ficaram sem confirmação e caem no retorno sem bônus. Lista em
+  `crafting.city_bonus_unmapped`.
 
 ## O plano original terminou
 

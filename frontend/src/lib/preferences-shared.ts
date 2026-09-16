@@ -30,6 +30,12 @@ export type Preferences = {
    */
   lossPctBlue: number;
   lossPctRedBlack: number;
+  /**
+   * Focus ligado troca a coluna da matriz de retorno; o bônus diário (0, 10%
+   * ou 20%) é o que o jogo sorteia por dia e soma à célula.
+   */
+  useFocus: boolean;
+  dailyProductionBonus: number;
 };
 
 export const DEFAULTS: Preferences = {
@@ -45,6 +51,8 @@ export const DEFAULTS: Preferences = {
   quantity: 100,
   lossPctBlue: 0,
   lossPctRedBlack: 0,
+  useFocus: false,
+  dailyProductionBonus: 0,
 };
 
 export const COOKIE = "aei_prefs";
@@ -56,8 +64,12 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     setup_fee_pct: String(prefs.setupFeePct),
     sales_tax_pct: String(prefs.salesTaxPct),
     premium: String(prefs.premium),
-    return_rate: String(prefs.returnRate),
+    // `return_rate` não vai mais por padrão: a matriz por (cidade, atividade,
+    // Focus) é o valor primário, e mandar um número fixo aqui sobrescreveria
+    // justamente o que a fase resolveu.
     station_fee: String(prefs.stationFee),
+    use_focus: String(prefs.useFocus),
+    daily_production_bonus: String(prefs.dailyProductionBonus),
     loss_pct_blue: String(prefs.lossPctBlue),
     loss_pct_red_black: String(prefs.lossPctRedBlack),
   };
