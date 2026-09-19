@@ -462,6 +462,9 @@ export type ChainStep = {
   location: string | null; location_slug: string | null;
   is_alternate_city: boolean; base_unit_price: number | null;
   savings_vs_base: number | null;
+  /** Qual variante da receita o motor usou, e qual descartou. */
+  variant_label: string | null;
+  alternative_cost: number | null; alternative_label: string | null;
 };
 
 export type RefiningOpportunity = {

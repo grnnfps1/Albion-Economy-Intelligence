@@ -20,12 +20,25 @@ RECEITAS = {
 }
 
 
+def _variantes(tabela):
+    """Adapta um dicionário de receita única à assinatura de variantes.
+
+    `resolve_unit_cost` passou a receber **todas** as variantes na fase 19, para
+    poder escolher a mais barata. Estes testes tratam do caminho de uma
+    variante só.
+    """
+    def buscar(nome):
+        receita = tabela.get(nome)
+        return [receita] if receita is not None else []
+    return buscar
+
+
 def resolver(nome, sourcing, precos=None, retorno=0.15, estacao=100):
     tabela = PRECOS if precos is None else precos
     return resolve_unit_cost(
         nome, sourcing,
         market_price=lambda item: tabela.get(item),
-        recipe_for=RECEITAS.get,
+        recipes_for=_variantes(RECEITAS),
         return_rate=retorno, station_fee_of=lambda _nome: estacao,
     )
 
@@ -124,7 +137,7 @@ class TestProtecoes:
         resultado = resolve_unit_cost(
             "A", Sourcing.CRAFT,
             market_price=lambda item: 100,
-            recipe_for=ciclicas.get,
+            recipes_for=_variantes(ciclicas),
             return_rate=0.15, station_fee_of=lambda _nome: 100,
         )
         assert resultado.known is True
@@ -137,7 +150,7 @@ class TestProtecoes:
         resultado = resolve_unit_cost(
             "N0", Sourcing.CRAFT,
             market_price=lambda item: 10,
-            recipe_for=fundas.get,
+            recipes_for=_variantes(fundas),
             return_rate=0.15, station_fee_of=lambda _nome: 0,
         )
         assert resultado.known is True
@@ -151,3 +164,66 @@ def test_produzir_pode_ser_pior_que_comprar():
     produzir = resolver("T5_PLANKS", Sourcing.CRAFT, precos=precos)
     assert produzir.unit_cost > mercado.unit_cost
     assert pytest.approx(mercado.unit_cost) == 3800
+
+
+class TestVariantes:
+    """A receita tem alternativas, e a mais barata deve vencer.
+
+    Até a fase 19 o motor usava sempre a `variant_index` 0 e ignorava em
+    silêncio a variante com token de facção — que muda bastante o custo.
+    """
+
+    # T4_PLANKS sai de 2× madeira, **ou** de 1× madeira + 1 token.
+    SEM_TOKEN = RecipeSpec(1, 54, (("T4_WOOD", 2, True),), variant_index=0, label="sem token")
+    COM_TOKEN = RecipeSpec(
+        1, 54, (("T4_WOOD", 1, True), ("TOKEN", 1, False)),
+        variant_index=1, label="com token de facção",
+    )
+
+    def resolver(self, precos):
+        return resolve_unit_cost(
+            "T4_PLANKS",
+            Sourcing.CRAFT,
+            market_price=precos.get,
+            recipes_for=lambda n: [self.SEM_TOKEN, self.COM_TOKEN] if n == "T4_PLANKS" else [],
+            return_rate=0.0,
+            station_fee_of=lambda _n: 0,
+        )
+
+    def test_token_barato_vence(self):
+        """Token custando pouco: 1 madeira + token sai menos que 2 madeiras."""
+        resultado = self.resolver({"T4_WOOD": 300, "TOKEN": 10})
+        passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
+        assert passo.unit_cost == 310
+        assert passo.variant_label == "com token de facção"
+
+    def test_token_caro_perde(self):
+        resultado = self.resolver({"T4_WOOD": 300, "TOKEN": 5000})
+        passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
+        assert passo.unit_cost == 600
+        assert passo.variant_label == "sem token"
+
+    def test_a_variante_descartada_vai_na_resposta(self):
+        """Quem tem token parado no inventário precisa saber que existe a rota."""
+        resultado = self.resolver({"T4_WOOD": 300, "TOKEN": 5000})
+        passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
+        assert passo.alternative_cost == 5300
+        assert passo.alternative_label == "com token de facção"
+
+    def test_variante_sem_cotacao_nao_derruba_a_outra(self):
+        """Sem preço de token, a variante base ainda responde."""
+        resultado = self.resolver({"T4_WOOD": 300})
+        passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
+        assert passo.unit_cost == 600
+        assert passo.alternative_cost is None
+
+    def test_uma_variante_so_nao_inventa_alternativa(self):
+        resultado = resolve_unit_cost(
+            "T4_PLANKS", Sourcing.CRAFT,
+            market_price={"T4_WOOD": 300}.get,
+            recipes_for=lambda n: [self.SEM_TOKEN] if n == "T4_PLANKS" else [],
+            return_rate=0.0, station_fee_of=lambda _n: 0,
+        )
+        passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
+        assert passo.alternative_cost is None
+        assert passo.alternative_label is None

@@ -2,24 +2,29 @@ import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
-import { HoverTip } from "@/components/sheet/HoverTip";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
-import { CityTag, ReturnTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, Figure, ProfitFigure } from "@/components/ui/Figures";
+import { ReturnTag, TierBadge } from "@/components/ui/Badges";
+import { Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchRefining, type RefiningOpportunity } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatSilver } from "@/lib/format";
+import { formatDataAge, formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
 /**
- * A cadeia fica numa coluna só, e é a exceção consciente ao "uma coluna por
- * grandeza": ela não é uma grandeza, é um caminho de comprimento variável —
- * T2→T8 são sete elos. Abrir sete colunas encheria a tabela de traço para as
- * linhas de T4. As grandezas de decisão, essas sim, ganham cada uma a sua.
+ * Só grandezas de decisão. Duas colunas saíram na fase 19:
+ *
+ * - **cadeia** ocupava a largura de uma coluna de item para mostrar um caminho
+ *   que quase sempre repetia o que o tier já diz. Os elos continuam na
+ *   resposta e no balão do custo de produzir;
+ * - **idade** virava coluna própria para um dado que cabe numa cor.
+ *
+ * A idade **não some do produto** — isso seria desfazer uma decisão consciente
+ * desde a fase 4. Ela migra para a cor do preço e para o balão: cotação velha
+ * continua sendo a diferença entre recomendação e chute.
  */
 const COLUNAS: SheetColumn[] = [
   { label: "item", width: "item", left: true },
@@ -34,8 +39,6 @@ const COLUNAS: SheetColumn[] = [
       "o que um dia desta operação rende, limitado pelo Focus do dia e pelo que o mercado absorve — é o número que compara com a fazenda",
   },
   { label: "focus/un", width: "focus" },
-  { label: "cadeia · onde está o gargalo", width: "item", left: true },
-  { label: "idade", width: "mini" },
   { label: "giro", width: "mini" },
 ];
 
@@ -181,23 +184,59 @@ export default async function RefiningPage({
   );
 }
 
-/** Tooltip do elo: as duas alternativas de custo e o que a cidade muda. */
-function titulo(passo: RefiningOpportunity["chain"][number], base: string): string {
-  const linha = `${passo.item}: mercado ${formatSilver(passo.market_price)} · produzir ${formatSilver(passo.craft_cost)}`;
-  if (passo.sourcing !== "MERCADO" || !passo.is_alternate_city) return linha;
-  if (passo.savings_vs_base === null) {
-    return `${linha} · ${base} não tem cotação deste elo; só ${passo.location} tem.`;
-  }
-  return `${linha} · comprando em ${passo.location} você economiza ${formatSilver(passo.savings_vs_base)} por unidade contra ${base}.`;
+/**
+ * Resumo da cadeia, para o balão da coluna "produzir".
+ *
+ * A cadeia perdeu a coluna própria na fase 19 — ela ocupava a largura de um
+ * item para mostrar um caminho que o tier quase sempre já diz. O conteúdo não
+ * se perdeu: ele qualifica exatamente o número de que faz parte, que é o custo
+ * de produzir.
+ *
+ * Inclui a variante descartada quando existe: com token de facção o custo muda
+ * bastante, e quem tem token parado no inventário precisa saber que a rota
+ * existe mesmo quando o motor escolheu a outra.
+ */
+function resumoDaCadeia(op: RefiningOpportunity, base: string): string {
+  const elos = op.chain.filter((p) => p.craft_cost !== null);
+  if (elos.length === 0) return "sem elos calculáveis";
+
+  const linhas = elos.map((passo) => {
+    const onde =
+      passo.sourcing === "MERCADO"
+        ? `comprar em ${passo.location ?? base}${passo.is_alternate_city ? " (outra cidade)" : ""}`
+        : "produzir";
+    const alternativa =
+      passo.alternative_cost === null || passo.alternative_label === null
+        ? ""
+        : ` · alternativa ${passo.alternative_label}: ${formatSilver(passo.alternative_cost)}`;
+    return `${passo.item}: ${onde}${alternativa}`;
+  });
+
+  const cidades = op.material_sourcing.cities_involved;
+  const espalhamento =
+    cidades >= 3 ? `\n${cidades} cidades — cada uma é uma viagem a mais.` : "";
+
+  return linhas.join("\n") + espalhamento;
 }
 
+/**
+ * Cor da idade, nos mesmos limiares de `AgeTag`.
+ *
+ * Existe aqui porque a idade deixou de ter coluna própria: ela precisa viver
+ * como cor de um rótulo que já existe, sem gastar largura.
+ */
+function tomDeIdade(segundos: number | null): string {
+  if (segundos === null) return "text-dim";
+  if (segundos <= 900) return "text-up";
+  if (segundos <= 21600) return "text-warn";
+  return "text-down";
+}
 
 /**
  * O que trava o dia: o Focus ou o mercado.
  *
- * É informação de primeira classe, não enfeite — saber que a operação está
- * limitada pelo mercado e não pelo Focus muda a decisão seguinte: adianta subir
- * spec ou adianta procurar outro item? Mesma lição da fase 9.
+ * Saber qual é a trava muda a decisão seguinte: adianta subir spec ou adianta
+ * procurar outro item? Mesma lição da fase 9.
  */
 const TRAVA: Record<string, { texto: string; tom: string; dica: string }> = {
   FOCUS: {
@@ -239,9 +278,7 @@ function LucroDia({
   const positivo = profit > 0;
   return (
     <td title={trava.dica}>
-      <span
-        className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
-      >
+      <span className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}>
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
@@ -293,10 +330,15 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
         </span>
       </td>
 
-      <td>
-        <Figure value={op.cost_from_market} label="no mercado" />
+      {/* A idade perdeu a coluna, não o produto: ela vira a cor do rótulo e o
+          balão. Preço de seis horas atrás não é preço. */}
+      <td title={`cotação de venda ${formatDataAge(op.sell_age_seconds)}`}>
+        <span className="figure text-val">{formatSilver(op.cost_from_market)}</span>
+        <span className={`lbl mt-px block ${tomDeIdade(op.sell_age_seconds)}`}>
+          {formatDataAge(op.sell_age_seconds)}
+        </span>
       </td>
-      <td>
+      <td title={resumoDaCadeia(op, base)}>
         <Figure value={op.cost_from_crafting} label="a cadeia toda" />
       </td>
       <td>
@@ -325,43 +367,6 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
       />
 
       <td className="figure text-[10.5px] text-muted">{formatSilver(op.focus_per_unit)}</td>
-
-      <td className="l">
-        <span className="flex flex-wrap items-center gap-1">
-          {elos.length === 0 ? (
-            <span className="text-[10.5px] text-dim">sem elos calculáveis</span>
-          ) : (
-            elos.map((passo) => (
-              <HoverTip key={passo.item} dica={titulo(passo, base)}>
-                <span
-                  className={`figure inline-flex shrink-0 items-center gap-[4px] rounded-[3px] border px-[4px] py-px text-[9px] ${
-                    passo.sourcing !== "MERCADO"
-                      ? "border-up/30 bg-up/10 text-up"
-                      : passo.is_alternate_city
-                        ? "border-warn/40 bg-raised text-muted"
-                        : "border-line bg-raised text-muted"
-                  }`}
-                >
-                  {passo.item.split("_")[0]}{" "}
-                  {passo.sourcing === "MERCADO" ? "comprar" : "produzir"}
-                  {passo.sourcing === "MERCADO" && passo.location && (
-                    <CityTag city={passo.location} alternate={passo.is_alternate_city} />
-                  )}
-                </span>
-              </HoverTip>
-            ))
-          )}
-          <SpreadWarning
-            cities={op.material_sourcing.cities_involved}
-            savings={op.material_sourcing.savings}
-            savingsPct={op.material_sourcing.savings_pct}
-          />
-        </span>
-      </td>
-
-      <td>
-        <AgeTag seconds={op.sell_age_seconds} />
-      </td>
 
       <td className="figure text-[10px] text-dim">
         {op.liquidity_units_per_day === null

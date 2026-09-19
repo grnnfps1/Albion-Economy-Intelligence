@@ -96,7 +96,34 @@ decisão errada do usuário.
 
 11. **Testes não chamam a API externa.** Nunca. Use `respx` e payloads fiéis.
 
-12. **Resíduo de subtração não é uma grandeza.** Tirar o que se conhece de um
+12. **`_LEVELN` já mordeu quatro vezes. Pergunte sempre: isto muda com
+    encantamento?**
+
+    Sempre o mesmo erro de fundo — um campo que varia com encantamento tratado
+    como se não variasse, ou um identificador que precisa do sufixo `@N` sendo
+    usado sem ele:
+
+    | # | Fase | Campo | O que aconteceu |
+    |---|---|---|---|
+    | 1 | 2 | o próprio `_LEVELN` | Às vezes é encantamento, às vezes faz parte do nome (`T1_FISHSAUCE_LEVEL1/2/3` são itens distintos). Resolvido consultando o dump, não a string. |
+    | 2 | 7 | **nome do material** | O dump diz `T4_ROCK_LEVEL1`; o catálogo e o AODP dizem `T4_ROCK_LEVEL1@1`. Sem recompor, 12 mil materiais órfãos e custo de craft encantado baixo. |
+    | 3 | 15 | `@itemvalue` | Peso e categoria são iguais entre base e encantado, então herdar a raiz sempre funcionou — mas o item value **quadruplica** no nível 2. Taxa de estação 16× menor no encantamento 4. |
+    | 4 | 19 | **nome da saída** | Mesma recomposição da #2, do outro lado da receita. 80 recursos refinados encantados ficaram sem receita nenhuma, em silêncio. |
+
+    O padrão que une as quatro: **o que é idêntico entre base e encantado
+    esconde o que não é.** Peso, tier e categoria não variam, então o
+    agrupamento por raiz parece seguro — até encontrar o campo que varia.
+
+    Por isso, **todo campo novo lido do dump exige a pergunta antes de usar**:
+    *isto muda com encantamento?* Se muda, a chave é a entrada literal
+    (`T8_LEATHER_LEVEL2`), não a raiz. Se é identificador que vai ao mercado, o
+    sufixo `@N` precisa ser recomposto — **nos dois lados**, material e saída.
+
+    E o corolário que custou a #4: falha de casamento de nome **não pode ser
+    silenciosa**. A receita era descartada sem log, sem contador, sem teste — e
+    o importador de receitas não tinha teste nenhum até a fase 19.
+
+13. **Resíduo de subtração não é uma grandeza.** Tirar o que se conhece de um
     total agregado e chamar o que sobra pelo nome da parcela que falta é
     inventar um número: o resíduo carrega tudo que não foi modelado **mais** o
     erro de tudo que foi modelado errado.
@@ -434,7 +461,7 @@ masmorra que também não têm EN — e nenhum deles é rastreado.
   coluna agregada, sem verificar que a planilha tinha coluna própria. Tinha
   duas: `BD_Itens_Craft.Taxa Loja` (23/24 linhas dão `item_value × 0,1125 ÷
   100`) e `Crafters.Taxa da Loja` (26/27 linhas implicam F = 184, contra os 184
-  que a própria planilha declara). Virou a **regra 12**.
+  que a própria planilha declara). Virou a **regra 13**.
 - **Os três resíduos (5,17 / 29,98 / 2.496,79) não são a taxa de estação.** O
   teste que trava a aritmética da acumulação em cadeia continua válido como
   aritmética; a premissa é que estava errada. Recuperar os quatro tiers que

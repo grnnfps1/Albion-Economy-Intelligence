@@ -16,7 +16,7 @@ preço e de receita chega como callable, então dá para testar a cadeia inteira
 sem banco.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -46,6 +46,14 @@ class RecipeSpec:
     materials: tuple[tuple[str, int, bool], ...]
     """(unique_name, quantidade, elegível ao retorno)"""
 
+    variant_index: int = 0
+    label: str | None = None
+    """Como a variante se chama para quem lê. Ex.: "com token de facção".
+
+    Quem rotula é o serviço: a cadeia não sabe o que é um token, só que há mais
+    de um jeito de fazer o mesmo item.
+    """
+
 
 @dataclass
 class ChainStep:
@@ -57,6 +65,17 @@ class ChainStep:
     focus_per_unit: float = 0.0
     depth: int = 0
     reason: str | None = None
+
+    variant_index: int = 0
+    variant_label: str | None = None
+    alternative_cost: float | None = None
+    """Custo da melhor variante **descartada**, quando havia mais de uma.
+
+    Vai para a resposta de propósito: com token de facção o custo muda muito, e
+    quem tem token parado no inventário precisa saber que existe o caminho —
+    mesmo quando o motor escolheu o outro.
+    """
+    alternative_label: str | None = None
 
     @property
     def known(self) -> bool:
@@ -84,13 +103,19 @@ def resolve_unit_cost(
     unique_name: str,
     sourcing: Sourcing,
     market_price: Callable[[str], int | None],
-    recipe_for: Callable[[str], RecipeSpec | None],
+    recipes_for: Callable[[str], Sequence[RecipeSpec]],
     return_rate: float | None,
     station_fee_of: Callable[[str], float | None],
     _depth: int = 0,
     _visiting: frozenset[str] = frozenset(),
 ) -> ChainResult:
     """Custo por unidade de `unique_name`, seguindo a cadeia quando pedido.
+
+    `recipes_for` devolve **todas** as variantes da receita, e a cadeia calcula
+    cada uma para ficar com a mais barata. Até a fase 19 ela recebia uma só, e o
+    serviço entregava sempre a primeira — o que ignorava em silêncio a variante
+    com token de facção, que muda bastante o custo. A variante descartada vai na
+    resposta, porque quem tem token no inventário precisa saber que ela existe.
 
     `station_fee_of` é consultada **por elo**, não uma vez para a cadeia toda.
     Desde a fase 15 a taxa da estação sai do valor do item, e o valor do item
@@ -110,8 +135,8 @@ def resolve_unit_cost(
     if sourcing is Sourcing.MARKET:
         return _apenas_mercado(unique_name, preco, _depth, None)
 
-    receita = recipe_for(unique_name)
-    if receita is None or not receita.materials:
+    variantes = [r for r in recipes_for(unique_name) if r.materials]
+    if not variantes:
         # Recurso bruto não tem receita. Fim natural da cadeia.
         return _apenas_mercado(unique_name, preco, _depth, None)
 
@@ -128,21 +153,104 @@ def resolve_unit_cost(
             reason="parâmetros não configurados: " + ", ".join(faltando),
         )
 
+    avaliadas: list[_Avaliacao] = []
+    ultimo_motivo: str | None = None
+    passos_de_falha: list[ChainStep] = []
+
+    for receita in variantes:
+        avaliada = _avaliar(
+            receita, unique_name, sourcing, market_price, recipes_for,
+            return_rate, station_fee, station_fee_of, _depth, _visiting,
+        )
+        if avaliada is None:
+            continue
+        if avaliada.custo is None:
+            ultimo_motivo = avaliada.reason
+            passos_de_falha = avaliada.passos
+            continue
+        avaliadas.append(avaliada)
+
+    if not avaliadas:
+        # Nenhuma variante fecha: o motivo da última é o mais informativo.
+        return ChainResult(
+            unit_cost=None,
+            focus_per_unit=0.0,
+            steps=passos_de_falha,
+            reason=ultimo_motivo or f"sem custo para {unique_name}",
+        )
+
+    # A mais barata vence. Empate fica com a primeira, que é a variante base.
+    avaliadas.sort(key=lambda a: a.custo)
+    vencedora = avaliadas[0]
+    descartada = avaliadas[1] if len(avaliadas) > 1 else None
+
+    escolhido, custo = _escolher(sourcing, preco, vencedora.custo)
+
+    passo = ChainStep(
+        unique_name=unique_name,
+        sourcing=escolhido,
+        unit_cost=custo,
+        market_price=preco,
+        craft_cost=round(vencedora.custo, 2),
+        focus_per_unit=round(vencedora.focus, 2) if escolhido is Sourcing.CRAFT else 0.0,
+        depth=_depth,
+        variant_index=vencedora.receita.variant_index,
+        variant_label=vencedora.receita.label,
+        alternative_cost=None if descartada is None else round(descartada.custo, 2),
+        alternative_label=None if descartada is None else descartada.receita.label,
+    )
+    passos = [*vencedora.passos, passo]
+
+    return ChainResult(
+        unit_cost=custo,
+        # Focus só é gasto no que se decide produzir.
+        focus_per_unit=vencedora.focus if escolhido is Sourcing.CRAFT else 0.0,
+        steps=passos,
+    )
+
+
+@dataclass
+class _Avaliacao:
+    """Uma variante já custeada. `custo=None` significa que ela não fecha."""
+
+    receita: RecipeSpec
+    custo: float | None
+    focus: float
+    passos: list[ChainStep]
+    reason: str | None = None
+
+
+def _avaliar(
+    receita: RecipeSpec,
+    unique_name: str,
+    sourcing: Sourcing,
+    market_price: Callable[[str], int | None],
+    recipes_for: Callable[[str], Sequence[RecipeSpec]],
+    return_rate: float,
+    station_fee: float,
+    station_fee_of: Callable[[str], float | None],
+    depth: int,
+    visiting: frozenset[str],
+) -> "_Avaliacao | None":
+    """Custo por unidade de uma variante específica.
+
+    `station_fee` é a taxa **deste** elo, já resolvida; `station_fee_of` desce
+    para os elos abaixo, que pagam a taxa do que eles próprios produzem. Passar
+    a taxa deste elo para baixo apagaria a fase 15.
+    """
     passos: list[ChainStep] = []
     custo_bruto = 0.0
     base_retorno = 0.0
 
     for material, quantidade, retorna in receita.materials:
         sub = resolve_unit_cost(
-            material, sourcing, market_price, recipe_for, return_rate,
-            station_fee_of, _depth + 1, _visiting | {unique_name},
+            material, sourcing, market_price, recipes_for, return_rate,
+            station_fee_of, depth + 1, visiting | {unique_name},
         )
         passos.extend(sub.steps)
         if not sub.known:
-            return ChainResult(
-                unit_cost=None,
-                focus_per_unit=0.0,
-                steps=passos,
+            return _Avaliacao(
+                receita=receita, custo=None, focus=0.0, passos=passos,
                 reason=sub.reason or f"sem custo para {material}",
             )
         custo_bruto += sub.unit_cost * quantidade
@@ -151,27 +259,11 @@ def resolve_unit_cost(
 
     por_lote = custo_bruto - base_retorno * return_rate + station_fee
     saida = max(1, receita.output_quantity)
-    custo_producao = por_lote / saida
-    focus_unitario = receita.focus_cost / saida
-
-    escolhido, custo = _escolher(sourcing, preco, custo_producao)
-
-    passo = ChainStep(
-        unique_name=unique_name,
-        sourcing=escolhido,
-        unit_cost=custo,
-        market_price=preco,
-        craft_cost=round(custo_producao, 2),
-        focus_per_unit=round(focus_unitario, 2) if escolhido is Sourcing.CRAFT else 0.0,
-        depth=_depth,
-    )
-    passos.append(passo)
-
-    return ChainResult(
-        unit_cost=custo,
-        # Focus só é gasto no que se decide produzir.
-        focus_per_unit=focus_unitario if escolhido is Sourcing.CRAFT else 0.0,
-        steps=passos,
+    return _Avaliacao(
+        receita=receita,
+        custo=por_lote / saida,
+        focus=receita.focus_cost / saida,
+        passos=passos,
     )
 
 

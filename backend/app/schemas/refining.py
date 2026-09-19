@@ -22,6 +22,13 @@ class ChainStepOut(BaseModel):
     base_unit_price: int | None = None
     savings_vs_base: float | None = None
 
+    # Qual variante da receita o motor usou, e qual ele descartou. Com token de
+    # facção o custo muda bastante, e quem tem token parado no inventário
+    # precisa saber que a rota existe mesmo quando não foi a escolhida.
+    variant_label: str | None = None
+    alternative_cost: float | None = None
+    alternative_label: str | None = None
+
 
 class RefiningOut(BaseModel):
     item: str

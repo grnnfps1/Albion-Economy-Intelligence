@@ -60,6 +60,22 @@ def family_of(unique_name: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _rotulo_de_variante(receita, catalogo) -> str:
+    """Nome curto da variante, para a linha poder dizer qual foi descartada.
+
+    O que distingue as variantes de refino é o token de facção: a variante com
+    token troca uma unidade de recurso bruto por um token, que **não** volta no
+    retorno de material. Sai mais barata em prata quando o token já está parado
+    no inventário, e mais cara quando é preciso comprá-lo.
+    """
+    tem_token = any(
+        not m.is_returnable
+        and "TOKEN" in (catalogo[m.item_id].unique_name if m.item_id in catalogo else "")
+        for m in receita.materials
+    )
+    return "com token de facção" if tem_token else "sem token"
+
+
 def _age(value: datetime | None, now: datetime) -> int | None:
     return None if value is None else max(0, int((now - value).total_seconds()))
 
@@ -148,15 +164,21 @@ async def find_refining_opportunities(
         return _vazio(server, buy_location, sell_location, sourcing, sourcing_mode, params, [])
 
     # Carrega tudo de uma vez: receitas, preços e liquidez.
+    #
+    # **Todas** as variantes de cada item, não só a primeira. Até a fase 19 isto
+    # era um `setdefault` sobre uma consulta ordenada por `variant_index`, o que
+    # significava usar sempre a variante 0 e ignorar em silêncio a que leva
+    # token de facção — que muda bastante o custo.
     todas = await recipes_repo.list_recipes(session, tracked_only=False, limit=50_000)
-    receitas: dict[int, Recipe] = {}
+    receitas: dict[int, list[Recipe]] = {}
     for receita in todas:
-        receitas.setdefault(receita.output_item_id, receita)
+        receitas.setdefault(receita.output_item_id, []).append(receita)
 
     ids = {item.id for item in refinados}
-    for receita in receitas.values():
-        ids.update(m.item_id for m in receita.materials)
-        ids.add(receita.output_item_id)
+    for variantes in receitas.values():
+        for receita in variantes:
+            ids.update(m.item_id for m in receita.materials)
+            ids.add(receita.output_item_id)
 
     catalogo = await recipes_repo.load_items(session, sorted(ids))
     por_nome = {item.unique_name: item for item in catalogo.values()}
@@ -198,27 +220,42 @@ async def find_refining_opportunities(
 
     sinais = await liquidity_by_item_location(session, server, sorted(ids))
 
-    def receita_de(unique_name: str) -> RecipeSpec | None:
+    def receitas_de(unique_name: str) -> list[RecipeSpec]:
+        """Todas as variantes da receita, rotuladas para a tela.
+
+        Quem rotula é aqui e não `chain.py`: a cadeia não sabe o que é um token
+        de facção, só que existe mais de um jeito de fazer o mesmo item.
+        """
         item = por_nome.get(unique_name)
         if item is None:
-            return None
-        receita = receitas.get(item.id)
-        if receita is None:
-            return None
-        materiais = tuple(
-            (catalogo[m.item_id].unique_name, m.quantity, m.is_returnable)
-            for m in receita.materials
-            if m.item_id in catalogo
-        )
-        # A redução entra aqui, no `RecipeSpec`: cada elo da cadeia tem o Focus
-        # da sua própria família, e `chain.py` segue sem saber que
-        # especialização existe.
-        focus = spec.focus_cost_of(unique_name, receita.focus_cost)
-        return RecipeSpec(receita.output_quantity, focus.focus, materiais)
+            return []
+        variantes = receitas.get(item.id) or []
+
+        especificacoes: list[RecipeSpec] = []
+        for receita in variantes:
+            materiais = tuple(
+                (catalogo[m.item_id].unique_name, m.quantity, m.is_returnable)
+                for m in receita.materials
+                if m.item_id in catalogo
+            )
+            # A redução entra aqui, no `RecipeSpec`: cada elo da cadeia tem o
+            # Focus da sua própria família, e `chain.py` segue sem saber que
+            # especialização existe.
+            focus = spec.focus_cost_of(unique_name, receita.focus_cost)
+            especificacoes.append(
+                RecipeSpec(
+                    receita.output_quantity,
+                    focus.focus,
+                    materiais,
+                    variant_index=receita.variant_index,
+                    label=_rotulo_de_variante(receita, catalogo),
+                )
+            )
+        return especificacoes
 
     def resolver(nome: str, modo: Sourcing, preco, taxa_retorno) -> ChainResult:
         return resolve_unit_cost(
-            nome, modo, preco, receita_de, taxa_retorno, taxa_estacao.silver_of
+            nome, modo, preco, receitas_de, taxa_retorno, taxa_estacao.silver_of
         )
 
     resultados: list[RefiningOut] = []
@@ -271,8 +308,9 @@ async def find_refining_opportunities(
                 tier=item.tier,
                 enchantment=item.enchantment,
                 family=family_of(item.unique_name),
-                station_category=(receitas.get(item.id).station_category
-                                  if receitas.get(item.id) else None),
+                station_category=next(
+                    (r.station_category for r in receitas.get(item.id) or []), None
+                ),
                 sell_price=venda,
                 sell_age_seconds=idade_venda,
                 liquidity_units_per_day=sinal.units_per_day if sinal else None,
@@ -348,10 +386,10 @@ def _nomes_da_cadeia(refinados, receitas, catalogo) -> list[str]:
         if item_id in vistos:
             continue
         vistos.add(item_id)
-        receita = receitas.get(item_id)
-        if receita is None:
-            continue
-        fila.extend(m.item_id for m in receita.materials if m.item_id not in vistos)
+        # Todas as variantes: a alternativa com token toca itens que a
+        # variante base não toca, e eles também precisam de preço.
+        for receita in receitas.get(item_id) or []:
+            fila.extend(m.item_id for m in receita.materials if m.item_id not in vistos)
     return sorted({catalogo[i].unique_name for i in vistos if i in catalogo})
 
 
@@ -383,6 +421,9 @@ def _elo_out(passo, por_nome, compras: MaterialSourcing) -> ChainStepOut:
             if comprado and escolha.savings_per_unit is not None
             else None
         ),
+        variant_label=passo.variant_label,
+        alternative_cost=passo.alternative_cost,
+        alternative_label=passo.alternative_label,
     )
 
 
