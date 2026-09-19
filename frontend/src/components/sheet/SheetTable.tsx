@@ -25,6 +25,15 @@ export const SHEET_WIDTHS = {
   item: "20rem",
   /** Material: ícone com quantidade, preço unitário, cidade. */
   mat: "9.5rem",
+  /**
+   * Material, versão estreita — para receitas com muitos ingredientes.
+   *
+   * A partir de cinco materiais, sete colunas de 9,5rem somam 66rem e empurram
+   * as colunas de decisão para fora da tela. A 6,4rem ainda cabem o ícone com a
+   * quantidade e o preço unitário; o que sai é a linha da cidade, que vai para
+   * o balão de hover. Preferir isto a esconder um ingrediente.
+   */
+  matNarrow: "6.4rem",
   /** Prata. Cabe `1.683.277` sem quebrar. */
   num: "6.8rem",
   /** Percentual. */

@@ -226,12 +226,29 @@ por receita:
 **164 receitas têm mais de quatro materiais**, e o máximo é exatamente 7 —
 o mesmo limite da planilha. Exemplo real: `T7_POTION_ACID@1` usa sete.
 
-A tabela de `/crafting` abre no máximo quatro colunas de material, então
-**essas 164 receitas aparecem truncadas hoje**: os materiais do quinto em diante
-somem da tela sem aviso. O custo continua certo — quem calcula é o backend, que
-lê todos —, mas a linha mente sobre o que entra na receita. É lacuna nossa, não
-da planilha, e é barata de fechar (subir o teto de `MAX_MATERIAIS` ou marcar o
-excedente).
+**Correção (19/09/2026):** eu escrevi aqui que "essas 164 receitas aparecem
+truncadas hoje". **Não aparecem** — elas não aparecem de jeito nenhum.
+
+Conferido: as 375 receitas com mais de 3 materiais são **todas**
+`is_tracked = false` (170 comida, 103 poções, 100 shapeshifter, 2 outras), e
+`/crafting` lista só receitas rastreadas (`tracked_only=True`). Entre as
+rastreadas o máximo é **3**:
+
+| Materiais | Receitas rastreadas |
+|---|---|
+| 1 | 54 |
+| 2 | 45 |
+| 3 | 25 |
+
+Ou seja: **nenhuma tela trunca hoje**. O truncamento era **latente** — bastaria
+acrescentar `food` ou `potions` a `DEFAULT_TRACKED_SUBCATEGORIES`, que é
+descrito no próprio `CLAUDE.md` como decisão operacional sujeita a mudar, para a
+tela passar a omitir ingrediente em silêncio.
+
+Foi corrigido mesmo assim (fase 19), porque um teto arbitrário que descarta dado
+sem avisar é bug esperando data. O que mudou: o teto virou 7 (o máximo real do
+dump), o número de colunas sai das linhas visíveis, e existe um marcador `+N`
+para o caso de um dia faltar.
 
 ---
 
@@ -342,8 +359,9 @@ produção, limite de frescor.
    `Venda Último Ciclo`. Em `/farming` só modelamos criar até o adulto.
    *Custo: motor.*
 8. **Demanda diária manual**, ao lado do preço manual. *Custo: campo.*
-9. **Até 7 materiais por receita**; nossa tabela mostra 4, e **164 receitas
-   reais passam disso** — hoje elas aparecem truncadas. *Custo: campo.*
+9. ~~**Até 7 materiais por receita**~~ — **feito na fase 19.** E a premissa
+   estava errada: nenhuma tela truncava, porque as receitas longas são todas
+   não rastreadas. Era bug latente, não ativo.
 10. **i18n** (PT/EN/ES/Mandarim/Filipino). *Custo: tela.*
 
 ## O que nós fazemos e a planilha não

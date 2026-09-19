@@ -1,6 +1,14 @@
 import { PageShell } from "@/components/PageShell";
 import { ExportButton } from "@/components/sheet/ExportButton";
-import { EmptyMaterialCell, MaterialCell } from "@/components/sheet/MaterialCell";
+import {
+  EmptyMaterialCell,
+  MAX_MATERIAL_COLUMNS,
+  MaterialCell,
+  MaterialOverflow,
+  materialColumnCount,
+  materialColumns,
+  materialWidth,
+} from "@/components/sheet/MaterialCell";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
@@ -23,23 +31,25 @@ import { tierBorderLeft } from "@/lib/tiers";
 export const dynamic = "force-dynamic";
 
 /**
- * Quantas colunas de material a tabela abre.
+ * Quantas colunas de material a tabela abre — medido, não escolhido.
  *
- * A maioria das receitas tem dois ou três; abrir uma coluna por material da
- * receita mais longa deixaria a tabela cheia de traço. Quatro cobre o que
- * existe de verdade, e o que passar disso vai no balão do último material em
- * vez de sumir.
+ * O teto é 7, que é o máximo real do dump (`T7_POTION_ACID@1` usa sete) e o
+ * mesmo limite da planilha de referência. O número de colunas efetivamente
+ * abertas sai das linhas visíveis: hoje as receitas rastreadas têm no máximo
+ * **3** materiais, então a tabela abre 3 e não gasta largura à toa.
+ *
+ * O cap anterior era 4, arbitrário. Ele não truncava nada hoje — as 375
+ * receitas com mais de 3 materiais são comida, poções e shapeshifter, todas
+ * `is_tracked = false`, e `/crafting` só lista rastreadas. Era um truncamento
+ * **latente**: bastaria alguém acrescentar `food` ou `potions` a
+ * `DEFAULT_TRACKED_SUBCATEGORIES` para a tela passar a omitir ingrediente sem
+ * avisar.
  */
-const MAX_MATERIAIS = 4;
 
 function colunas(maxMateriais: number): SheetColumn[] {
   return [
     { label: "item", width: "item", left: true },
-    ...Array.from({ length: maxMateriais }, (_, i) => ({
-      label: `mat. ${i + 1}`,
-      width: "mat" as const,
-      left: true,
-    })),
+    ...materialColumns(maxMateriais),
     { label: "você gasta", width: "num", title: "materiais depois do retorno, mais a taxa da estação" },
     { label: "você recebe", width: "num", title: "já descontado o imposto de venda" },
     { label: "lucro ajustado", width: "num" },
@@ -161,13 +171,8 @@ export default async function CraftingPage({
   });
 
   const linhas = data?.opportunities ?? [];
-  // Uma coluna por material, limitada ao que as linhas visíveis realmente usam:
-  // abrir quatro colunas para uma tabela de receitas com dois materiais encheria
-  // a tela de traço.
-  const maxMateriais = Math.min(
-    MAX_MATERIAIS,
-    Math.max(1, ...linhas.map((o) => o.materials.length)),
-  );
+  // Uma coluna por material, limitada ao que as linhas visíveis realmente usam.
+  const maxMateriais = materialColumnCount(linhas.map((o) => o.materials.length));
 
   return (
     <PageShell
@@ -178,7 +183,9 @@ export default async function CraftingPage({
       prefs={prefs}
       acoes={
         <ExportButton
-          sheet={toExportSheet(linhas, exportacao(maxMateriais))}
+          // A planilha não tem restrição de largura: exporta até o teto real,
+          // para que um ingrediente nunca falte no arquivo por caber mal na tela.
+          sheet={toExportSheet(linhas, exportacao(MAX_MATERIAL_COLUMNS))}
           screen="crafting"
           filters={{
             tier: query.tier,
@@ -255,6 +262,10 @@ function CraftLine({
 }) {
   const eco = op.economics;
   const positivo = eco.known ? (eco.profit ?? 0) > 0 : null;
+  const estreito = materialWidth(maxMateriais) === "matNarrow";
+  // O que não coube. Nunca deve acontecer com o teto em 7, mas se acontecer a
+  // linha diz — omitir ingrediente em silêncio é pior que faltar coluna.
+  const excedentes = op.materials.slice(maxMateriais);
 
   // O tingimento de lucro vence o zebrado: ele é informação, o zebrado é só
   // apoio para o olho segurar a horizontal.
@@ -285,6 +296,10 @@ function CraftLine({
             <span className="flex min-w-0 items-center">
               <span className="truncate">{op.item_name ?? op.item}</span>
               <CopyButton name={op.item_name} id={op.item} />
+              <MaterialOverflow
+                extras={excedentes.length}
+                names={excedentes.map((m) => m.item_name ?? m.item)}
+              />
             </span>
             <span className="block truncate text-[9px] text-dim">{op.item}</span>
           </span>
@@ -306,6 +321,7 @@ function CraftLine({
             locationName={m.location}
             isAlternateCity={m.is_alternate_city}
             tip={titulo(m, op.buy_location)}
+            compact={estreito}
           />
         );
       })}

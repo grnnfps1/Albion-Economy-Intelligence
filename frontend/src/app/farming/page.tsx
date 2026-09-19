@@ -1,7 +1,15 @@
 import { PageShell } from "@/components/PageShell";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
-import { EmptyMaterialCell, MaterialCell } from "@/components/sheet/MaterialCell";
+import {
+  EmptyMaterialCell,
+  MAX_MATERIAL_COLUMNS,
+  MaterialCell,
+  MaterialOverflow,
+  materialColumnCount,
+  materialColumns,
+  materialWidth,
+} from "@/components/sheet/MaterialCell";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { SpreadWarning, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, ProfitFigure } from "@/components/ui/Figures";
@@ -15,17 +23,20 @@ import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
-/** Cultivo e criação consomem poucos insumos: semente/filhote e ração. */
-const MAX_ENTRADAS = 3;
+/**
+ * Cultivo e criação consomem poucos insumos: semente ou filhote, e ração.
+ *
+ * Medido contra a API: dos 67 planos, 21 têm uma entrada e 46 têm duas —
+ * nenhum passa de dois. A tabela abre o que as linhas visíveis usam, com o
+ * mesmo teto e o mesmo aviso de excedente do craft, para a regra ser uma só.
+ */
 
 function colunas(maxEntradas: number): SheetColumn[] {
+  const [primeira, ...demais] = materialColumns(maxEntradas, "entrada");
   return [
     { label: "o que plantar ou criar", width: "item", left: true },
-    ...Array.from({ length: maxEntradas }, (_, i) => ({
-      label: i === 0 ? "insumo" : `entrada ${i + 1}`,
-      width: "mat" as const,
-      left: true,
-    })),
+    { ...primeira, label: "insumo" },
+    ...demais,
     { label: "ciclo", width: "focus", title: "do plantio à colheita" },
     { label: "você gasta", width: "num", title: "insumo mais a ração do período" },
     { label: "lucro/dia", width: "num", title: "o que compara 22 h de fazenda com 28 d de criação" },
@@ -154,9 +165,8 @@ export default async function FarmingPage({
 
   // Uma coluna por entrada, limitada ao que as linhas visíveis usam: abrir três
   // colunas para uma tabela só de cultivo encheria a tela de traço.
-  const maxEntradas = Math.min(
-    MAX_ENTRADAS,
-    Math.max(1, ...(data?.plans ?? []).map((p) => p.inputs.length)),
+  const maxEntradas = materialColumnCount(
+    (data?.plans ?? []).map((p) => p.inputs.length),
   );
 
   return (
@@ -169,7 +179,8 @@ export default async function FarmingPage({
       prefs={prefs}
       acoes={
         <ExportButton
-          sheet={toExportSheet(data?.plans ?? [], exportacao(maxEntradas))}
+          // A planilha não tem restrição de largura: exporta até o teto real.
+          sheet={toExportSheet(data?.plans ?? [], exportacao(MAX_MATERIAL_COLUMNS))}
           screen="agricultura"
           filters={{
             estacao: query.station,
@@ -235,6 +246,8 @@ function FarmLine({
   const eco = plano.economics;
   const positivo = eco.known ? (eco.profit_per_day ?? 0) > 0 : null;
   const principais = plano.outputs.filter((o) => o.primary);
+  const estreito = materialWidth(maxEntradas) === "matNarrow";
+  const excedentes = plano.inputs.slice(maxEntradas);
 
   const tinta =
     positivo === true
@@ -266,6 +279,10 @@ function FarmLine({
             <span className="flex min-w-0 items-center">
               <span className="truncate">{plano.item_name ?? plano.item}</span>
               <CopyButton name={plano.item_name} id={plano.item} />
+              <MaterialOverflow
+                extras={excedentes.length}
+                names={excedentes.map((e) => e.item_name ?? e.item)}
+              />
             </span>
             <span className="block truncate text-[9px] text-dim">{plano.item}</span>
           </span>
@@ -287,6 +304,7 @@ function FarmLine({
             locationName={entrada.location}
             isAlternateCity={entrada.is_alternate_city}
             tip={tituloEntrada(entrada, plano.buy_location)}
+            compact={estreito}
           />
         );
       })}
