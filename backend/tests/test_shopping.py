@@ -1,5 +1,9 @@
 """Lista de compras: o retorno reduz o consumo, e o arredondamento é para cima."""
 
+import math
+
+import pytest
+
 from app.calculations.shopping import effective_units, shopping_line
 
 
@@ -43,3 +47,44 @@ class TestLinha:
         assert linha.gross == 50
         assert linha.units == 50
         assert linha.saved == 0
+
+
+class TestArredondaUmaVezNoFim:
+    """Arredondar por unidade e multiplicar infla a compra.
+
+    A conta certa é `⌈quantidade × receita × (1 − retorno)⌉`: o teto entra uma
+    única vez, sobre o consumo total. A errada é `⌈receita × (1 − retorno)⌉ ×
+    quantidade`, e ela transforma fração de sobra por unidade em pilha de
+    material parado.
+    """
+
+    def test_a_sobra_por_unidade_vira_montanha_na_quantidade(self):
+        """5 pelegos por unidade, 36,71% de retorno, 500 unidades.
+
+        Certo: `⌈500 × 5 × 0,6329⌉ = 1.583`. Por unidade daria `⌈3,1645⌉ = 4`,
+        e `4 × 500 = 2.000` — **417 pelegos a mais**, 26% de compra inventada.
+        """
+        certo = effective_units(500, 5, 0.3671)
+        por_unidade = math.ceil(5 * (1 - 0.3671)) * 500
+        assert certo == 1583
+        assert por_unidade == 2000
+        assert por_unidade - certo == 417
+
+    @pytest.mark.parametrize("quantidade", [1, 7, 100, 500, 10_000])
+    def test_nunca_compra_mais_que_a_conta_por_unidade(self, quantidade):
+        """Propriedade: o teto único é sempre ≤ o teto por unidade."""
+        for por_unidade_receita in (1, 2, 5, 8):
+            for taxa in (0.0, 0.152, 0.3671, 0.539):
+                assert effective_units(quantidade, por_unidade_receita, taxa) <= (
+                    math.ceil(por_unidade_receita * (1 - taxa)) * quantidade
+                )
+
+    def test_o_excesso_e_no_maximo_uma_unidade(self):
+        """O teto único compra, no máximo, um material a mais que o exato.
+
+        É o que autoriza dizer "arredondado para cima" na tela sem ressalva de
+        magnitude: a folga não cresce com a quantidade.
+        """
+        for quantidade in (1, 13, 500, 10_000):
+            exato = quantidade * 5 * (1 - 0.3671)
+            assert 0 <= effective_units(quantidade, 5, 0.3671) - exato < 1

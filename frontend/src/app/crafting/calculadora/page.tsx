@@ -189,12 +189,19 @@ export default async function CalculadoraPage({
           </SheetTable>
 
           <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-            <b>Como ler:</b> o <i>comprar N</i> sob o preço de cada material é quanto comprar
-            para as {formatSilver(Number(quantidade))} unidades — já descontado o retorno e
-            arredondado para cima, porque não se compra meio pelego. {data.return_note} A{" "}
-            <i>taxa de venda</i> é imposto mais setup fee: uma ordem de venda paga os dois, e o
-            setup mesmo se a ordem não executar. A margem aparece sobre a receita bruta e, entre
-            parênteses, sobre o custo de produção — a segunda é a definição que a planilha usa.
+            <b>Como ler:</b> a tabela inteira está na quantidade do filtro —{" "}
+            {formatSilver(Number(quantidade))} unidades. Tudo que é soma escala junto: compra,
+            gasto, focus, taxa de venda, custo, receita, lucro e investimento.{" "}
+            <b>Margem, prata/focus e a margem sobre o custo não escalam</b>, porque são razões —
+            ficam idênticas em 1 e em 10.000 unidades, e se mudassem seria bug.
+          </p>
+          <p className="max-w-prose px-4 pb-4 text-[11px] text-dim leading-relaxed">
+            O <i>comprar N</i> sob o preço de cada material é o consumo total já descontado o
+            retorno, arredondado para cima <b>uma vez, no fim</b> — arredondar por unidade e
+            multiplicar compraria material a mais. {data.return_note} A <i>taxa da loja</i> é
+            por execução, não fixa da sessão: {formatSilver(Number(quantidade))} unidades pagam{" "}
+            {formatSilver(Number(quantidade))} vezes. A <i>taxa de venda</i> é imposto mais setup
+            fee: uma ordem de venda paga os dois, e o setup mesmo se a ordem não executar.
           </p>
         </>
       )}

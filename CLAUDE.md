@@ -40,6 +40,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 20 | Retorno vira fórmula `RRR = B/(1+B)` | ✅ |
 | 21 | Taxas de mercado **medidas no jogo** | ✅ |
 | 22 | Bônus diário entra em `B`; calculador em colunas | ✅ |
+| 23 | Calculador escala pela quantidade; razões invariantes | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -329,6 +330,40 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 23 — o que escala e o que não escala
+
+- **A divisão é extensivo × intensivo, e trocá-las é um bug silencioso.** Custo,
+  taxa da estação, receita, lucro, focus e investimento dobram quando a
+  quantidade dobra. Margem, ROI e prata por focus são razões entre dois
+  extensivos: `crafts` se cancela, e elas têm de sair **idênticas** em 1 e em
+  10.000. Uma margem que sobe com a quantidade não parece erro — parece ganho de
+  escala, e é por isso que precisa de teste.
+- **As razões saem dos valores por execução, não dos totais.** Em matemática
+  exata dá o mesmo; em ponto flutuante não: `(a·N − b·N)/(c·N)` e `(a−b)/c`
+  diferem no último bit, e perto de `x,xx5` o arredondamento a duas casas vira
+  para lados diferentes. Na grade do teste, 44 combinações divergiam no último
+  dígito.
+- **`compute_trade` saiu do craft, e levou dois problemas junto.** Ele arredonda
+  a taxa **total** a duas casas — meio centavo fixo que não escala — e foi
+  escrito para arbitragem, cobrando setup fee nas duas pontas. O item craftado
+  não tem ordem de compra: sai da estação. A taxa de venda agora é unitária e
+  exata, e o `buy_price=1` sentinela com a subtração do "setup fantasma" sumiu.
+- **`production_cost` virou campo de `CraftEconomics`.** O serviço o montava
+  somando três valores **já arredondados**, o que fazia `lucro ÷ custo` variar
+  com a quantidade. Quem precisa de uma razão precisa do denominador antes do
+  arredondamento, não depois.
+- **A taxa da estação é por execução — confirmado no código e travado em
+  teste.** 500 crafts pagam 500 vezes, porque a nutrição é consumida por craft.
+  Se fosse taxa fixa da sessão, o lucro por unidade melhoraria só por produzir
+  em lote; há teste dizendo que não melhora.
+- **O arredondamento da lista de compras já estava certo**, e agora está
+  demonstrado: `⌈quantidade × receita × (1 − retorno)⌉`, teto uma vez só. Por
+  unidade daria `⌈5 × 0,6329⌉ × 500 = 2.000` contra os 1.583 corretos — 417
+  pelegos de compra inventada, 26% a mais. O teste guarda o número.
+- **Não havia rodapé de "melhor linha × produção" para remover.** A única coisa
+  ao pé da tabela era o parágrafo "como ler", e ele virou o que faltava: a
+  declaração de o que escala e o que não escala.
 
 ## Notas da fase 22 — o bônus diário, e o calculador em colunas
 

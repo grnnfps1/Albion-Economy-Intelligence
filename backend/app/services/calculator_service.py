@@ -369,11 +369,6 @@ def _linha(
         return base
 
     receita_bruta = (venda or 0) * quantidade * max(1, receita.output_quantity)
-    custo_producao = (
-        (economia.material_cost_net or 0)
-        + (economia.station_fee or 0)
-        + (economia.market_fees or 0)
-    )
 
     base.known = True
     base.material_cost = economia.material_cost_net
@@ -381,13 +376,14 @@ def _linha(
     base.returned_value = economia.returned_value
     base.station_fee = economia.station_fee
     base.sale_fee = economia.market_fees
-    base.production_cost = round(custo_producao, 2)
+    base.production_cost = economia.production_cost
     base.gross_revenue = round(receita_bruta, 2)
     base.profit = economia.profit
+    # As três razões vêm prontas de `compute_craft`, calculadas antes de
+    # qualquer arredondamento. Refazê-las aqui a partir dos campos já
+    # arredondados fazia margem e ROI variarem com a quantidade.
     base.margin_pct = economia.margin_pct
-    base.margin_on_cost_pct = (
-        round((economia.profit or 0) / custo_producao * 100, 2) if custo_producao else None
-    )
+    base.margin_on_cost_pct = economia.margin_on_cost_pct
     base.profit_per_focus = economia.profit_per_focus
 
     # Previsão: o lucro já é da quantidade pedida, porque `crafts=quantidade`.

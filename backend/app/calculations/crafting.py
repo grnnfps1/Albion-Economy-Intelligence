@@ -19,7 +19,7 @@ Uma calculadora que fixa esses três está errada para quase todo mundo.
 
 from dataclasses import dataclass, field
 
-from app.calculations.fees import FeeProfile, Strategy, compute_trade
+from app.calculations.fees import FeeProfile, Strategy
 from app.calculations.specialization import FocusCost, SpecProfile, focus_cost_with_spec
 from app.calculations.station import StationFee
 
@@ -59,8 +59,24 @@ class CraftEconomics:
     nutrition: float | None = None
     sale_revenue_net: float | None = None
     market_fees: float | None = None
+    production_cost: float | None = None
+    """Material líquido + taxa da estação + taxas de mercado.
+
+    Existe como campo, e não como soma dos três na chamada, porque somar os
+    **arredondados** faz a razão `lucro ÷ custo` variar com a quantidade: cada
+    parcela carrega até meio centavo de erro, e a razão deixa de ser invariante.
+    Aqui a soma é feita antes de qualquer arredondamento.
+    """
+
     profit: float | None = None
     margin_pct: float | None = None
+    margin_on_cost_pct: float | None = None
+    """Lucro ÷ custo de produção — a definição que a planilha chama de margem.
+
+    Diferente de `roi_pct`, cujo denominador é o capital imobilizado (material
+    **bruto** + taxa da estação) e não inclui as taxas de mercado.
+    """
+
     roi_pct: float | None = None
     profit_per_focus: float | None = None
     missing: list[str] = field(default_factory=list)
@@ -91,6 +107,20 @@ def compute_craft(
     a preço de mercado, porque é assim que o jogador realiza o valor: revendendo
     ou reaproveitando no craft seguinte. Materiais não elegíveis ficam fora da
     conta — tratar todos igual infla o lucro.
+
+    ## `crafts` escala tudo que é extensivo, e nada que é razão
+
+    Custo, taxa da estação, receita, lucro, focus e investimento são
+    **extensivos**: dobram quando `crafts` dobra. Margem, ROI e prata por focus
+    são **razões** entre dois extensivos e por isso não mudam — `crafts` se
+    cancela. Há teste comparando `crafts=1` com `crafts=10_000` e exigindo que
+    as três fiquem idênticas; se variarem, é arredondamento aplicado cedo
+    demais, e o lugar onde isso já aconteceu foi o custo de produção (ver
+    `production_cost`).
+
+    **A taxa da estação é por execução**, não fixa da sessão: quem faz 500
+    crafts paga 500 vezes. Ela consome nutrição da estação, e a nutrição é
+    consumida por craft.
     """
     faltando: list[str] = []
     # Aceita o número cru para quem não modela especialização; internamente
@@ -128,36 +158,53 @@ def compute_craft(
     if sell_price is None or sell_price <= 0:
         return _unknown("sem cotação de venda do item final", faltando, focus_cost, output_quantity)
 
-    custo_bruto = sum(m.gross_cost or 0 for m in materials) * crafts
+    # ------------------------------------------------------------------ #
+    # Tudo por **uma execução** primeiro; `crafts` multiplica no fim.
+    #
+    # A ordem importa, e não é preferência de estilo. As razões — margem, ROI,
+    # prata por focus — saem dos valores por execução, onde `crafts` nunca
+    # entrou. Calculá-las a partir dos totais daria o mesmo número em
+    # matemática exata e **não** em ponto flutuante: `(a·N − b·N)/(c·N)` e
+    # `(a−b)/c` diferem no último bit, e quando o valor cai perto de x,xx5 o
+    # arredondamento a duas casas vira para lados diferentes. Uma margem que
+    # muda de 8,57% para 8,58% ao trocar a quantidade não parece bug — parece
+    # ganho de escala, que é pior.
+    #
+    # A taxa de venda também é unitária e exata. Antes ela vinha de
+    # `compute_trade`, que arredonda a taxa **total** a duas casas e foi escrito
+    # para arbitragem: cobrava setup fee nas duas pontas, e o item craftado não
+    # tem ordem de compra — ele sai da estação. Os dois problemas saíram junto.
+    # ------------------------------------------------------------------ #
+    custo_bruto_1 = sum(m.gross_cost or 0 for m in materials)
     # Só o que é elegível retorna.
-    base_retorno = sum((m.gross_cost or 0) for m in materials if m.is_returnable) * crafts
-    valor_retornado = base_retorno * (return_rate or 0.0)
-    custo_liquido = custo_bruto - valor_retornado
-    # `station_fee` já vem para uma execução; aqui só escala.
-    taxa_estacao = (station_fee.silver or 0.0) * crafts
+    base_retorno_1 = sum((m.gross_cost or 0) for m in materials if m.is_returnable)
+    valor_retornado_1 = base_retorno_1 * (return_rate or 0.0)
+    custo_liquido_1 = custo_bruto_1 - valor_retornado_1
+    # `station_fee` já vem para uma execução: a estação cobra por craft, não por
+    # sessão. Quem faz 500 paga 500 vezes.
+    taxa_estacao_1 = station_fee.silver or 0.0
+
+    setup = (fees.setup_fee_pct or 0.0) if strategy is Strategy.PATIENT else 0.0
+    taxa_de_venda_unitaria = sell_price * ((fees.sales_tax_pct or 0.0) + setup)
+    taxas_mercado_1 = taxa_de_venda_unitaria * output_quantity
+    receita_liquida_1 = (sell_price - taxa_de_venda_unitaria) * output_quantity
+
+    lucro_1 = receita_liquida_1 - custo_liquido_1 - taxa_estacao_1
+    custo_producao_1 = custo_liquido_1 + taxa_estacao_1 + taxas_mercado_1
+    investimento_1 = custo_bruto_1 + taxa_estacao_1
+    receita_bruta_1 = float(sell_price) * output_quantity
+    focus_1 = focus_cost.focus
 
     unidades = output_quantity * crafts
-    venda = compute_trade(
-        buy_price=1,  # o custo real entra por fora; aqui só interessam as taxas de venda
-        sell_price=sell_price,
-        fees=fees,
-        strategy=strategy,
-        quantity=unidades,
-    )
-    receita_liquida = (venda.unit_revenue or 0.0) * unidades
-    # `compute_trade` cobra setup fee **das duas pontas**, porque foi escrito
-    # para arbitragem: lá se cria ordem de compra e ordem de venda. Em craft não
-    # há ordem de compra do item produzido — ele sai da estação —, então o setup
-    # do lado da compra é fantasma. Com o `buy_price=1` sentinela ele é pequeno
-    # (2,5 de prata em 100 unidades), mas faz a taxa de venda deixar de ser
-    # exatamente o percentual anunciado, e num calculador isso corrói confiança.
-    setup_fantasma = (fees.setup_fee_pct or 0.0) * unidades if strategy is Strategy.PATIENT else 0.0
-    taxas_mercado = max(0.0, (venda.fees or 0.0) - setup_fantasma)
-
-    lucro = receita_liquida - custo_liquido - taxa_estacao
-    investimento = custo_bruto + taxa_estacao
-    receita_bruta = float(sell_price) * unidades
-    focus_total = focus_cost.focus * crafts
+    custo_bruto = custo_bruto_1 * crafts
+    valor_retornado = valor_retornado_1 * crafts
+    custo_liquido = custo_liquido_1 * crafts
+    taxa_estacao = taxa_estacao_1 * crafts
+    taxas_mercado = taxas_mercado_1 * crafts
+    receita_liquida = receita_liquida_1 * crafts
+    lucro = lucro_1 * crafts
+    custo_producao = custo_producao_1 * crafts
+    focus_total = focus_1 * crafts
 
     return CraftEconomics(
         known=True,
@@ -176,10 +223,15 @@ def compute_craft(
         ),
         sale_revenue_net=round(receita_liquida, 2),
         market_fees=round(taxas_mercado, 2),
+        production_cost=round(custo_producao, 2),
         profit=round(lucro, 2),
-        margin_pct=round(lucro / receita_bruta * 100, 2) if receita_bruta else None,
-        roi_pct=round(lucro / investimento * 100, 2) if investimento else None,
+        # As razões vêm dos valores por execução — ver o comentário acima.
+        margin_pct=round(lucro_1 / receita_bruta_1 * 100, 2) if receita_bruta_1 else None,
+        margin_on_cost_pct=(
+            round(lucro_1 / custo_producao_1 * 100, 2) if custo_producao_1 else None
+        ),
+        roi_pct=round(lucro_1 / investimento_1 * 100, 2) if investimento_1 else None,
         # A métrica que ordena o ranking da fase 9: Focus é o recurso escasso,
         # não a prata. Lucro absoluto alto com Focus alto pode ser pior negócio.
-        profit_per_focus=round(lucro / focus_total, 2) if focus_total > 0 else None,
+        profit_per_focus=round(lucro_1 / focus_1, 2) if focus_1 > 0 else None,
     )

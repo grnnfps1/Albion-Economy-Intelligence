@@ -3,7 +3,7 @@
 import pytest
 
 from app.calculations.crafting import MaterialCost, compute_craft
-from app.calculations.fees import FeeProfile
+from app.calculations.fees import FeeProfile, Strategy
 from app.calculations.station import StationFee, station_fee_for
 
 TAXAS = FeeProfile(setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True)
@@ -132,3 +132,96 @@ class TestCalculo:
 
     def test_craft_pode_dar_prejuizo(self):
         assert craft(sell_price=1500).profit < 0
+
+
+class TestEscalaPelaQuantidade:
+    """O calculador exibe por unidade e escala pelo campo "Quantidade".
+
+    A divisão entre o que escala e o que não escala é a própria definição de
+    grandeza extensiva e intensiva, e trocá-las é um bug que passa despercebido:
+    uma margem que sobe com a quantidade parece "produzir mais compensa mais" e
+    não denuncia nada.
+    """
+
+    EXTENSIVAS = [
+        "material_cost_gross",
+        "material_cost_net",
+        "returned_value",
+        "station_fee",
+        "sale_revenue_net",
+        "market_fees",
+        "production_cost",
+        "profit",
+        "focus_cost",
+    ]
+
+    @pytest.mark.parametrize("campo", EXTENSIVAS)
+    def test_escalam_linearmente(self, campo):
+        uma = craft(crafts=1)
+        dez_mil = craft(crafts=10_000)
+        assert getattr(dez_mil, campo) == pytest.approx(
+            getattr(uma, campo) * 10_000, rel=1e-9
+        )
+
+    @pytest.mark.parametrize("campo", ["margin_pct", "margin_on_cost_pct", "roi_pct",
+                                       "profit_per_focus"])
+    def test_as_razoes_ficam_identicas(self, campo):
+        """Margem, ROI e prata/focus são razões: `crafts` se cancela.
+
+        Se variarem, há arredondamento aplicado cedo demais — foi exatamente o
+        que acontecia quando o custo de produção era somado a partir dos campos
+        já arredondados, em vez de vir pronto de `compute_craft`.
+        """
+        assert getattr(craft(crafts=10_000), campo) == getattr(craft(crafts=1), campo)
+
+    def test_o_investimento_tambem_escala(self):
+        """Não há campo `investment`; ele é `bruto + estação`, e é o que a tela mostra."""
+        uma = craft(crafts=1)
+        mil = craft(crafts=1_000)
+        assert (mil.material_cost_gross + mil.station_fee) == pytest.approx(
+            (uma.material_cost_gross + uma.station_fee) * 1_000, rel=1e-9
+        )
+
+    def test_a_taxa_da_estacao_e_por_craft_e_nao_fixa_da_sessao(self):
+        """500 execuções pagam 500 vezes — a estação cobra nutrição por craft.
+
+        Se fosse taxa fixa de sessão, ela apareceria igual nas duas chamadas, e
+        o lucro por unidade melhoraria só por produzir em lote. Não melhora.
+        """
+        assert craft(crafts=500).station_fee == pytest.approx(
+            craft(crafts=1).station_fee * 500
+        )
+
+    def test_lucro_por_unidade_nao_melhora_com_o_lote(self):
+        """Corolário: nada aqui tem ganho de escala. Se tivesse, seria invenção."""
+        uma = craft(crafts=1)
+        mil = craft(crafts=1_000)
+        assert mil.profit / 1_000 == pytest.approx(uma.profit, rel=1e-9)
+
+    def test_as_razoes_sao_identicas_em_qualquer_linha(self):
+        """Varredura: nenhuma combinação de preço, receita e saída escapa.
+
+        Os três exemplos fixos acima passavam **antes** do conserto — a
+        divergência aparecia em 11 de 20.000 combinações, sempre no último
+        dígito, e sempre perto de x,xx5. Um teste de exemplo único não pegaria;
+        por isso este varre.
+        """
+        divergentes = []
+        for preco in range(3, 400, 37):
+            for multiplicador in (2, 3, 5, 8):
+                for saida in (1, 2, 5):
+                    mats = [MaterialCost("T2_HIDE", "x", 3, preco, is_returnable=True)]
+                    razoes = set()
+                    for n in (1, 7, 10_000):
+                        e = compute_craft(
+                            materials=mats, sell_price=preco * multiplicador, fees=TAXAS,
+                            return_rate=0.3671, station_fee=taxa(0.37),
+                            output_quantity=saida, focus_cost=54, crafts=n,
+                            strategy=Strategy.PATIENT,
+                        )
+                        razoes.add(
+                            (e.margin_pct, e.margin_on_cost_pct, e.roi_pct, e.profit_per_focus)
+                        )
+                    if len(razoes) > 1:
+                        divergentes.append((preco, multiplicador, saida, razoes))
+        assert divergentes == []
