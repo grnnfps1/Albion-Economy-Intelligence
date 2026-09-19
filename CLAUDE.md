@@ -310,6 +310,12 @@ Enquanto `docs/04-taxas.md` não for resolvido com medição no jogo, o padrão 
 banco continua `NULL`, e a plataforma responde `economics.known = false` com o
 motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
+A **taxa da estação** (`crafting.station_fee_per_100_nutrition`) é o único
+parâmetro que também nasce vazio **na interface**, e não só no banco. A fórmula
+que a consome está confirmada; o número é escolha do dono da estação e está
+escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
+(regra 2) e transformar a escolha de um jogador em padrão de produto (regra 5).
+
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
@@ -329,6 +335,13 @@ obrigatório. Nenhuma delas lê configuração.
 - **A taxa de retorno não é campo livre.** Vem da matriz da fase 14; o usuário
   escolhe cidade e Focus. Campo aberto convidaria a digitar errado um número
   que o sistema já sabe.
+- **A taxa da estação é o único parâmetro que nasce vazio.** Contra a convenção
+  de "preenchido com aviso", e de propósito: os dois candidatos eram 1.666 (que
+  perdeu a base quando a reconstrução caiu) e 184 (escolha de estação de **um**
+  jogador). Além disso é o número mais fácil da lista de obter — está escrito na
+  tela da estação —, e o 1.666 enganava justamente onde se conferiria, porque
+  reproduzia o T4 por circularidade. A tela cita 184 como ordem de grandeza,
+  nunca como padrão. Detalhe em `docs/04-taxas.md` §11.
 - **Uma coluna por material, com a cidade visível.** A planilha tem oito pares
   de coluna por cidade porque não tem política de sourcing; nós temos desde a
   fase 11. Oito cidades × sete materiais × 27 linhas seriam 1.512 células.

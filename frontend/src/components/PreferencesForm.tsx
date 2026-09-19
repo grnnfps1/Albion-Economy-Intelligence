@@ -145,12 +145,23 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
 
       <label className="flex flex-col gap-1">
         <span className={rotulo}>Taxa da estação (prata / 100 nutrição)</span>
-        <input className={campo} value={prefs.stationFeePer100Nutrition}
-          onChange={(e) =>
-            atualizar({ stationFeePer100Nutrition: parseFloat(e.target.value) || 0 })} />
+        {/* Único campo que **não** vem pré-preenchido. Não há valor defensável
+            para pôr aqui, e o número está escrito na tela da estação. */}
+        <input className={campo}
+          placeholder="não informado"
+          value={prefs.stationFeePer100Nutrition ?? ""}
+          onChange={(e) => {
+            const texto = e.target.value.trim();
+            const numero = parseFloat(texto.replace(",", "."));
+            atualizar({
+              stationFeePer100Nutrition:
+                texto === "" || !Number.isFinite(numero) ? null : Math.max(0, numero),
+            });
+          }} />
         <span className="text-[11px] text-zinc-500">
-          O número que aparece na tela da estação. A taxa de cada item sai dele e
-          cresce com o tier.
+          Abra a estação no jogo e leia a taxa de uso. Sem ela, craft e refino
+          respondem <b className="text-warn">desconhecido</b> — calcular sem a
+          taxa inventaria lucro.
         </span>
       </label>
 
@@ -275,8 +286,10 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-warn">Valores padrão, não verificados no jogo.</b>{" "}
         São o que a comunidade reporta. O imposto muda com Premium; o retorno muda com Focus e
-        especialização; a taxa da estação é definida pelo dono e varia por cidade. Ajuste uma
-        vez — vale para todas as telas.
+        especialização. Ajuste uma vez — vale para todas as telas.{" "}
+        <b className="font-semibold text-body">A taxa da estação é a exceção:</b> ela nasce
+        vazia, porque nenhum número seria honesto aqui e porque ela está escrita na tela da
+        estação, dentro do jogo.
       </p>
 
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">

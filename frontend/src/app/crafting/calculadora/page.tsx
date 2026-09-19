@@ -195,14 +195,25 @@ function Parametros({
           mappingKnown={data.material_return.mapping_known}
         />
       </span>
-      <Param
-        rotulo="taxa da loja"
-        valor={
-          p.station_fee_per_100_nutrition === null
-            ? "—"
-            : `${formatSilver(p.station_fee_per_100_nutrition)} / 100 nutr.`
-        }
-      />
+      {/* Único parâmetro sem padrão. Vazio é estado legítimo aqui, e a tela
+          orienta onde ler o número em vez de inventar um. */}
+      {p.station_fee_per_100_nutrition === null ? (
+        <span className="flex items-center gap-1.5">
+          <span className="lbl">taxa da loja</span>
+          <span className="figure rounded-[2px] border border-warn px-1.5 py-px text-[10.5px] text-warn">
+            desconhecida
+          </span>
+          <span className="text-[10.5px] text-muted">
+            abra a estação no jogo e leia a taxa de uso — costuma ficar na casa das
+            centenas (a planilha de referência usava 184). Informe nas preferências.
+          </span>
+        </span>
+      ) : (
+        <Param
+          rotulo="taxa da loja"
+          valor={`${formatSilver(p.station_fee_per_100_nutrition)} / 100 nutr.`}
+        />
+      )}
       <Param
         rotulo="imposto"
         valor={p.fees.sales_tax_pct === null ? "—" : `${(p.fees.sales_tax_pct * 100).toFixed(1)}%`}

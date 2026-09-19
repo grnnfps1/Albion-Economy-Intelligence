@@ -231,6 +231,11 @@ produto.
 > **Isso estava errado, e o erro era meu, não da fórmula.** O detalhe de como
 > aconteceu está em "O que eu errei", logo abaixo — vale mais que a conclusão,
 > porque é reaproveitável.
+>
+> **A fórmula está confirmada; o parâmetro do usuário, não.** A prata por 100 de
+> nutrição é escolha do dono da estação e **nasce vazia** na interface — é o
+> único parâmetro sem padrão pré-preenchido no produto. Ver "Decisão: o campo
+> nasce vazio".
 
 ### O que eu errei
 
@@ -411,26 +416,61 @@ Bastam duas execuções, porque a fórmula é determinística — sem sorteio, s
 variação por qualidade, sem média a apurar. É o contraste com o item 6, que
 exige amostragem grande por ser sorteado por unidade.
 
-### Pendência aberta: o padrão pré-preenchido perdeu a base
+### Decisão: o campo nasce vazio, e é o único assim
 
-O padrão da interface é **1.666 prata por 100 de nutrição**, e ele foi obtido da
-**mediana das três taxas implicadas pelos resíduos** — ou seja, de uma
-reconstrução que agora se sabe inválida. O número não tem mais procedência.
+**Resolvido em 19/09/2026.** `crafting.station_fee_per_100_nutrition` volta a
+`NULL`/`UNKNOWN`, e a preferência do usuário nasce **vazia**. Sem ela, craft e
+refino respondem desconhecido com o motivo, como qualquer parâmetro ausente.
 
-Três saídas, e **nenhuma foi tomada**:
+Isso contraria a convenção do resto das preferências, que é *vir preenchido com
+o aviso de que não foi verificado* (ver "Linguagem visual" no `CLAUDE.md`). A
+exceção tem três razões, em ordem de peso.
 
-1. **Manter 1.666** e corrigir só o texto de procedência. Preserva o
-   comportamento atual, mas mantém um número sem base.
-2. **Usar 184**, que é o valor validado nas 49 linhas. Tem a vantagem de ser
-   internamente consistente com a planilha — e a desvantagem de ser a escolha de
-   estação de **um jogador**, não uma constante do jogo.
-3. **Voltar a `NULL`/`UNKNOWN`** e exigir que o usuário informe. É o mais
-   honesto e o mais hostil: trava o cálculo de craft e refino para quem não
-   configurou.
+**1. Nenhum dos candidatos é defensável.** Só havia dois:
 
-A decisão é do dono do produto, porque envolve trocar honestidade por
-usabilidade. Enquanto não for tomada, o valor segue 1.666 e a interface segue
-avisando que não foi verificado no jogo — o aviso continua verdadeiro.
+| Candidato | De onde vinha | Por que não serve |
+|---|---|---|
+| **1.666** | mediana das taxas implicadas pelos três resíduos | Os resíduos não eram a taxa. A base desapareceu junto com a reconstrução. |
+| **184** | `Crafting.Taxa da Loja` da planilha de referência | É a **escolha de estação de um jogador**, numa sessão específica. Não é constante do jogo. |
+
+Pré-preencher qualquer um seria inventar número — a **regra 2** — e transformar
+uma escolha de terceiro em padrão de produto, que é o oposto da **regra 5**
+("taxa nunca é hardcode... a prata por 100 de nutrição continua sendo do
+usuário").
+
+**2. É o número mais fácil da lista inteira de obter.** Ele está **escrito na
+tela da estação**, dentro do jogo. Não exige experimento, amostragem nem
+comparação: exige abrir a estação e ler. Pré-preencher um valor para poupar o
+usuário de um gesto de dois segundos troca precisão por conveniência no pior
+câmbio possível — e ainda desestimula o único gesto que resolveria.
+
+Compare com o item 6 (retorno de material): ali o número **não** está escrito em
+lugar nenhum, exige amostragem grande por ser sorteado por unidade, e por isso
+pré-preencher com procedência declarada é a escolha certa. Não é incoerência
+entre os dois; é a mesma regra aplicada a dificuldades diferentes.
+
+**3. O pré-preenchido enganava justamente onde se conferiria.** Com 1.666 a
+fórmula reproduzia o resíduo do T4 quase exatamente — 29,99 contra 29,98 — por
+**circularidade**, já que 1.666 saiu da mediana e a implicada pelo T4 era
+1.665,6. Quem fosse conferir começaria pelo tier baixo e concluiria que fechou.
+Um padrão que produz uma coincidência convincente no primeiro caso testado é
+pior que nenhum padrão.
+
+### O que a interface faz no lugar
+
+- O campo em **Preferências** fica vazio, com `não informado` de placeholder e
+  uma linha dizendo onde ler o valor no jogo.
+- O **calculador** mostra `desconhecida` em âmbar ao lado do rótulo, com a
+  orientação, e **184 aparece apenas como ordem de grandeza** — "costuma ficar
+  na casa das centenas (a planilha de referência usava 184)". Como referência
+  de magnitude, nunca como valor a copiar.
+- Craft e refino respondem `known = false` com
+  `crafting.station_fee_per_100_nutrition` em `missing`, que é o caminho normal
+  de parâmetro ausente desde a fase 6.
+
+O item 11 **continua** valendo como medição, e agora com um segundo motivo:
+além de confirmar a fórmula sem depender de planilha de terceiro, ele é o que
+destrava o cálculo para quem ainda não informou.
 
 ### Bug corrigido de carona
 

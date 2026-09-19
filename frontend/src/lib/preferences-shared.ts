@@ -19,11 +19,16 @@ export type Preferences = {
   returnRate: number;
   /**
    * Prata por 100 de nutrição que a estação cobra — o número que o jogador lê
-   * na tela da estação. Substituiu a taxa fixa por craft na fase 15: a taxa
-   * real sai de `item_value × 0,1125 × isto ÷ 100`, e por isso escala com tier
-   * e encantamento em vez de ser a mesma no T2 e no T8.
+   * na tela da estação. A taxa real sai de `item_value × 0,1125 × isto ÷ 100`,
+   * e por isso escala com tier e encantamento.
+   *
+   * **`null` é o padrão, e é deliberado.** Este é o único parâmetro da tela que
+   * não vem pré-preenchido, contra a convenção do resto das preferências. O
+   * motivo está em `docs/04-taxas.md` §11: não existe valor defensável para pôr
+   * aqui, e o número está escrito na tela da estação — é o mais fácil de obter
+   * da lista inteira de medições.
    */
-  stationFeePer100Nutrition: number;
+  stationFeePer100Nutrition: number | null;
   focusBudget: number;
   /**
    * Focus que **regenera por dia** — 10.000 numa conta Premium.
@@ -94,10 +99,11 @@ export const DEFAULTS: Preferences = {
   setupFeePct: 0.025,
   salesTaxPct: 0.04,
   returnRate: 0.15,
-  // Mediana das três taxas que os resíduos da planilha do Albion VIP
-  // implicam (1.149 / 1.666 / 8.669). Não é medição no jogo — o formulário diz
-  // isso — mas tem procedência, ao contrário de um 100 redondo.
-  stationFeePer100Nutrition: 1666,
+  // UNKNOWN de propósito. O 1.666 que ficava aqui saiu da mediana de taxas
+  // implicadas por uma reconstrução que se provou inválida, e o 184 da planilha
+  // é a escolha de estação de **um** jogador. Nenhum dos dois é constante do
+  // jogo, e inventar um seria quebrar a regra 2.
+  stationFeePer100Nutrition: null,
   focusBudget: 10_000,
   // Geração diária de uma conta Premium. Diferente dos outros padrões, este
   // tem fonte: docs/05-custo-de-focus.md, "Orçamento de Focus".
@@ -127,7 +133,14 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     // `return_rate` não vai mais por padrão: a matriz por (cidade, atividade,
     // Focus) é o valor primário, e mandar um número fixo aqui sobrescreveria
     // justamente o que a fase resolveu.
-    station_fee_per_100_nutrition: String(prefs.stationFeePer100Nutrition),
+    // Não informado não vira zero nem palpite: o parâmetro simplesmente não
+    // é enviado, e o backend responde UNKNOWN dizendo o que preencher.
+    ...(prefs.stationFeePer100Nutrition === null ||
+    prefs.stationFeePer100Nutrition === undefined
+      ? {}
+      : {
+          station_fee_per_100_nutrition: String(prefs.stationFeePer100Nutrition),
+        }),
     use_focus: String(prefs.useFocus),
     daily_production_bonus: String(prefs.dailyProductionBonus),
     loss_pct_blue: String(prefs.lossPctBlue),
