@@ -6,7 +6,13 @@ mesmo tier + 1× o refinado do tier anterior.
 
 import pytest
 
-from app.calculations.chain import MAX_DEPTH, RecipeSpec, Sourcing, resolve_unit_cost
+from app.calculations.chain import (
+    MAX_DEPTH,
+    ChainCache,
+    RecipeSpec,
+    Sourcing,
+    resolve_unit_cost,
+)
 
 PRECOS = {
     "T2_WOOD": 50, "T3_WOOD": 120, "T4_WOOD": 300, "T5_WOOD": 900,
@@ -227,3 +233,132 @@ class TestVariantes:
         passo = next(p for p in resultado.steps if p.unique_name == "T4_PLANKS")
         assert passo.alternative_cost is None
         assert passo.alternative_label is None
+
+
+class TestMemoizacao:
+    """A cadeia compartilha subárvores, e sem memória cada caminho recalcula.
+
+    Medido em `/refining` com 200 oportunidades antes do cache: **51.407**
+    chamadas a `resolve_unit_cost`, cerca de 250 por oportunidade, num grafo de
+    sete níveis. O T6 é insumo do T7 **e** do T8, e cada um resolvia o seu.
+
+    Estes testes travam a **contagem**. Sem eles, quebrar a memoização não
+    quebra nada visível — só deixa a tela lenta de novo, em silêncio, e o
+    próximo a medir refaz esta investigação do zero.
+    """
+
+    def contador(self, tabela=None):
+        """Envolve `recipes_for` para contar quantos nós foram percorridos."""
+        buscar = _variantes(RECEITAS if tabela is None else tabela)
+        chamadas: list[str] = []
+
+        def espiao(nome):
+            chamadas.append(nome)
+            return buscar(nome)
+
+        return espiao, chamadas
+
+    def resolver_com(self, nomes, cache, espiao, retorno=0.15):
+        return [
+            resolve_unit_cost(
+                nome, Sourcing.CRAFT,
+                market_price=lambda item: PRECOS.get(item),
+                recipes_for=espiao,
+                return_rate=retorno,
+                station_fee_of=lambda _n: 100,
+                cache=cache,
+            )
+            for nome in nomes
+        ]
+
+    def test_sem_cache_cada_item_refaz_a_cadeia_inteira(self):
+        espiao, chamadas = self.contador()
+        self.resolver_com(["T3_PLANKS", "T4_PLANKS", "T5_PLANKS"], None, espiao)
+        # T3 percorre 3 nós, T4 percorre 5 e T5 percorre 7 — e os de baixo
+        # são os mesmos, refeitos. 3 + 5 + 7 = 15 para sete nós distintos.
+        assert len(chamadas) == 15
+        assert len(set(chamadas)) == 7
+
+    def test_com_cache_cada_no_e_percorrido_uma_vez(self):
+        cache = ChainCache()
+        espiao, chamadas = self.contador()
+        self.resolver_com(["T3_PLANKS", "T4_PLANKS", "T5_PLANKS"], cache, espiao)
+        # Os mesmos sete nós, uma vez cada: 15 → 7. Numa cadeia de três
+        # itens a economia é de metade; em `/refining`, com 200 itens e sete
+        # tiers, foi de 51.407 para uma fração disso.
+        assert len(set(chamadas)) == len(chamadas) == 7
+        assert cache.acertos > 0
+        assert cache.calculos == 7
+
+    def test_o_resultado_e_o_mesmo_com_e_sem_cache(self):
+        """A memória não pode mudar número. É o que a torna aplicável."""
+        espiao_a, _ = self.contador()
+        espiao_b, _ = self.contador()
+        sem = self.resolver_com(["T5_PLANKS"], None, espiao_a)[0]
+        com = self.resolver_com(["T5_PLANKS"], ChainCache(), espiao_b)[0]
+        assert com.unit_cost == sem.unit_cost
+        assert com.focus_per_unit == sem.focus_per_unit
+        assert [p.unique_name for p in com.steps] == [p.unique_name for p in sem.steps]
+        assert [p.depth for p in com.steps] == [p.depth for p in sem.steps]
+
+    def test_a_profundidade_dos_passos_e_reescrita_no_acerto(self):
+        """O mesmo item aparece em níveis diferentes conforme quem o pediu.
+
+        `ChainStep.depth` é o que desenha a árvore. Devolver o passo com a
+        profundidade de onde ele foi calculado mostraria a cadeia com a forma
+        errada — e, como o custo estaria certo, ninguém desconfiaria do desenho.
+        """
+        cache = ChainCache()
+        espiao, _ = self.contador()
+        # T4 primeiro (T3 fica guardado no nível 1), depois T5 (T3 vem no 2).
+        [t4, t5] = self.resolver_com(["T4_PLANKS", "T5_PLANKS"], cache, espiao)
+        nivel = {p.unique_name: p.depth for p in t4.steps}
+        assert nivel["T3_PLANKS"] == 1
+        nivel = {p.unique_name: p.depth for p in t5.steps}
+        assert nivel["T4_PLANKS"] == 1
+        assert nivel["T3_PLANKS"] == 2
+
+    def test_taxas_de_retorno_diferentes_nao_se_misturam(self):
+        """O retorno varia por item — ele segue a família e a cidade.
+
+        Dois itens da mesma requisição podem ter taxas diferentes, e é por isso
+        que a taxa entra na chave. Fora dela, o segundo item receberia o custo
+        do primeiro.
+        """
+        cache = ChainCache()
+        espiao, _ = self.contador()
+        a = self.resolver_com(["T5_PLANKS"], cache, espiao, retorno=0.15)[0]
+        b = self.resolver_com(["T5_PLANKS"], cache, espiao, retorno=0.40)[0]
+        assert a.unit_cost != b.unit_cost
+
+    def test_sourcings_diferentes_nao_se_misturam(self):
+        cache = ChainCache()
+        espiao, _ = self.contador()
+        produzir = resolve_unit_cost(
+            "T5_PLANKS", Sourcing.CRAFT, lambda i: PRECOS.get(i), espiao,
+            0.15, lambda _n: 100, cache=cache,
+        )
+        mercado = resolve_unit_cost(
+            "T5_PLANKS", Sourcing.MARKET, lambda i: PRECOS.get(i), espiao,
+            0.15, lambda _n: 100, cache=cache,
+        )
+        assert mercado.unit_cost == 3800
+        assert produzir.unit_cost != mercado.unit_cost
+
+    def test_ciclo_no_dump_desliga_o_cache_em_vez_de_mentir(self):
+        """O corte de ciclo depende do caminho, e o cache indexa por item.
+
+        Num grafo acíclico isto nunca acontece. Se o dump tiver ciclo, o cache
+        se desliga e esquece o que sabia: volta a ser lento e correto, em vez de
+        servir a resposta de um caminho para outro.
+        """
+        ciclica = {
+            "A": RecipeSpec(1, 10, (("B", 1, True),)),
+            "B": RecipeSpec(1, 10, (("A", 1, True),)),
+        }
+        cache = ChainCache()
+        espiao, _ = self.contador(ciclica)
+        resolve_unit_cost(
+            "A", Sourcing.CRAFT, lambda _i: 100, espiao, 0.15, lambda _n: 100, cache=cache
+        )
+        assert cache.habilitada is False

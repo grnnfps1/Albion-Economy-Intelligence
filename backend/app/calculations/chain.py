@@ -17,7 +17,7 @@ sem banco.
 """
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 
@@ -99,6 +99,97 @@ class ChainResult:
 MAX_DEPTH = 10
 
 
+@dataclass
+class ChainCache:
+    """Memoização da cadeia, **por requisição**.
+
+    ## Por que existe
+
+    A cadeia T2→T8 compartilha subárvores: o T6 é insumo do T7 **e** do T8, e
+    cada caminho recalculava a dele. Medido em `/refining` com 200
+    oportunidades: 51.407 chamadas a `resolve_unit_cost`, cerca de 250 por
+    oportunidade, para um grafo que tem sete níveis.
+
+    ## Por que nunca é global
+
+    Preço muda. Um cache entre requisições devolveria custo calculado com a
+    cotação de ontem, silenciosamente — exatamente a classe de erro que a regra
+    1 existe para evitar, só que pior, porque o número **parece** fresco. O
+    dono do ciclo de vida é quem atende a requisição.
+
+    ## O que a chave precisa carregar, e o que não
+
+    Na chave: `unique_name`, `sourcing` e `return_rate`. O retorno **varia por
+    item** — ele depende da família do recurso e da cidade —, então dois itens
+    da mesma requisição podem ter taxas diferentes, e misturá-las daria o custo
+    de um com a taxa do outro.
+
+    Fora da chave, e por isso **invariante do cache**: `market_price`,
+    `recipes_for` e `station_fee_of`. Um `ChainCache` pertence a um conjunto
+    fixo dessas três funções. `refining_service` mantém dois caches justamente
+    por causa disso — um para `price_of` e outro para `base_price_of`, que são
+    dois preços diferentes para o mesmo item.
+
+    ## Ciclo desliga o cache
+
+    O corte de ciclo depende do **caminho** (`_visiting`), e um resultado
+    calculado sob um caminho não vale para outro. Num grafo acíclico isso nunca
+    morde, porque a subárvore de um item nunca contém um ancestral dele. Se o
+    dump tiver ciclo, o cache se desliga e esquece o que sabia — voltando ao
+    comportamento de antes, que é lento e correto.
+    """
+
+    _por_chave: dict[tuple[str, Sourcing, float | None], tuple["ChainResult", int]] = field(
+        default_factory=dict
+    )
+    habilitada: bool = True
+
+    acertos: int = 0
+    """Quantas vezes a subárvore já estava resolvida. É o ganho, medível."""
+
+    calculos: int = 0
+    """Quantas subárvores foram de fato percorridas."""
+
+    def desabilitar_por_ciclo(self) -> None:
+        self.habilitada = False
+        self._por_chave.clear()
+
+    def obter(
+        self, chave: tuple[str, Sourcing, float | None], depth: int
+    ) -> "ChainResult | None":
+        if not self.habilitada:
+            return None
+        guardado = self._por_chave.get(chave)
+        if guardado is None:
+            return None
+        self.acertos += 1
+        resultado, depth_original = guardado
+        return _rebase(resultado, depth_original, depth)
+
+    def guardar(
+        self, chave: tuple[str, Sourcing, float | None], depth: int, resultado: "ChainResult"
+    ) -> None:
+        if self.habilitada:
+            self._por_chave[chave] = (resultado, depth)
+
+
+def _rebase(resultado: "ChainResult", de: int, para: int) -> "ChainResult":
+    """O mesmo resultado, com os passos renumerados para a nova profundidade.
+
+    `ChainStep.depth` é o que desenha a cadeia na tela. Reaproveitar um
+    resultado calculado a três níveis de profundidade, num ponto que está a
+    cinco, mostraria a árvore com a forma errada — e como o custo estaria certo,
+    ninguém desconfiaria do desenho.
+    """
+    if de == para or not resultado.steps:
+        return resultado
+    delta = para - de
+    return replace(
+        resultado,
+        steps=[replace(passo, depth=passo.depth + delta) for passo in resultado.steps],
+    )
+
+
 def resolve_unit_cost(
     unique_name: str,
     sourcing: Sourcing,
@@ -106,6 +197,7 @@ def resolve_unit_cost(
     recipes_for: Callable[[str], Sequence[RecipeSpec]],
     return_rate: float | None,
     station_fee_of: Callable[[str], float | None],
+    cache: ChainCache | None = None,
     _depth: int = 0,
     _visiting: frozenset[str] = frozenset(),
 ) -> ChainResult:
@@ -127,18 +219,39 @@ def resolve_unit_cost(
     recursão rodar até estourar a pilha. Um dump malformado não pode derrubar a
     API.
     """
+    if _depth >= MAX_DEPTH or unique_name in _visiting:
+        # O corte depende do caminho, e um cache indexado por item não
+        # distingue caminhos. Num grafo acíclico isto nunca acontece; se
+        # acontecer, o cache se desliga em vez de servir resposta de um
+        # caminho para outro.
+        if cache is not None and unique_name in _visiting:
+            cache.desabilitar_por_ciclo()
+        return _apenas_mercado(
+            unique_name, market_price(unique_name), _depth, "profundidade máxima ou ciclo"
+        )
+
+    chave = (unique_name, sourcing, return_rate)
+    if cache is not None:
+        guardado = cache.obter(chave, _depth)
+        if guardado is not None:
+            return guardado
+        cache.calculos += 1
+
     preco = market_price(unique_name)
 
-    if _depth >= MAX_DEPTH or unique_name in _visiting:
-        return _apenas_mercado(unique_name, preco, _depth, "profundidade máxima ou ciclo")
-
     if sourcing is Sourcing.MARKET:
-        return _apenas_mercado(unique_name, preco, _depth, None)
+        resultado = _apenas_mercado(unique_name, preco, _depth, None)
+        if cache is not None:
+            cache.guardar(chave, _depth, resultado)
+        return resultado
 
     variantes = [r for r in recipes_for(unique_name) if r.materials]
     if not variantes:
         # Recurso bruto não tem receita. Fim natural da cadeia.
-        return _apenas_mercado(unique_name, preco, _depth, None)
+        resultado = _apenas_mercado(unique_name, preco, _depth, None)
+        if cache is not None:
+            cache.guardar(chave, _depth, resultado)
+        return resultado
 
     station_fee = station_fee_of(unique_name)
     if return_rate is None or station_fee is None:
@@ -160,7 +273,7 @@ def resolve_unit_cost(
     for receita in variantes:
         avaliada = _avaliar(
             receita, unique_name, sourcing, market_price, recipes_for,
-            return_rate, station_fee, station_fee_of, _depth, _visiting,
+            return_rate, station_fee, station_fee_of, _depth, _visiting, cache,
         )
         if avaliada is None:
             continue
@@ -172,12 +285,15 @@ def resolve_unit_cost(
 
     if not avaliadas:
         # Nenhuma variante fecha: o motivo da última é o mais informativo.
-        return ChainResult(
+        resultado = ChainResult(
             unit_cost=None,
             focus_per_unit=0.0,
             steps=passos_de_falha,
             reason=ultimo_motivo or f"sem custo para {unique_name}",
         )
+        if cache is not None:
+            cache.guardar(chave, _depth, resultado)
+        return resultado
 
     # A mais barata vence. Empate fica com a primeira, que é a variante base.
     avaliadas.sort(key=lambda a: a.custo)
@@ -201,12 +317,15 @@ def resolve_unit_cost(
     )
     passos = [*vencedora.passos, passo]
 
-    return ChainResult(
+    resultado = ChainResult(
         unit_cost=custo,
         # Focus só é gasto no que se decide produzir.
         focus_per_unit=vencedora.focus if escolhido is Sourcing.CRAFT else 0.0,
         steps=passos,
     )
+    if cache is not None:
+        cache.guardar(chave, _depth, resultado)
+    return resultado
 
 
 @dataclass
@@ -231,6 +350,7 @@ def _avaliar(
     station_fee_of: Callable[[str], float | None],
     depth: int,
     visiting: frozenset[str],
+    cache: ChainCache | None = None,
 ) -> "_Avaliacao | None":
     """Custo por unidade de uma variante específica.
 
@@ -245,7 +365,7 @@ def _avaliar(
     for material, quantidade, retorna in receita.materials:
         sub = resolve_unit_cost(
             material, sourcing, market_price, recipes_for, return_rate,
-            station_fee_of, depth + 1, visiting | {unique_name},
+            station_fee_of, cache, depth + 1, visiting | {unique_name},
         )
         passos.extend(sub.steps)
         if not sub.known:

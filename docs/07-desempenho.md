@@ -195,6 +195,73 @@ Subir o `AbortSignal.timeout(10_000)` faria o erro intermitente sumir sem
 consertar nada — e trocaria "às vezes falha" por "sempre lento", que é pior de
 diagnosticar. Fica registrado como opção consciente, não como esquecimento.
 
+## Adendo de 19/09/2026 — o ataque ao gargalo de `/focus`
+
+Duas mudanças, medidas **separadamente**, como pedido.
+
+### Mudança 1 — memoizar `resolve_unit_cost`
+
+Cache por requisição, chave `(unique_name, sourcing, return_rate)`.
+
+| | antes | depois |
+|---|---:|---:|
+| `find_refining_opportunities(200)` | 3739 ms | **~1900 ms** |
+| `/focus` em processo | — | **1999 ms** |
+
+`resolve_unit_cost`, `_avaliar`, `receitas_de` e `focus_cost_of` **saíram do
+topo do perfil** — não aparecem mais entre as trinta funções mais caras.
+
+**Um bug que o cache introduziu, e o teste pegou.** A primeira versão escolhia
+o cache com `preco is compras.base_price_of`, e isso é **sempre falso**: em
+Python cada acesso a um método ligado cria um objeto novo, então `a.m is a.m`
+dá `False`. O roteiro alternativo passou a ler o cache do principal e a
+devolver o custo da cidade errada.
+`test_refino_tambem_escolhe_a_cidade_de_cada_elo` falhou na hora. O cache agora
+vem por parâmetro, não deduzido.
+
+### Mudança 2 — memoizar `profile_of`
+
+**Rendeu zero.** Medido com e sem, intercalado para a deriva de carga atingir
+os dois igualmente, seis amostras cada:
+
+```
+com memo:  mediana 1794 ms   1586 1647 1763 1826 1846 2965
+sem memo:  mediana 1765 ms   1606 1611 1693 1836 2029 3160
+```
+
+A razão é que as 43.900 chamadas **vinham de dentro da recursão da cadeia**.
+A mudança 1 já as eliminou, e não sobrou o que memoizar. O código ficou, como
+seguro barato e documentado como ganho **não** medido — mas a lição é a da
+ordem: quando duas otimizações atacam o mesmo caminho, a segunda pode já estar
+paga pela primeira, e só a medição separada mostra isso.
+
+### O resultado na chamada real da tela
+
+`/focus` com `limit=40` e o conjunto completo de preferências, por HTTP, dez
+execuções:
+
+```
+2977  3157  3163  3312  3327  3369  3374  3708  3853  3927
+mediana 3348 · máximo 3927
+```
+
+| | antes | depois | ganho |
+|---|---:|---:|---:|
+| mediana | 5068 ms | 3348 ms | 34% |
+| máximo | 10547 ms | 3927 ms | **63%** |
+
+**O erro intermitente acabou**: o pior caso saiu de 547 ms *acima* do teto de
+10 s para 6 s de folga.
+
+### E parou aqui, de propósito
+
+A meta combinada era ficar **abaixo de 2 s**, e a mediana por HTTP é 3348 ms.
+Nenhuma mudança estrutural foi feita — nada de cache entre requisições nem
+desnormalização. O que sobra no perfil é `list_recipes`, com 58 chamadas e 1,4 s
+cumulativos, e a diferença entre os modos continua enorme:
+`tracked_only=False` custa 1131 ms para 12.917 receitas contra 30 ms para as
+435 rastreadas.
+
 ## Conclusão
 
 A escolha de calcular no servidor **não** é o gargalo e não precisa ser

@@ -50,6 +50,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 30 | Ordenação clicável no cabeçalho, resolvida no servidor | ✅ |
 | 31 | Ordenação uniformizada; tabela deixa de encolher | ✅ |
 | 32 | Focus fracionário derrubava /crafting e /focus | ✅ |
+| 33 | Memoização da cadeia: /focus sai do tempo limite | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -371,6 +372,43 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 33 — memoizar a cadeia, e o que não rendeu
+
+- **A cadeia recalculava subárvores compartilhadas.** T6 é insumo do T7 **e**
+  do T8, e cada caminho resolvia o seu: 51.407 chamadas a `resolve_unit_cost`
+  para 200 oportunidades. Com `ChainCache`, `/refining` caiu de 3739 para
+  ~1900 ms e a função saiu do topo do perfil.
+- **O cache é por requisição, e isso não é detalhe.** Preço muda. Um cache
+  global devolveria custo com a cotação de ontem **parecendo fresco**, que é
+  pior que devolver `UNKNOWN`. O dono do ciclo de vida é quem atende a
+  requisição.
+- **A taxa de retorno entra na chave porque varia por item.** Ela segue a
+  família do recurso e a cidade, então dois itens da mesma requisição podem ter
+  taxas diferentes. Fora da chave, o segundo receberia o custo do primeiro.
+- **Ciclo desliga o cache em vez de mentir.** O corte de ciclo depende do
+  **caminho**, e o cache indexa por item. Num grafo acíclico nunca morde; se o
+  dump tiver ciclo, o cache se apaga e volta a ser lento e correto.
+- **`a.m is a.m` é `False` em Python.** Cada acesso a um método ligado cria um
+  objeto novo. A primeira versão escolhia o cache com
+  `preco is compras.base_price_of`, que nunca dava verdadeiro, e o roteiro
+  alternativo passou a ler o cache do principal — devolvendo o custo da cidade
+  errada. Quem pegou foi `test_refino_tambem_escolhe_a_cidade_de_cada_elo`. O
+  cache passou a vir por parâmetro.
+- **A segunda otimização rendeu zero, e o registro disso vale tanto quanto o
+  ganho.** Memoizar `profile_of` deu 1794 ms contra 1765 ms — ruído. As 43.900
+  chamadas vinham de **dentro** da recursão, e a mudança 1 já as tinha
+  eliminado. **Quando duas otimizações atacam o mesmo caminho, a segunda pode
+  já estar paga pela primeira, e só medir separado mostra isso.** Medir o total
+  teria creditado à segunda um ganho que era todo da primeira.
+- **Teste trava a contagem, não o tempo.** Quebrar memoização não quebra nada
+  visível — só deixa a tela lenta de novo, em silêncio. `TestMemoizacao` conta
+  os nós percorridos: 15 sem cache, 7 com, para a mesma cadeia de três itens.
+- **`ChainStep.depth` é renumerado no acerto.** Ele desenha a árvore na tela, e
+  um resultado calculado a três níveis reaproveitado a cinco mostraria a cadeia
+  com a forma errada — com o custo certo, então ninguém desconfiaria.
+- **Parou na meta, não no possível.** A mediana por HTTP ficou em 3348 ms e a
+  meta era 2 s. Nenhuma mudança estrutural foi feita.
 
 ## Notas da fase 32 — o spec derrubava duas telas inteiras
 

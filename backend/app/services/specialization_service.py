@@ -162,6 +162,27 @@ class SpecializationPolicy:
     fce_per_spec_level: dict[str, float] = field(default_factory=dict)
     families: tuple[str, ...] = DEFAULT_FAMILIES
 
+    _memoria: dict[str, SpecProfile] = field(default_factory=dict, repr=False, compare=False)
+    """Perfil já resolvido, por item. **Por requisição**, como a política.
+
+    `profile_of` é CPU pura e determinística — casa prefixo, consulta três
+    dicionários — e era reconstruída 43.900 vezes numa só chamada de
+    `/refining`, sempre sobre os mesmos níveis informados. A política nasce e
+    morre dentro de uma requisição, e a memória nasce junto: não há como
+    servir um perfil de níveis antigos, porque não há política antiga.
+
+    `compare=False` mantém a igualdade entre duas políticas sendo sobre os
+    níveis, não sobre o que cada uma resolveu antes.
+
+    **Esta memória rendeu zero, e a medição está aqui para não se perder.** As
+    43.900 chamadas vinham de dentro da recursão da cadeia, e o `ChainCache`
+    (fase 33) já as eliminou: medido com e sem, intercalado, `/refining(200)`
+    deu 1794 ms contra 1765 ms — diferença dentro do ruído. Ela fica como
+    seguro barato, porque o trabalho passa a ser O(1) por item em vez de O(n)
+    por chamada, e porque nem todo caminho até aqui passa pela cadeia. Não fica
+    como ganho medido, que seria mentira.
+    """
+
     @property
     def informed(self) -> bool:
         """Se o usuário informou spec em alguma família ou item."""
@@ -172,6 +193,13 @@ class SpecializationPolicy:
         )
 
     def profile_of(self, unique_name: str) -> SpecProfile:
+        memorizado = self._memoria.get(unique_name)
+        if memorizado is None:
+            memorizado = self._resolver_perfil(unique_name)
+            self._memoria[unique_name] = memorizado
+        return memorizado
+
+    def _resolver_perfil(self, unique_name: str) -> SpecProfile:
         # 1. Nível do item. Duas granularidades, nesta ordem:
         #
         #    `T5_PLANKS` — só aquele tier. É a granularidade do refino: a aba

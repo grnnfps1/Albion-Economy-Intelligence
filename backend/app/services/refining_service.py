@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.calculations.chain import ChainResult, RecipeSpec, Sourcing, resolve_unit_cost
+from app.calculations.chain import ChainCache, ChainResult, RecipeSpec, Sourcing, resolve_unit_cost
 from app.calculations.daily import daily_yield
 from app.calculations.fees import Strategy, compute_trade
 from app.calculations.returns import Activity
@@ -254,9 +254,29 @@ async def find_refining_opportunities(
             )
         return especificacoes
 
-    def resolver(nome: str, modo: Sourcing, preco, taxa_retorno) -> ChainResult:
+    # Um cache por **função de preço**, e não um só. `price_of` e
+    # `base_price_of` dão preços diferentes para o mesmo item — é a comparação
+    # "cidade única × mais barato" —, e a função de preço está **fora** da
+    # chave do cache de propósito (ver `ChainCache`). Misturar os dois faria o
+    # roteiro alternativo responder com o custo do principal.
+    #
+    # Ambos vivem só dentro desta chamada: nada de cache entre requisições,
+    # porque preço muda.
+    # O cache vem **por parâmetro**, não deduzido do `preco`. A primeira versão
+    # fazia `preco is compras.base_price_of`, e isso é sempre falso: em Python
+    # cada acesso a um método ligado cria um objeto novo, então `a.m is a.m`
+    # dá `False`. O roteiro alternativo passou a ler o cache do principal e a
+    # devolver o custo da cidade errada — e foi o teste
+    # `test_refino_tambem_escolhe_a_cidade_de_cada_elo` que acusou.
+    cache_escolhido = ChainCache()
+    cache_base = ChainCache()
+
+    def resolver(
+        nome: str, modo: Sourcing, preco, taxa_retorno, cache: ChainCache
+    ) -> ChainResult:
         return resolve_unit_cost(
-            nome, modo, preco, receitas_de, taxa_retorno, taxa_estacao.silver_of
+            nome, modo, preco, receitas_de, taxa_retorno, taxa_estacao.silver_of,
+            cache=cache,
         )
 
     resultados: list[RefiningOut] = []
@@ -271,10 +291,14 @@ async def find_refining_opportunities(
         )
         taxa = retorno.rate
 
-        cadeia = resolver(item.unique_name, sourcing, compras.price_of, taxa)
+        cadeia = resolver(item.unique_name, sourcing, compras.price_of, taxa, cache_escolhido)
         # As duas alternativas puras, sempre, para a comparação ficar explícita.
-        so_mercado = resolver(item.unique_name, Sourcing.MARKET, compras.price_of, taxa)
-        so_producao = resolver(item.unique_name, Sourcing.CRAFT, compras.price_of, taxa)
+        so_mercado = resolver(
+            item.unique_name, Sourcing.MARKET, compras.price_of, taxa, cache_escolhido
+        )
+        so_producao = resolver(
+            item.unique_name, Sourcing.CRAFT, compras.price_of, taxa, cache_escolhido
+        )
 
         venda, idade_venda = precos_venda.get(item.unique_name, (None, None))
         lucro = margem = por_focus = None
@@ -292,7 +316,7 @@ async def find_refining_opportunities(
         roteiro = _roteiro(
             sourcing_mode, elos, compras, cadeia,
             lambda nome=item.unique_name, t=taxa: resolver(
-                nome, sourcing, compras.base_price_of, t
+                nome, sourcing, compras.base_price_of, t, cache_base
             ),
             venda, fees, strategy,
         )
