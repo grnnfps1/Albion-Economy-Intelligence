@@ -1,17 +1,36 @@
-import { ColumnHeader } from "@/components/ColumnHeader";
+import { ExportButton } from "@/components/sheet/ExportButton";
+import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
+import { CopyButton } from "@/components/sheet/CopyButton";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, DenseRow } from "@/components/ui/Figures";
+import { AgeTag } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchMarketPrices, type MarketPrice, type PriceField } from "@/lib/api";
+import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { getPreferences } from "@/lib/preferences";
+import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
-const COLUNAS =
-  "minmax(13rem,1.5fr) 8.5rem 8.5rem 8.5rem 8.5rem 9rem 8rem";
+/**
+ * Uma coluna por grandeza, largura fixa por tipo de coluna.
+ *
+ * Os rótulos dizem a consequência — "você paga", "você recebe" — e não o nome
+ * do campo na API. `sell_min` isolado não diz nada a ninguém.
+ */
+const COLUNAS: SheetColumn[] = [
+  { label: "item", width: "item", left: true },
+  { label: "você paga", width: "num", title: "ordem de venda mais barata: o que sai do bolso" },
+  { label: "venda máx", width: "num" },
+  { label: "você recebe", width: "num", title: "ordem de compra mais alta: o que entra ao vender" },
+  { label: "compra mín", width: "num" },
+  { label: "mediana 30d", width: "num" },
+  { label: "vs mediana", width: "pct" },
+  { label: "giro", width: "mini" },
+  { label: "cobertura", width: "mini" },
+];
 
 const GRUPOS = [
   {
@@ -39,6 +58,32 @@ const GRUPOS = [
   },
 ];
 
+/**
+ * O que vai para a planilha.
+ *
+ * Valores **crus**, não formatados: quem abre o arquivo quer somar e ordenar.
+ * A formatação da tela é para o olho humano; aqui quem lê é um parser.
+ */
+const EXPORTACAO: ExportColumn<MarketPrice>[] = [
+  { header: "imagem", value: (p) => p.icon_url, image: true },
+  { header: "id", value: (p) => p.item },
+  { header: "nome", value: (p) => p.item_name },
+  { header: "tier", value: (p) => p.tier },
+  { header: "encanto", value: (p) => p.enchantment },
+  { header: "cidade", value: (p) => p.location },
+  { header: "qualidade", value: (p) => p.quality },
+  { header: "você paga", value: (p) => p.sell_min.value },
+  { header: "preço manual?", value: (p) => (p.sell_min.is_manual ? "sim" : "não") },
+  { header: "venda máx", value: (p) => p.sell_max.value },
+  { header: "você recebe", value: (p) => p.buy_max.value },
+  { header: "compra mín", value: (p) => p.buy_min.value },
+  { header: "mediana 30d", value: (p) => p.median_30d },
+  { header: "vs mediana %", value: (p) => p.vs_median_pct },
+  { header: "giro/dia", value: (p) => p.liquidity.units_per_day },
+  { header: "dias com dado", value: (p) => p.liquidity.days_with_data },
+  { header: "idade (s)", value: (p) => p.sell_min.age_seconds },
+];
+
 export default async function MarketPage({
   searchParams,
 }: {
@@ -59,21 +104,19 @@ export default async function MarketPage({
       contagem={page ? `${page.prices.length} de ${formatSilver(page.total)} cotações` : undefined}
       grupos={GRUPOS}
       prefs={prefs}
+      acoes={
+        <ExportButton
+          sheet={toExportSheet(page?.prices ?? [], EXPORTACAO)}
+          screen="market"
+          filters={{
+            servidor: prefs.server,
+            busca: query.search,
+            tier: query.tier,
+            encanto: query.enchantment,
+          }}
+        />
+      }
     >
-      <ColumnHeader
-        columns={COLUNAS}
-        ordemPadrao="item"
-        colunas={[
-          { rotulo: "item" },
-          { rotulo: "você paga", ordenavel: "sell_price_min", alinhamento: "right" },
-          { rotulo: "venda máx", alinhamento: "right" },
-          { rotulo: "você recebe", ordenavel: "buy_price_max", alinhamento: "right" },
-          { rotulo: "compra mín", alinhamento: "right" },
-          { rotulo: "mediana 30d", alinhamento: "right" },
-          { rotulo: "giro", alinhamento: "right" },
-        ]}
-      />
-
       {page === null && <ApiDown />}
 
       {page?.total === 0 && (
@@ -83,9 +126,13 @@ export default async function MarketPage({
         </EmptyState>
       )}
 
-      {page?.prices.map((p, i) => (
-        <MarketLine key={`${p.item}-${p.location}-${p.quality}`} price={p} index={i} />
-      ))}
+      {page && page.total > 0 && (
+        <SheetTable columns={COLUNAS}>
+          {page.prices.map((p) => (
+            <MarketLine key={`${p.item}-${p.location}-${p.quality}`} price={p} />
+          ))}
+        </SheetTable>
+      )}
     </PageShell>
   );
 }
@@ -105,18 +152,14 @@ export default async function MarketPage({
 function Preco({ campo }: { campo: PriceField }) {
   if (campo.value === null) {
     return (
-      <div className="pr-3 text-right">
-        <span className="text-[11px] text-dim">sem dado</span>
-        {campo.manual_expired && (
-          <span className="mt-px block text-[9px] text-warn" title="seu preço manual expirou">
-            manual expirado
-          </span>
-        )}
-      </div>
+      <td>
+        <span className="text-[10.5px] text-dim">sem dado</span>
+        {campo.manual_expired && <ManualExpirado />}
+      </td>
     );
   }
   return (
-    <div className="pr-3 text-right">
+    <td>
       <span className="flex items-baseline justify-end gap-1">
         {campo.is_manual && (
           <span
@@ -126,79 +169,113 @@ function Preco({ campo }: { campo: PriceField }) {
             SEU
           </span>
         )}
-        <span className="figure text-[12.5px]">{formatSilver(campo.value)}</span>
+        <span className="figure">{formatSilver(campo.value)}</span>
       </span>
       {campo.is_manual && campo.collected_value !== null && (
-        <span className="figure mt-px block text-[9px] text-dim line-through"
-              title="o que a coleta dizia">
+        <span
+          className="figure block text-[9px] text-dim line-through"
+          title="o que a coleta dizia"
+        >
           {formatSilver(campo.collected_value)}
         </span>
       )}
-      <span className="mt-px block">
+      <span className="block">
         <AgeTag seconds={campo.age_seconds} freshness={campo.freshness} />
       </span>
-      {campo.manual_expired && (
-        <span className="mt-px block text-[9px] text-warn" title="seu preço manual expirou">
-          manual expirado
-        </span>
-      )}
-    </div>
+      {campo.manual_expired && <ManualExpirado />}
+    </td>
   );
 }
 
-function MarketLine({ price, index }: { price: MarketPrice; index: number }) {
+function ManualExpirado() {
+  return (
+    <span
+      className="block text-[9px] text-warn"
+      title="você informou um preço aqui, mas ele passou do limite de frescor e o coletado voltou"
+    >
+      manual expirado
+    </span>
+  );
+}
+
+function MarketLine({ price }: { price: MarketPrice }) {
   const distancia = price.vs_median_pct;
   const liq = price.liquidity;
   const cobertura = liq.status === "KNOWN" ? liq.days_with_data / liq.period_days : 0;
 
   return (
-    <DenseRow tier={price.tier} positive={null} columns={COLUNAS} index={index}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <ItemIcon url={price.icon_url} alt={price.item_name ?? price.item} tier={price.tier} />
-        <div className="min-w-0">
-          <div className="mb-[3px] flex flex-wrap gap-1">
-            <TierBadge tier={price.tier} enchantment={price.enchantment} />
-            <QualityBadge quality={price.quality} />
-            <CityTag city={price.location} className="text-[9.5px] text-muted" />
-          </div>
-          <div className="truncate text-[12.5px] leading-tight" title={price.item}>
-            {price.item_name ?? price.item}
-          </div>
-        </div>
-      </div>
+    <tr>
+      {/* A faixa de tier: `.sheet` dá a largura, o token dá a cor. */}
+      <td className={`l ${tierBorderLeft(price.tier)}`}>
+        <span className="flex min-w-0 items-center gap-2">
+          <ItemIcon
+            url={price.icon_url}
+            alt={price.item_name ?? price.item}
+            tier={price.tier}
+            size={22}
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1">
+              <TierBadge tier={price.tier} enchantment={price.enchantment} />
+              <QualityBadge quality={price.quality} />
+              <CityTag city={price.location} className="text-[9.5px] text-muted" />
+            </span>
+            <span className="flex min-w-0 items-center">
+              <span className="truncate">{price.item_name ?? price.item}</span>
+              {/* Colado no nome, não na borda da célula, e visível sempre. */}
+              <CopyButton name={price.item_name} id={price.item} />
+            </span>
+            <span className="block truncate text-[9px] text-dim">{price.item}</span>
+          </span>
+        </span>
+      </td>
 
       <Preco campo={price.sell_min} />
       <Preco campo={price.sell_max} />
       <Preco campo={price.buy_max} />
       <Preco campo={price.buy_min} />
 
-      <div className="pr-3 text-right">
-        <span className="figure text-[12.5px]">
-          {price.median_30d === null ? "—" : formatSilver(price.median_30d)}
-        </span>
-        {distancia !== null && (
-          <span
-            className={`figure mt-px block text-[9.5px] ${
-              distancia <= -5 ? "text-up" : distancia >= 5 ? "text-down" : "text-dim"
-            }`}
-            title="distância do preço de compra imediata até a mediana"
-          >
-            {distancia > 0 ? "+" : ""}
-            {distancia.toFixed(1)}%
-          </span>
-        )}
-      </div>
+      <td className="figure">
+        {price.median_30d === null ? "—" : formatSilver(price.median_30d)}
+      </td>
 
-      <div className="pr-3 text-right">
+      <td
+        className={`figure ${
+          distancia === null
+            ? "text-dim"
+            : distancia <= -5
+              ? "text-up"
+              : distancia >= 5
+                ? "text-down"
+                : "text-dim"
+        }`}
+        title="distância do preço de compra imediata até a mediana"
+      >
+        {distancia === null ? "—" : `${distancia > 0 ? "+" : ""}${distancia.toFixed(1)}%`}
+      </td>
+
+      <td className="figure text-[10.5px]">
         {liq.status === "UNKNOWN" ? (
-          <span className="text-[11px] text-dim">desconhecido</span>
+          <span className="text-dim" title="sem histórico suficiente para medir giro">
+            —
+          </span>
         ) : (
           <>
-            <span className="figure text-[12px]">
-              {formatSilver(liq.units_per_day)}
-              <span className="ml-px text-[9px] text-dim">/dia</span>
+            {formatSilver(liq.units_per_day)}
+            <span className="text-[9px] text-dim">/d</span>
+          </>
+        )}
+      </td>
+
+      <td>
+        {liq.status === "UNKNOWN" ? (
+          <span className="text-[10px] text-dim">desconhecida</span>
+        ) : (
+          <>
+            <span className="figure text-[10px] text-dim">
+              {liq.days_with_data}/{liq.period_days}d
             </span>
-            <span className="mt-[3px] ml-auto block h-[3px] w-12 overflow-hidden rounded-full bg-line">
+            <span className="ml-auto block h-[3px] w-10 overflow-hidden rounded-full bg-line">
               <span
                 className={`block h-full ${
                   cobertura >= 0.7 ? "bg-up" : cobertura >= 0.3 ? "bg-warn" : "bg-down"
@@ -208,7 +285,7 @@ function MarketLine({ price, index }: { price: MarketPrice; index: number }) {
             </span>
           </>
         )}
-      </div>
-    </DenseRow>
+      </td>
+    </tr>
   );
 }

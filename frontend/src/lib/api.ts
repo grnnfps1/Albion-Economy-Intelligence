@@ -408,6 +408,9 @@ export type CraftOpportunity = {
     material_cost_gross: number | null; material_cost_net: number | null;
     returned_value: number | null; station_fee: number | null;
     item_value: number | null; nutrition: number | null;
+    /** Focus antes da especialização — o `@craftingfocus` do dump. */
+    base_focus_cost: number | null;
+    focus_multiplier: number | null;
     sale_revenue_net: number | null; market_fees: number | null;
     profit: number | null; margin_pct: number | null; roi_pct: number | null;
     profit_per_focus: number | null;

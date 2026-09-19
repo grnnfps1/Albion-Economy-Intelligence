@@ -35,6 +35,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 15 | Taxa de estação derivada do valor do item | ✅ |
 | 16 | Especialização: redução do custo de Focus | ✅ |
 | 17 | Preço manual sobrescrevendo a cotação coletada | ✅ |
+| 18 | Layout de planilha + exportação CSV | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -268,6 +269,74 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 18 — layout de planilha e exportação
+
+- **As telas densas viraram `<table>` com `table-layout: fixed`.** Não é
+  cosmético: sem largura fixa o navegador dá às colunas de material toda a
+  folga e abre um vão morto antes das colunas de decisão — que são o motivo de
+  a tela existir. Com largura por **tipo** de coluna (`SHEET_WIDTHS`), "lucro"
+  fica no mesmo lugar em /crafting e em /refining.
+- **Uma coluna por grandeza, uma coluna por material.** Quem vem de planilha
+  encontra o mesmo modelo mental, e comparar o preço do mesmo material entre
+  duas linhas vira leitura vertical em vez de caça dentro de uma célula.
+- **O nome do material vai em balão próprio, não em `title` nativo.** O do
+  navegador demora quase um segundo e some ao mover o mouse; numa tabela em que
+  se passa por dez materiais, ele aparece depois que o cursor já saiu. O
+  `title` ficou onde o atraso não incomoda: botões e cabeçalhos.
+- **Botão de copiar colado no preço e visível sempre.** Alvo que só aparece no
+  hover não é descoberto. Copia o **nome** por padrão, porque é o que a busca
+  do mercado no jogo entende; `alt+clique` copia o id técnico.
+- **Sem nome em português, o botão desabilita** — e isso foi medido, não
+  escolhido por gosto. Entre os 455 itens rastreados, 30 não têm nome em
+  português e **os mesmos 30 também não têm em inglês** (templates de Liga de
+  Cristal). Cair no inglês cobriria zero casos. Ver as notas do adendo abaixo.
+- **Exportação em seis telas**, do recorte visível, com o filtro no nome do
+  arquivo. CSV com `;` e BOM: vírgula abre tudo numa coluna só no Excel
+  pt-BR, e sem BOM "Tábuas" vira "TÃ¡buas".
+- **Decimal com vírgula e sem separador de milhar.** `1683277,5`, não
+  `1.683.277,5`: o ponto de milhar depende de a planilha adivinhar a locale, e
+  quando erra a coluna inteira vira texto e some do somatório. É o inverso da
+  regra da tela, onde o número vai cheio — lá quem lê é uma pessoa, aqui é um
+  parser.
+- **Falhar calado é o pior resultado.** Clicar e nada acontecer faz a pessoa
+  clicar de novo sem saber se o arquivo saiu. `download()` joga `ExportError` e
+  o botão mostra a falha em âmbar.
+- **A exportação tem teste de verdade**, com o arquivo gerado e lido de volta
+  por um parser de CSV escrito no próprio teste — contagem de linhas, formato
+  numérico e a fórmula `=IMAGE(...)` escapada. Exportação é das poucas coisas
+  em que o bug só aparece depois que o usuário abre o arquivo.
+- **Função não atravessa a fronteira servidor→cliente.** Passar
+  `ExportColumn[]` (que tem `value: (row) => …`) para o botão derrubava a página
+  em runtime, não no build. O servidor achata com `toExportSheet` e o cliente só
+  monta o texto. Está comentado em `lib/export.ts` para não ser refeito.
+- **`DenseRow` e `ColumnHeader` foram removidos**: ficaram sem uso depois da
+  conversão, e componente morto num kit de UI é convite a duas linguagens
+  visuais.
+- **Falso positivo do CI de novo.** A regra "sem cálculo no frontend" casa
+  `profit={…} … />` por causa da barra do JSX. Mesma classe do `d04364d`; a
+  solução continua sendo quebrar as props em linhas.
+
+## Notas do adendo da fase 18 — itens sem nome
+
+A premissa do adendo não se confirmou, e os números importam:
+
+- **Os 266 `items_without_metadata` têm todos nome em português.** A interseção
+  com "sem PT-BR" é **zero**. São itens sem entrada em `items.json` (a raiz do
+  dump), não itens sem nome — `formatted/items.json` traz o nome deles
+  normalmente.
+- **Nenhum dos 266 é material de receita.** Interseção zero com os 1.742
+  materiais de receita do dump.
+- **`T8_METALBAR` tem nome**: "Barra de Aço de Adamante". O exemplo do adendo
+  não é um caso real.
+- **Quem realmente não tem nome são 865 itens**, e entre os 455 rastreados são
+  **30** — todos da subcategoria `tokens`, e todos **também sem nome em
+  inglês**. São templates de Liga de Cristal e um cristal de arena: não são
+  itens de mercado.
+
+Por isso o botão desabilita em vez de cair no inglês: o fallback foi medido e
+cobre zero casos. Há ainda 44 materiais de receita sem PT-BR, todos fichas de
+masmorra que também não têm EN — e nenhum deles é rastreado.
 
 ## Notas da fase 17 — preço manual
 
@@ -520,6 +589,11 @@ cobrindo exatamente isso. E prata/focus é **intensivo**: não muda quando se
 aumenta o número de execuções, ao contrário do lucro absoluto.
 
 ## Linguagem visual
+
+Desde a fase 18 as telas densas são **tabela** (`components/sheet/`), com
+`table-layout: fixed` e largura por tipo de coluna. Uma coluna por grandeza,
+uma coluna por material, zebra fraca e filtros em caixa alta. O que segue vale
+dentro dessa tabela.
 
 Linha densa, 40 por tela, com **cor carregando informação e nunca decoração**:
 

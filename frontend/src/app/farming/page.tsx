@@ -1,17 +1,80 @@
-import { ColumnHeader } from "@/components/ColumnHeader";
 import { PageShell } from "@/components/PageShell";
-import { CityTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, DenseRow, ProfitFigure } from "@/components/ui/Figures";
+import { CopyButton } from "@/components/sheet/CopyButton";
+import { ExportButton } from "@/components/sheet/ExportButton";
+import { EmptyMaterialCell, MaterialCell } from "@/components/sheet/MaterialCell";
+import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
+import { SpreadWarning, TierBadge } from "@/components/ui/Badges";
+import { AgeTag, ProfitFigure } from "@/components/ui/Figures";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchFarming, type FarmPlan } from "@/lib/api";
+import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
+import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
-const COLUNAS =
-  "minmax(13rem,1.5fr) 6.5rem 8rem 8.5rem 7.5rem minmax(13rem,1.6fr) 8rem";
+/** Cultivo e criação consomem poucos insumos: semente/filhote e ração. */
+const MAX_ENTRADAS = 3;
+
+function colunas(maxEntradas: number): SheetColumn[] {
+  return [
+    { label: "o que plantar ou criar", width: "item", left: true },
+    ...Array.from({ length: maxEntradas }, (_, i) => ({
+      label: i === 0 ? "insumo" : `entrada ${i + 1}`,
+      width: "mat" as const,
+      left: true,
+    })),
+    { label: "ciclo", width: "focus", title: "do plantio à colheita" },
+    { label: "você gasta", width: "num", title: "insumo mais a ração do período" },
+    { label: "lucro/dia", width: "num", title: "o que compara 22 h de fazenda com 28 d de criação" },
+    { label: "prata/focus", width: "num" },
+    { label: "sai por ciclo", width: "mat", left: true },
+    { label: "idade", width: "mini" },
+  ];
+}
+
+function exportacao(maxEntradas: number): ExportColumn<FarmPlan>[] {
+  const entradas: ExportColumn<FarmPlan>[] = [];
+  for (let i = 0; i < maxEntradas; i++) {
+    entradas.push(
+      { header: `entrada ${i + 1} id`, value: (p) => p.inputs[i]?.item ?? null },
+      { header: `entrada ${i + 1} papel`, value: (p) => p.inputs[i]?.role ?? null },
+      { header: `entrada ${i + 1} qtd`, value: (p) => p.inputs[i]?.quantity ?? null },
+      { header: `entrada ${i + 1} unitário`, value: (p) => p.inputs[i]?.unit_price ?? null },
+      { header: `entrada ${i + 1} cidade`, value: (p) => p.inputs[i]?.location ?? null },
+    );
+  }
+  return [
+    { header: "imagem", value: (p) => p.icon_url, image: true },
+    { header: "id", value: (p) => p.item },
+    { header: "nome", value: (p) => p.item_name },
+    { header: "tier", value: (p) => p.tier },
+    { header: "estação", value: (p) => p.station_label },
+    { header: "tipo", value: (p) => p.kind },
+    ...entradas,
+    { header: "ciclo (s)", value: (p) => p.economics.cycle_seconds },
+    { header: "você gasta", value: (p) => p.economics.input_cost },
+    { header: "preço do npc", value: (p) => p.npc_silver_cost },
+    { header: "lucro por ciclo", value: (p) => p.economics.profit_per_cycle },
+    { header: "lucro por dia", value: (p) => p.economics.profit_per_day },
+    { header: "margem %", value: (p) => p.economics.margin_pct },
+    { header: "prata/focus", value: (p) => p.economics.profit_per_focus },
+    { header: "focus", value: (p) => p.economics.focus_cost },
+    {
+      header: "saída principal",
+      value: (p) =>
+        p.outputs
+          .filter((o) => o.primary)
+          .map((o) => `${o.item}=${o.amount_min}-${o.amount_max}`)
+          .join(" | "),
+    },
+    { header: "saídas sem preço", value: (p) => p.economics.outputs_without_price.join(", ") },
+    { header: "cidades envolvidas", value: (p) => p.material_sourcing.cities_involved },
+    { header: "motivo do desconhecido", value: (p) => p.economics.reason },
+  ];
+}
 
 const GRUPOS = [
   {
@@ -89,6 +152,13 @@ export default async function FarmingPage({
     limit: "60",
   });
 
+  // Uma coluna por entrada, limitada ao que as linhas visíveis usam: abrir três
+  // colunas para uma tabela só de cultivo encheria a tela de traço.
+  const maxEntradas = Math.min(
+    MAX_ENTRADAS,
+    Math.max(1, ...(data?.plans ?? []).map((p) => p.inputs.length)),
+  );
+
   return (
     <PageShell
       titulo="Agricultura"
@@ -97,21 +167,19 @@ export default async function FarmingPage({
       grupos={GRUPOS}
       busca={false}
       prefs={prefs}
+      acoes={
+        <ExportButton
+          sheet={toExportSheet(data?.plans ?? [], exportacao(maxEntradas))}
+          screen="agricultura"
+          filters={{
+            estacao: query.station,
+            tipo: query.kind,
+            ordem: query.sort_by,
+            compra: prefs.buyLocation,
+          }}
+        />
+      }
     >
-      <ColumnHeader
-        columns={COLUNAS}
-        ordemPadrao="profit_per_day"
-        colunas={[
-          { rotulo: "o que plantar ou criar" },
-          { rotulo: "ciclo", alinhamento: "right" },
-          { rotulo: "você gasta", alinhamento: "right" },
-          { rotulo: "lucro / dia", ordenavel: "profit_per_day", alinhamento: "right" },
-          { rotulo: "prata / focus", ordenavel: "profit_per_focus", alinhamento: "right" },
-          { rotulo: "entra · onde comprar" },
-          { rotulo: "sai por ciclo", alinhamento: "right" },
-        ]}
-      />
-
       {data === null && <ApiDown />}
 
       {data?.total === 0 && (
@@ -122,9 +190,17 @@ export default async function FarmingPage({
         </EmptyState>
       )}
 
-      {data?.plans.map((plano) => (
-        <FarmLine key={`${plano.item}-${plano.kind}`} plano={plano} />
-      ))}
+      {data && data.total > 0 && (
+        <SheetTable columns={colunas(maxEntradas)}>
+          {data.plans.map((plano) => (
+            <FarmLine
+              key={`${plano.item}-${plano.kind}`}
+              plano={plano}
+              maxEntradas={maxEntradas}
+            />
+          ))}
+        </SheetTable>
+      )}
 
       {data && data.plans.length > 0 && (
         <div className="max-w-prose space-y-2 p-4 text-[11px] text-dim leading-relaxed">
@@ -149,140 +225,144 @@ export default async function FarmingPage({
   );
 }
 
-function FarmLine({ plano }: { plano: FarmPlan }) {
+function FarmLine({
+  plano,
+  maxEntradas,
+}: {
+  plano: FarmPlan;
+  maxEntradas: number;
+}) {
   const eco = plano.economics;
   const positivo = eco.known ? (eco.profit_per_day ?? 0) > 0 : null;
   const principais = plano.outputs.filter((o) => o.primary);
 
+  const tinta =
+    positivo === true
+      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      : positivo === false
+        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        : "";
+
   return (
-    <DenseRow tier={plano.tier} positive={positivo} columns={COLUNAS}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <ItemIcon url={plano.icon_url} alt={plano.item_name ?? plano.item} tier={plano.tier} />
-        <div className="min-w-0">
-          <div className="mb-[3px] flex gap-1">
-            <TierBadge tier={plano.tier} enchantment={0} />
-            <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
-              {plano.station_label}
+    <tr className={tinta}>
+      <td className={`l ${tierBorderLeft(plano.tier)}`}>
+        <span className="flex min-w-0 items-center gap-2">
+          <ItemIcon
+            url={plano.icon_url}
+            alt={plano.item_name ?? plano.item}
+            tier={plano.tier}
+            size={22}
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1">
+              <TierBadge tier={plano.tier} enchantment={0} />
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+                {plano.station_label}
+              </span>
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+                {TIPO_ROTULO[plano.kind] ?? plano.kind.toLowerCase()}
+              </span>
             </span>
-            <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
-              {TIPO_ROTULO[plano.kind] ?? plano.kind.toLowerCase()}
+            <span className="flex min-w-0 items-center">
+              <span className="truncate">{plano.item_name ?? plano.item}</span>
+              <CopyButton name={plano.item_name} id={plano.item} />
             </span>
-          </div>
-          <div className="truncate text-[12.5px] leading-tight" title={plano.item}>
-            {plano.item_name ?? plano.item}
-          </div>
-        </div>
-      </div>
+            <span className="block truncate text-[9px] text-dim">{plano.item}</span>
+          </span>
+        </span>
+      </td>
 
-      <div className="pr-3 text-right">
-        <span className="figure text-val">{formatDuracao(eco.cycle_seconds)}</span>
-        <span className="lbl mt-px block">até colher</span>
-      </div>
+      {Array.from({ length: maxEntradas }, (_, i) => {
+        const entrada = plano.inputs[i];
+        if (!entrada) return <EmptyMaterialCell key={`vazio-${i}`} />;
+        return (
+          <MaterialCell
+            key={`${entrada.item}-${entrada.role}`}
+            item={entrada.item}
+            itemName={entrada.item_name}
+            iconUrl={entrada.icon_url}
+            quantity={Math.round(entrada.quantity)}
+            unitPrice={entrada.unit_price}
+            tier={plano.tier}
+            locationName={entrada.location}
+            isAlternateCity={entrada.is_alternate_city}
+            tip={tituloEntrada(entrada, plano.buy_location)}
+          />
+        );
+      })}
 
-      <div
-        className="pr-3 text-right"
+      <td className="figure text-[10.5px]">{formatDuracao(eco.cycle_seconds)}</td>
+
+      <td
         title={
           plano.npc_silver_cost === null
             ? undefined
             : `O comerciante de fazenda vende por ${formatSilver(plano.npc_silver_cost)} de prata fixa. O número ao lado usa o preço de mercado — compare os dois antes de decidir.`
         }
       >
-        <span className="figure text-val">{formatSilver(eco.input_cost)}</span>
+        <span className="figure">{formatSilver(eco.input_cost)}</span>
         <span className="lbl mt-px block">
-          insumo + ração
-          {plano.npc_silver_cost !== null && (
-            <span className="ml-1 text-dim">· npc {formatSilver(plano.npc_silver_cost)}</span>
-          )}
+          {plano.npc_silver_cost === null
+            ? "insumo + ração"
+            : `npc ${formatSilver(plano.npc_silver_cost)}`}
         </span>
-      </div>
+        <span className="flex justify-end">
+          <SpreadWarning
+            cities={plano.material_sourcing.cities_involved}
+            savings={plano.material_sourcing.savings}
+            savingsPct={plano.material_sourcing.savings_pct}
+          />
+        </span>
+      </td>
 
       {/* O maior número da linha é o lucro por dia, não o do ciclo: é ele que
           responde "o que colocar na parcela hoje". */}
-      <ProfitFigure
-        profit={eco.profit_per_day}
-        marginPct={eco.margin_pct}
-        unknownReason={eco.reason}
-      />
+      <td>
+        <ProfitFigure
+          profit={eco.profit_per_day}
+          marginPct={eco.margin_pct}
+          unknownReason={eco.reason}
+        />
+      </td>
 
-      <div className="pr-3 text-right">
+      <td>
         <span
-          className={`figure font-semibold text-[13.5px] ${
+          className={`figure font-semibold text-[13px] ${
             positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
           }`}
         >
           {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
         </span>
-        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
+        <span className="lbl mt-px block">
           {eco.focus_cost > 0 ? `${formatSilver(eco.focus_cost)} focus` : "sem focus"}
         </span>
-      </div>
+      </td>
 
-      <div className="flex items-center gap-1.5 overflow-hidden">
-        {plano.inputs.length === 0 ? (
-          <span className="text-[11px] text-dim">nada a comprar</span>
-        ) : (
-          plano.inputs.map((entrada) => (
-            <span
-              key={`${entrada.item}-${entrada.role}`}
-              title={tituloEntrada(entrada, plano.buy_location)}
-              className={`flex shrink-0 items-center gap-1.5 rounded border bg-raised px-1.5 py-[3px] ${
-                entrada.is_alternate_city ? "border-warn/40" : "border-line"
-              }`}
-            >
-              <ItemIcon
-                url={entrada.icon_url}
-                alt={entrada.item}
-                tier={plano.tier}
-                quantity={Math.round(entrada.quantity)}
-                size={28}
-              />
-              <span className="flex flex-col leading-[1.15]">
-                <span className="figure text-[11px]">
-                  {formatSilver(entrada.unit_price)}
-                  <span className="ml-px text-[9px] text-dim">/un</span>
-                </span>
-                <CityTag
-                  city={entrada.location ?? "—"}
-                  alternate={entrada.is_alternate_city}
-                  className="text-[9.5px] text-muted"
-                />
-              </span>
-            </span>
-          ))
-        )}
-        <SpreadWarning
-          cities={plano.material_sourcing.cities_involved}
-          savings={plano.material_sourcing.savings}
-          savingsPct={plano.material_sourcing.savings_pct}
-        />
-      </div>
-
-      <div className="pr-3 text-right">
+      <td className="l">
         {principais.map((saida) => (
-          <div key={saida.item} className="truncate" title={saida.item}>
-            <span className="figure text-[11.5px]">
+          <span key={saida.item} className="block truncate" title={saida.item}>
+            <span className="figure">
               {saida.amount_min === saida.amount_max
                 ? formatSilver(saida.amount_min)
                 : `${saida.amount_min}–${saida.amount_max}`}
-              <span className="ml-1 text-[9.5px] text-dim">
-                {saida.item_name ?? saida.item}
-              </span>
             </span>
-          </div>
+            <span className="ml-1 text-[9.5px] text-dim">{saida.item_name ?? saida.item}</span>
+          </span>
         ))}
-        <div className="mt-px flex justify-end gap-1.5">
-          <AgeTag seconds={plano.inputs[0]?.age_seconds ?? null} />
-          {eco.outputs_without_price.length > 0 && (
-            <span
-              title={`Sem cotação: ${eco.outputs_without_price.join(", ")}. O lucro mostrado está abaixo do real.`}
-              className="figure text-[9.5px] text-warn"
-            >
-              ⚠ {eco.outputs_without_price.length} sem preço
-            </span>
-          )}
-        </div>
-      </div>
-    </DenseRow>
+        {eco.outputs_without_price.length > 0 && (
+          <span
+            title={`Sem cotação: ${eco.outputs_without_price.join(", ")}. O lucro mostrado está abaixo do real.`}
+            className="figure block text-[9px] text-warn"
+          >
+            ⚠ {eco.outputs_without_price.length} sem preço
+          </span>
+        )}
+      </td>
+
+      <td>
+        <AgeTag seconds={plano.inputs[0]?.age_seconds ?? null} />
+      </td>
+    </tr>
   );
 }
 

@@ -16,7 +16,7 @@ type Grupo = { chave: string; opcoes: { valor: string; rotulo: string }[]; padra
  * quiser precisão abre uma vez.
  */
 export function PageShell({
-  titulo, descricao, contagem, grupos, busca = true, prefs, children,
+  titulo, descricao, contagem, grupos, busca = true, prefs, acoes, children,
 }: {
   titulo: string;
   descricao: string;
@@ -24,6 +24,9 @@ export function PageShell({
   grupos: Grupo[];
   busca?: boolean;
   prefs: Preferences;
+  /** Ações da tela — hoje só a exportação. Fica ao lado da contagem, porque é
+   *  exatamente o recorte que ela descreve que vai para o arquivo. */
+  acoes?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -33,6 +36,7 @@ export function PageShell({
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-4 pb-2">
         <h1 className="display text-body text-h1">{titulo}</h1>
         {contagem && <span className="figure text-[11px] text-dim">{contagem}</span>}
+        {acoes && <span className="ml-auto">{acoes}</span>}
         <p className="w-full max-w-prose text-muted text-note leading-relaxed">{descricao}</p>
       </div>
 

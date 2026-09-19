@@ -1,16 +1,71 @@
-import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { CopyButton } from "@/components/sheet/CopyButton";
+import { ExportButton } from "@/components/sheet/ExportButton";
+import { HoverTip } from "@/components/sheet/HoverTip";
+import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { CityTag, ReturnTag, SpreadWarning, TierBadge } from "@/components/ui/Badges";
-import { AgeTag, DenseRow, Figure, ProfitFigure } from "@/components/ui/Figures";
+import { AgeTag, Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchRefining, type RefiningOpportunity } from "@/lib/api";
+import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
+import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
-const COLUNAS = "minmax(12rem,1.3fr) 8.5rem 8.5rem 9rem 7.5rem minmax(12rem,1.4fr) 7rem";
+/**
+ * A cadeia fica numa coluna só, e é a exceção consciente ao "uma coluna por
+ * grandeza": ela não é uma grandeza, é um caminho de comprimento variável —
+ * T2→T8 são sete elos. Abrir sete colunas encheria a tabela de traço para as
+ * linhas de T4. As grandezas de decisão, essas sim, ganham cada uma a sua.
+ */
+const COLUNAS: SheetColumn[] = [
+  { label: "item", width: "item", left: true },
+  { label: "comprar pronto", width: "num", title: "custo do insumo comprado no mercado" },
+  { label: "produzir", width: "num", title: "custo de refinar a cadeia inteira" },
+  { label: "lucro", width: "num" },
+  { label: "prata/focus", width: "num", title: "a ordenação principal" },
+  { label: "focus/un", width: "focus" },
+  { label: "cadeia · onde está o gargalo", width: "item", left: true },
+  { label: "idade", width: "mini" },
+  { label: "giro", width: "mini" },
+];
+
+const EXPORTACAO: ExportColumn<RefiningOpportunity>[] = [
+  { header: "imagem", value: (o) => o.icon_url, image: true },
+  { header: "id", value: (o) => o.item },
+  { header: "nome", value: (o) => o.item_name },
+  { header: "tier", value: (o) => o.tier },
+  { header: "encanto", value: (o) => o.enchantment },
+  { header: "família", value: (o) => o.family },
+  { header: "origem do insumo", value: (o) => o.sourcing },
+  { header: "custo unitário", value: (o) => o.unit_cost },
+  { header: "comprar pronto", value: (o) => o.cost_from_market },
+  { header: "produzir", value: (o) => o.cost_from_crafting },
+  { header: "preço de venda", value: (o) => o.sell_price },
+  { header: "lucro", value: (o) => o.profit },
+  { header: "margem %", value: (o) => o.margin_pct },
+  { header: "prata/focus", value: (o) => o.profit_per_focus },
+  { header: "focus/un", value: (o) => o.focus_per_unit },
+  { header: "retorno", value: (o) => o.material_return.rate },
+  { header: "melhor cidade p/ retorno", value: (o) => o.material_return.best_city_name },
+  { header: "cidades envolvidas", value: (o) => o.material_sourcing.cities_involved },
+  { header: "economia espalhando", value: (o) => o.material_sourcing.savings },
+  // A cadeia em texto: numa planilha ela é referência, não coluna de cálculo.
+  {
+    header: "cadeia",
+    value: (o) =>
+      o.chain
+        .filter((p) => p.craft_cost !== null)
+        .map((p) => `${p.item}=${p.sourcing}`)
+        .join(" | "),
+  },
+  { header: "giro/dia", value: (o) => o.liquidity_units_per_day },
+  { header: "idade venda (s)", value: (o) => o.sell_age_seconds },
+  { header: "motivo do desconhecido", value: (o) => o.reason },
+];
 
 const GRUPOS = [
   {
@@ -71,21 +126,20 @@ export default async function RefiningPage({
       grupos={GRUPOS}
       busca={false}
       prefs={prefs}
+      acoes={
+        <ExportButton
+          sheet={toExportSheet(data?.opportunities ?? [], EXPORTACAO)}
+          screen="refino"
+          filters={{
+            familia: query.family,
+            origem: query.sourcing,
+            cidades: query.sourcing_mode,
+            compra: prefs.buyLocation,
+            venda: prefs.sellLocation,
+          }}
+        />
+      }
     >
-      <ColumnHeader
-        columns={COLUNAS}
-        ordemPadrao="profit_per_focus"
-        colunas={[
-          { rotulo: "item" },
-          { rotulo: "comprar pronto", alinhamento: "right" },
-          { rotulo: "produzir", alinhamento: "right" },
-          { rotulo: "lucro", alinhamento: "right" },
-          { rotulo: "prata / focus", alinhamento: "right" },
-          { rotulo: "cadeia · onde está o gargalo" },
-          { rotulo: "dado", alinhamento: "right" },
-        ]}
-      />
-
       {data === null && <ApiDown />}
 
       {data?.total === 0 && (
@@ -95,9 +149,13 @@ export default async function RefiningPage({
         </EmptyState>
       )}
 
-      {data?.opportunities.map((op) => (
-        <RefiningLine key={op.item} op={op} base={data.buy_location} />
-      ))}
+      {data && data.total > 0 && (
+        <SheetTable columns={COLUNAS}>
+          {data.opportunities.map((op) => (
+            <RefiningLine key={op.item} op={op} base={data.buy_location} />
+          ))}
+        </SheetTable>
+      )}
 
       {data && data.opportunities.length > 0 && (
         <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
@@ -128,93 +186,111 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
   const positivo = op.known ? (op.profit ?? 0) > 0 : null;
   const elos = op.chain.filter((p) => p.craft_cost !== null);
 
+  const tinta =
+    positivo === true
+      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      : positivo === false
+        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        : "";
+
   return (
-    <DenseRow tier={op.tier} positive={positivo} columns={COLUNAS}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} />
-        <div className="min-w-0">
-          <div className="mb-[3px] flex gap-1">
-            <TierBadge tier={op.tier} enchantment={op.enchantment} />
-            {op.family && (
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
-                {op.family.toLowerCase()}
-              </span>
-            )}
-          </div>
-          <div className="truncate text-[12.5px] leading-tight" title={op.item}>
-            {op.item_name ?? op.item}
-          </div>
-          <div className="mt-[3px]">
-            <ReturnTag
-              rate={op.material_return.rate}
-              isBestCity={op.material_return.is_best_city}
-              bestCityName={op.material_return.best_city_name}
-              delta={op.material_return.delta}
-              mappingKnown={op.material_return.mapping_known}
-            />
-          </div>
-        </div>
-      </div>
+    <tr className={tinta}>
+      <td className={`l ${tierBorderLeft(op.tier)}`}>
+        <span className="flex min-w-0 items-center gap-2">
+          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={22} />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1">
+              <TierBadge tier={op.tier} enchantment={op.enchantment} />
+              {op.family && (
+                <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+                  {op.family.toLowerCase()}
+                </span>
+              )}
+              <ReturnTag
+                rate={op.material_return.rate}
+                isBestCity={op.material_return.is_best_city}
+                bestCityName={op.material_return.best_city_name}
+                delta={op.material_return.delta}
+                mappingKnown={op.material_return.mapping_known}
+              />
+            </span>
+            <span className="flex min-w-0 items-center">
+              <span className="truncate">{op.item_name ?? op.item}</span>
+              <CopyButton name={op.item_name} id={op.item} />
+            </span>
+            <span className="block truncate text-[9px] text-dim">{op.item}</span>
+          </span>
+        </span>
+      </td>
 
-      <Figure value={op.cost_from_market} label="no mercado" />
-      <Figure value={op.cost_from_crafting} label="a cadeia toda" />
-      <ProfitFigure
-        profit={op.profit}
-        marginPct={op.margin_pct}
-        unknownReason={op.reason}
-      />
+      <td>
+        <Figure value={op.cost_from_market} label="no mercado" />
+      </td>
+      <td>
+        <Figure value={op.cost_from_crafting} label="a cadeia toda" />
+      </td>
+      <td>
+        <ProfitFigure
+          profit={op.profit}
+          marginPct={op.margin_pct}
+          unknownReason={op.reason}
+        />
+      </td>
 
-      <div className="pr-3 text-right">
+      <td>
         <span
-          className={`figure font-semibold text-[13.5px] ${
+          className={`figure font-semibold text-[13px] ${
             positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
           }`}
         >
           {op.profit_per_focus === null ? "—" : formatSilver(op.profit_per_focus)}
         </span>
-        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
-          {formatSilver(op.focus_per_unit)} focus/un
+      </td>
+
+      <td className="figure text-[10.5px] text-muted">{formatSilver(op.focus_per_unit)}</td>
+
+      <td className="l">
+        <span className="flex flex-wrap items-center gap-1">
+          {elos.length === 0 ? (
+            <span className="text-[10.5px] text-dim">sem elos calculáveis</span>
+          ) : (
+            elos.map((passo) => (
+              <HoverTip key={passo.item} dica={titulo(passo, base)}>
+                <span
+                  className={`figure inline-flex shrink-0 items-center gap-[4px] rounded-[3px] border px-[4px] py-px text-[9px] ${
+                    passo.sourcing !== "MERCADO"
+                      ? "border-up/30 bg-up/10 text-up"
+                      : passo.is_alternate_city
+                        ? "border-warn/40 bg-raised text-muted"
+                        : "border-line bg-raised text-muted"
+                  }`}
+                >
+                  {passo.item.split("_")[0]}{" "}
+                  {passo.sourcing === "MERCADO" ? "comprar" : "produzir"}
+                  {passo.sourcing === "MERCADO" && passo.location && (
+                    <CityTag city={passo.location} alternate={passo.is_alternate_city} />
+                  )}
+                </span>
+              </HoverTip>
+            ))
+          )}
+          <SpreadWarning
+            cities={op.material_sourcing.cities_involved}
+            savings={op.material_sourcing.savings}
+            savingsPct={op.material_sourcing.savings_pct}
+          />
         </span>
-      </div>
+      </td>
 
-      <div className="flex flex-wrap items-center gap-1 overflow-hidden">
-        {elos.length === 0 ? (
-          <span className="text-[11px] text-dim">sem elos calculáveis</span>
-        ) : (
-          elos.map((passo) => (
-            <span
-              key={passo.item}
-              title={titulo(passo, base)}
-              className={`figure inline-flex shrink-0 items-center gap-[5px] rounded-[3px] border px-[5px] py-px text-[9.5px] ${
-                passo.sourcing !== "MERCADO"
-                  ? "border-up/30 bg-up/10 text-up"
-                  : passo.is_alternate_city
-                    ? "border-warn/40 bg-raised text-muted"
-                    : "border-line bg-raised text-muted"
-              }`}
-            >
-              {passo.item.split("_")[0]} {passo.sourcing === "MERCADO" ? "comprar" : "produzir"}
-              {passo.sourcing === "MERCADO" && passo.location && (
-                <CityTag city={passo.location} alternate={passo.is_alternate_city} />
-              )}
-            </span>
-          ))
-        )}
-        <SpreadWarning
-          cities={op.material_sourcing.cities_involved}
-          savings={op.material_sourcing.savings}
-          savingsPct={op.material_sourcing.savings_pct}
-        />
-      </div>
-
-      <div className="pr-3 text-right">
+      <td>
         <AgeTag seconds={op.sell_age_seconds} />
-        <span className="figure mt-px block text-[9.5px] text-dim">
-          {op.liquidity_units_per_day === null
-            ? "giro ?"
-            : `${formatSilver(op.liquidity_units_per_day)}/dia`}
-        </span>
-      </div>
-    </DenseRow>
+      </td>
+
+      <td className="figure text-[10px] text-dim">
+        {op.liquidity_units_per_day === null
+          ? "—"
+          : `${formatSilver(op.liquidity_units_per_day)}/d`}
+      </td>
+    </tr>
   );
 }

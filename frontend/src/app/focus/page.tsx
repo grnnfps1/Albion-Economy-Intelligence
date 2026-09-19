@@ -1,16 +1,46 @@
-import { ColumnHeader } from "@/components/ColumnHeader";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { CopyButton } from "@/components/sheet/CopyButton";
+import { ExportButton } from "@/components/sheet/ExportButton";
+import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { TierBadge } from "@/components/ui/Badges";
-import { DenseRow, Figure } from "@/components/ui/Figures";
+import { Figure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchFocus, type FocusPlan } from "@/lib/api";
+import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
+import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
-const COLUNAS = "minmax(12rem,1.3fr) 8rem 8rem 8rem 9.5rem 9rem 7rem";
+const COLUNAS: SheetColumn[] = [
+  { label: "item", width: "item", left: true },
+  { label: "prata/focus", width: "num", title: "a taxa: quanto rende cada ponto de focus" },
+  { label: "focus/un", width: "focus" },
+  { label: "cabe no focus", width: "num", title: "quantas unidades o orçamento de focus paga" },
+  { label: "mercado escoa", width: "num", title: "quantas unidades o giro absorve no horizonte" },
+  { label: "ganho realizável", width: "num", title: "o que se leva para casa, não a taxa" },
+  { label: "quanto fazer", width: "num" },
+  { label: "trava", width: "focus", title: "o que limita: o focus ou o mercado" },
+];
+
+const EXPORTACAO: ExportColumn<FocusPlan>[] = [
+  { header: "imagem", value: (p) => p.icon_url, image: true },
+  { header: "id", value: (p) => p.item },
+  { header: "nome", value: (p) => p.item_name },
+  { header: "tier", value: (p) => p.tier },
+  { header: "encanto", value: (p) => p.enchantment },
+  { header: "rota", value: (p) => p.route },
+  { header: "prata/focus", value: (p) => p.profit_per_focus },
+  { header: "focus/un", value: (p) => p.focus_per_unit },
+  { header: "cabe no focus", value: (p) => p.units_by_focus },
+  { header: "mercado escoa", value: (p) => p.units_by_liquidity },
+  { header: "quanto fazer", value: (p) => p.units },
+  { header: "ganho realizável", value: (p) => p.realizable_profit },
+  { header: "dias para escoar", value: (p) => p.days_to_sell },
+  { header: "trava", value: (p) => p.limiter },
+];
 
 const GRUPOS = [
   {
@@ -69,21 +99,18 @@ export default async function FocusPage({
       grupos={GRUPOS}
       busca={false}
       prefs={prefs}
+      acoes={
+        <ExportButton
+          sheet={toExportSheet(data?.plans ?? [], EXPORTACAO)}
+          screen="focus"
+          filters={{
+            ordem: query.sort_by,
+            horizonte: query.horizon_days ?? "7",
+            orcamento: prefs.focusBudget,
+          }}
+        />
+      }
     >
-      <ColumnHeader
-        columns={COLUNAS}
-        ordemPadrao="realizable_profit"
-        colunas={[
-          { rotulo: "item" },
-          { rotulo: "prata / focus", ordenavel: "profit_per_focus", alinhamento: "right" },
-          { rotulo: "cabe no focus", alinhamento: "right" },
-          { rotulo: "mercado escoa", alinhamento: "right" },
-          { rotulo: "ganho realizável", ordenavel: "realizable_profit", alinhamento: "right" },
-          { rotulo: "quanto fazer", alinhamento: "right" },
-          { rotulo: "trava", alinhamento: "right" },
-        ]}
-      />
-
       {data === null && <ApiDown />}
 
       {data?.total === 0 && (
@@ -92,7 +119,13 @@ export default async function FocusPage({
         </EmptyState>
       )}
 
-      {data?.plans.map((plano) => <FocusLine key={plano.item} plano={plano} dias={data.horizon_days} />)}
+      {data && data.total > 0 && (
+        <SheetTable columns={COLUNAS}>
+          {data.plans.map((plano) => (
+            <FocusLine key={plano.item} plano={plano} dias={data.horizon_days} />
+          ))}
+        </SheetTable>
+      )}
 
       {data && data.plans.length > 0 && (
         <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
@@ -108,60 +141,78 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
   const positivo = (plano.realizable_profit ?? 0) > 0;
   const trava = LIMITADOR[plano.limiter] ?? LIMITADOR.DESCONHECIDO;
 
+  const tinta = positivo
+    ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+    : "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]";
+
   return (
-    <DenseRow tier={plano.tier} positive={positivo} columns={COLUNAS}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <ItemIcon url={plano.icon_url} alt={plano.item_name ?? plano.item} tier={plano.tier} />
-        <div className="min-w-0">
-          <div className="mb-[3px] flex gap-1">
-            <TierBadge tier={plano.tier} enchantment={plano.enchantment} />
-            <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
-              {plano.route.toLowerCase()}
+    <tr className={tinta}>
+      <td className={`l ${tierBorderLeft(plano.tier)}`}>
+        <span className="flex min-w-0 items-center gap-2">
+          <ItemIcon
+            url={plano.icon_url}
+            alt={plano.item_name ?? plano.item}
+            tier={plano.tier}
+            size={22}
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1">
+              <TierBadge tier={plano.tier} enchantment={plano.enchantment} />
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+                {plano.route.toLowerCase()}
+              </span>
             </span>
-          </div>
-          <div className="truncate text-[12.5px] leading-tight" title={plano.item}>
-            {plano.item_name ?? plano.item}
-          </div>
-        </div>
-      </div>
-
-      <div className="pr-3 text-right">
-        <span className="figure font-semibold text-[13.5px]">
-          {plano.profit_per_focus === null ? "—" : formatSilver(plano.profit_per_focus)}
+            <span className="flex min-w-0 items-center">
+              <span className="truncate">{plano.item_name ?? plano.item}</span>
+              <CopyButton name={plano.item_name} id={plano.item} />
+            </span>
+            <span className="block truncate text-[9px] text-dim">{plano.item}</span>
+          </span>
         </span>
-        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
-          {formatSilver(plano.focus_per_unit)} focus/un
-        </span>
-      </div>
+      </td>
 
-      <Figure value={plano.units_by_focus} label="unidades" />
-      <Figure value={plano.units_by_liquidity} label={`em ${dias}d`} />
+      <td className="figure font-semibold text-[13px]">
+        {plano.profit_per_focus === null ? "—" : formatSilver(plano.profit_per_focus)}
+      </td>
 
-      <div className="pr-3 text-right">
-        <div className={`figure font-semibold text-[15px] leading-none ${positivo ? "text-up" : "text-down"}`}>
+      <td className="figure text-[10.5px] text-muted">{formatSilver(plano.focus_per_unit)}</td>
+
+      <td>
+        <Figure value={plano.units_by_focus} label="unidades" />
+      </td>
+      <td>
+        <Figure value={plano.units_by_liquidity} label={`em ${dias}d`} />
+      </td>
+
+      <td>
+        <span
+          className={`figure font-semibold text-[15px] leading-none ${
+            positivo ? "text-up" : "text-down"
+          }`}
+        >
           {positivo ? "+" : ""}
           {formatSilver(plano.realizable_profit)}
-        </div>
-        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
+        </span>
+        <span className="lbl mt-px block">
           em {dias} dia{dias > 1 ? "s" : ""}
         </span>
-      </div>
+      </td>
 
-      <div className="pr-3 text-right">
-        <span className="figure text-[12.5px]">{formatSilver(plano.units)}</span>
-        <span className="mt-px block text-[9px] text-dim uppercase tracking-[0.05em]">
+      <td>
+        <span className="figure text-[12px]">{formatSilver(plano.units)}</span>
+        <span className="lbl mt-px block">
           {plano.days_to_sell === null ? "escoa ?" : `escoa em ${plano.days_to_sell}d`}
         </span>
-      </div>
+      </td>
 
-      <div className="pr-3 text-right">
+      <td>
         <span
           className={`figure inline-block rounded-[3px] border px-[6px] py-px text-[10px] ${trava.tom}`}
           title={trava.dica}
         >
           {trava.texto}
         </span>
-      </div>
-    </DenseRow>
+      </td>
+    </tr>
   );
 }

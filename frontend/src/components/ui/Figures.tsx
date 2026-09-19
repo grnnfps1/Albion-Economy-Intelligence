@@ -1,5 +1,4 @@
 import { formatDataAge, formatSilver } from "@/lib/format";
-import { tierBorderLeft } from "@/lib/tiers";
 
 /** Número com o rótulo que diz o que ele já inclui. Rótulo vago esconde taxa. */
 export function Figure({
@@ -87,46 +86,6 @@ export function AgeTag({ seconds, freshness }: { seconds: number | null; freshne
           ? "text-warn"
           : "text-down";
   return <span className={`figure text-[9.5px] ${tom}`}>{formatDataAge(seconds)}</span>;
-}
-
-/**
- * Linha densa: faixa de tier à esquerda, fundo tingido pelo resultado.
- *
- * O zebrado é fraco de propósito (2% de branco). Numa linha de sete colunas o
- * olho perde a horizontal no meio do caminho, e o zebrado é o que o segura —
- * mas forte demais ele briga com o tingimento de lucro, que é informação de
- * verdade. Quando a linha tem resultado, o tingimento vence e o zebrado sai.
- */
-export function DenseRow({
-  tier,
-  positive,
-  children,
-  columns,
-  index = 0,
-}: {
-  tier: number | null;
-  positive?: boolean | null;
-  columns: string;
-  children: React.ReactNode;
-  index?: number;
-}) {
-  const tinta =
-    positive === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
-      : positive === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
-        : index % 2 === 1
-          ? "bg-white/[0.015]"
-          : "";
-
-  return (
-    <div
-      className={`grid items-center border-line/60 border-b border-l-[3px] py-2 pr-4 pl-3 transition-colors duration-100 hover:bg-white/[0.035] ${tierBorderLeft(tier)} ${tinta}`}
-      style={{ gridTemplateColumns: columns }}
-    >
-      {children}
-    </div>
-  );
 }
 
 /**

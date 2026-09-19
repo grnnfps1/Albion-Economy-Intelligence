@@ -133,6 +133,85 @@ body {
   color: var(--color-dim);
 }
 
+/* Balão de dica próprio (`components/sheet/HoverTip`).
+
+   O `title` nativo demora quase um segundo a aparecer e some ao menor
+   movimento do mouse. Numa tabela densa, em que se passa o mouse por dez
+   materiais para comparar, o balão aparece depois que o cursor já saiu. */
+.hover-tip::after {
+  content: attr(data-dica);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 5px);
+  white-space: nowrap;
+  padding: 3px 7px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 3px;
+  background: var(--color-sunken);
+  color: var(--color-body);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 30;
+}
+
+.hover-tip:hover::after,
+.hover-tip:focus-within::after {
+  opacity: 1;
+}
+
+/* Tabela no modelo planilha: uma coluna por grandeza, largura fixa por tipo.
+
+   `table-layout: fixed` é o ponto. Sem ele o navegador distribui a folga pelas
+   colunas de texto — as de material —, e abre um vão morto antes das colunas
+   de decisão, que são as que importam. Com larguras fixas por tipo de coluna,
+   o olho encontra "lucro" sempre no mesmo lugar, linha após linha. */
+.sheet {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--color-sunken) 95%, transparent);
+  border-bottom: 1px solid var(--color-line);
+  padding: 5px 6px;
+  text-align: right;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.sheet thead th.l,
+.sheet tbody td.l {
+  text-align: left;
+}
+
+.sheet tbody td {
+  padding: 3px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 60%, transparent);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Zebra fraca de propósito: segura a horizontal numa linha de doze colunas sem
+   brigar com o tingimento de lucro, que é informação de verdade. */
+.sheet tbody tr:nth-child(even) {
+  background: rgb(255 255 255 / 1.8%);
+}
+
+.sheet tbody tr:hover {
+  background: rgb(255 255 255 / 5%);
+}
+
+.sheet tbody td:first-child {
+  border-left: 3px solid transparent;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent-bright);
   outline-offset: 2px;
