@@ -113,9 +113,14 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className={rotulo}>Taxa da estação</span>
-        <input className={campo} value={prefs.stationFee}
-          onChange={(e) => atualizar({ stationFee: parseFloat(e.target.value) || 0 })} />
+        <span className={rotulo}>Taxa da estação (prata / 100 nutrição)</span>
+        <input className={campo} value={prefs.stationFeePer100Nutrition}
+          onChange={(e) =>
+            atualizar({ stationFeePer100Nutrition: parseFloat(e.target.value) || 0 })} />
+        <span className="text-[11px] text-zinc-500">
+          O número que aparece na tela da estação. A taxa de cada item sai dele e
+          cresce com o tier.
+        </span>
       </label>
 
       <label className="flex flex-col gap-1">

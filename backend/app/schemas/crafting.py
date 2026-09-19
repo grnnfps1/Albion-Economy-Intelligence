@@ -13,7 +13,17 @@ class CraftParamsUsed(BaseModel):
     """
 
     return_rate: float | None = None
-    station_fee: float | None = None
+    station_fee_per_100_nutrition: float | None = Field(
+        default=None,
+        description=(
+            "Prata por 100 de nutrição cobrada pela estação. É o número que o "
+            "jogador lê na tela da estação; a taxa de cada item sai dele."
+        ),
+    )
+    nutrition_per_item_value: float | None = Field(
+        default=None,
+        description="Nutrição consumida por unidade de item value. Constante do jogo.",
+    )
     use_focus: bool = False
     daily_production_bonus: float = 0.0
     return_rate_source: str = "UNKNOWN"
@@ -107,6 +117,14 @@ class CraftEconomicsOut(BaseModel):
     material_cost_net: float | None = None
     returned_value: float | None = None
     station_fee: float | None = None
+    # A taxa deixou de ser um número avulso: estes dois dizem de onde ela saiu.
+    # Sem eles, "taxa de estação: 2.496" é um número que ninguém confere.
+    item_value: float | None = Field(
+        default=None, description="`@itemvalue` do dump, base da nutrição."
+    )
+    nutrition: float | None = Field(
+        default=None, description="Nutrição consumida por estas execuções."
+    )
     sale_revenue_net: float | None = None
     market_fees: float | None = None
     profit: float | None = None

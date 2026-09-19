@@ -32,6 +32,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 12 | Agricultura e animais | ✅ |
 | 13 | Black Market validado + risco de rota | ✅ |
 | 14 | Matriz de retorno por cidade, atividade e Focus | ✅ |
+| 15 | Taxa de estação derivada do valor do item | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -70,7 +71,8 @@ decisão errada do usuário.
    `Browser → Next → FastAPI → Redis/Postgres → AODP`.
 
 5. **Taxa nunca é hardcode.** Vive em `config_parameters` e chega às funções de
-   cálculo como argumento.
+   cálculo como argumento. A da estação é derivada de `items.item_value`, que
+   vem do dump — mas a prata por 100 de nutrição continua sendo do usuário.
 
 6. **Rate limit do AODP: 180/min E 300/5min.** O segundo é o que manda — são
    1 req/s sustentado. Quem implementa só a janela de 1 minuto passa no teste
@@ -264,6 +266,35 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 15 — taxa de estação
+
+- **A taxa deixou de ser um número e virou uma derivação.** O jogo cobra por
+  nutrição consumida, e a nutrição é `item_value × 0,1125` — fórmula anunciada
+  pela própria Sandbox, não engenharia reversa. O usuário informa a prata por
+  100 de nutrição, que é o número que ele lê na tela da estação.
+- **Um valor fixo errava por duas ordens de grandeza.** `@itemvalue` dobra a
+  cada tier e a cada encantamento: 4 no `T2_LEATHER`, 256 no T8, 4.096 no T8
+  encantado 4. Os 100 fixos de antes eram razoáveis no T4 e ridículos nas duas
+  pontas.
+- **Cada elo da cadeia paga a taxa do que ele próprio produz.** `chain.py`
+  recebe `station_fee_of` como função por item, não um número. Cobrar a taxa do
+  T8 nos seis elos abaixo inflaria o custo; cobrar a do T2 em todos o
+  esvaziaria.
+- **A reconstrução da planilha não fechou, e isso está registrado em vez de
+  forçado.** Os três resíduos conhecidos (5,17 / 29,98 / 2.496,79) implicam três
+  taxas de estação diferentes, e crescem ×483 onde o item value cresce ×64. A
+  hipótese de acumulação em cadeia foi descartada por aritmética: o teto com
+  retorno zero é 656,59. A fórmula ficou pela fonte oficial, não pela planilha.
+  Há teste travando as duas conclusões.
+- **Só três dos sete valores prometidos chegaram.** T3, T5, T6 e T7 seguem em
+  aberto em `docs/04-taxas.md` §11.
+- **Bug corrigido de carona:** `resolve_base_name` prefere a raiz sem `_LEVELN`,
+  o que é certo para peso e categoria (idênticos) e errado para `@itemvalue`
+  (256 contra 1.024). Todo item encantado estava herdando a taxa da base — 16×
+  menor no encantamento 4. É a armadilha da fase 7 em outro campo.
+- **Item sem `@itemvalue` é UNKNOWN, não grátis.** São 97 dos 455 rastreados:
+  animais de pasto e ferramentas, que não passam por estação.
 
 ## Notas da fase 14 — matriz de retorno
 

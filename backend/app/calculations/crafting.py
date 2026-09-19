@@ -7,8 +7,9 @@ Três parâmetros que o usuário precisa informar e que **não** são fatos fixo
 
 - **taxa de retorno de material**: muda com Focus, com a especialização da
   estação e com o bônus da cidade;
-- **taxa da estação**: definida pelo dono da estação, varia de cidade para
-  cidade e de hora para hora;
+- **taxa da estação**: o dono define a prata por 100 de nutrição, e a nutrição
+  consumida sai do valor do item — por isso a taxa escala com tier e
+  encantamento (`calculations/station.py`);
 - **imposto de venda**: muda com Premium.
 
 Uma calculadora que fixa esses três está errada para quase todo mundo.
@@ -17,6 +18,7 @@ Uma calculadora que fixa esses três está errada para quase todo mundo.
 from dataclasses import dataclass, field
 
 from app.calculations.fees import FeeProfile, Strategy, compute_trade
+from app.calculations.station import StationFee
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,8 @@ class CraftEconomics:
     material_cost_net: float | None = None
     returned_value: float | None = None
     station_fee: float | None = None
+    item_value: float | None = None
+    nutrition: float | None = None
     sale_revenue_net: float | None = None
     market_fees: float | None = None
     profit: float | None = None
@@ -68,7 +72,7 @@ def compute_craft(
     sell_price: int | None,
     fees: FeeProfile,
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee: StationFee,
     output_quantity: int = 1,
     focus_cost: int = 0,
     crafts: int = 1,
@@ -97,8 +101,8 @@ def compute_craft(
 
     if return_rate is None:
         faltando.append("crafting.return_rate")
-    if station_fee is None:
-        faltando.append("crafting.station_fee")
+    if not station_fee.known:
+        faltando.append("crafting.station_fee_per_100_nutrition")
     if not fees.complete:
         faltando.extend(fees.missing())
 
@@ -118,7 +122,8 @@ def compute_craft(
     base_retorno = sum((m.gross_cost or 0) for m in materials if m.is_returnable) * crafts
     valor_retornado = base_retorno * (return_rate or 0.0)
     custo_liquido = custo_bruto - valor_retornado
-    taxa_estacao = (station_fee or 0.0) * crafts
+    # `station_fee` já vem para uma execução; aqui só escala.
+    taxa_estacao = (station_fee.silver or 0.0) * crafts
 
     unidades = output_quantity * crafts
     venda = compute_trade(
@@ -144,6 +149,11 @@ def compute_craft(
         material_cost_net=round(custo_liquido, 2),
         returned_value=round(valor_retornado, 2),
         station_fee=round(taxa_estacao, 2),
+        item_value=station_fee.item_value,
+        nutrition=(
+            None if station_fee.nutrition is None
+            else round(station_fee.nutrition * crafts, 4)
+        ),
         sale_revenue_net=round(receita_liquida, 2),
         market_fees=round(taxas_mercado, 2),
         profit=round(lucro, 2),

@@ -14,6 +14,17 @@ METADATA = {
                 "@uniquename": "T4_PLANKS",
                 "@tier": "4",
                 "@weight": "0.51",
+                "@itemvalue": "16",
+                "@shopcategory": "crafting",
+                "@shopsubcategory1": "refinedresources",
+            },
+            # A variante encantada existe no dump com peso idêntico e
+            # `@itemvalue` **dobrado**. É a diferença que a fase 15 explora.
+            {
+                "@uniquename": "T4_PLANKS_LEVEL1",
+                "@tier": "4",
+                "@weight": "0.51",
+                "@itemvalue": "32",
                 "@shopcategory": "crafting",
                 "@shopsubcategory1": "refinedresources",
             },
@@ -52,7 +63,9 @@ def names_entry(unique_name: str, en: str | None = None, pt: str | None = None) 
 
 def test_index_metadata_achata_listas_e_objetos():
     index = index_metadata(METADATA)
-    assert set(index) == {"T4_PLANKS", "T4_WOOD", "T4_BAG", "UNIQUE_HIDEOUT"}
+    assert set(index) == {
+        "T4_PLANKS", "T4_PLANKS_LEVEL1", "T4_WOOD", "T4_BAG", "UNIQUE_HIDEOUT",
+    }
 
 
 class TestNormalize:
@@ -67,6 +80,7 @@ class TestNormalize:
         assert item.category_code == "crafting"
         assert item.subcategory_code == "refinedresources"
         assert item.display_name_pt == "Tábuas de Pinho"
+        assert item.item_value == 16
         assert item.is_tracked is True
         assert item.has_metadata is True
 
@@ -78,6 +92,21 @@ class TestNormalize:
         assert item.enchantment == 1
         assert item.tier == 4
         assert item.weight == 0.51
+
+    def test_item_value_do_encantado_nao_herda_o_da_base(self):
+        """A exceção ao agrupamento por `base_name` -- e ela infla lucro.
+
+        Peso, tier e categoria são iguais entre `T4_PLANKS` e
+        `T4_PLANKS_LEVEL1`, então herdar a raiz sempre funcionou. `@itemvalue`
+        não: 16 contra 32, e no encantamento 4 é 16×. Como a taxa da estação sai
+        dele, herdar a base cobraria taxa de item comum num item encantado.
+        """
+        base = normalize(names_entry("T4_PLANKS"), self.index)
+        encantado = normalize(names_entry("T4_PLANKS_LEVEL1@1"), self.index)
+        assert base.item_value == 16
+        assert encantado.item_value == 32
+        # O agrupamento continua o mesmo: só o valor do item se separa.
+        assert encantado.base_name == "T4_PLANKS"
 
     def test_equipamento_encantado(self):
         item = normalize(names_entry("T4_BAG@2", "Adept's Bag"), self.index)
@@ -95,6 +124,7 @@ class TestNormalize:
         assert item.weight is None
         assert item.category_code is None
         assert item.max_quality is None
+        assert item.item_value is None
         # Tier ainda sai do identificador, que é informação de verdade.
         assert item.tier == 3
 

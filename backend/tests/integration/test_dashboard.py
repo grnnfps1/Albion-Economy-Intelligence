@@ -18,11 +18,11 @@ AGORA = datetime.now(UTC)
 SETTINGS = Settings(freshness_fresh_seconds=900, freshness_stale_seconds=21600)
 
 COM_TAXAS = dict(
-    return_rate=0.15, station_fee=100,
+    return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
 )
 SEM_TAXAS = dict(
-    return_rate=None, station_fee=None,
+    return_rate=None, station_fee_per_100_nutrition=None,
     setup_fee_pct=None, sales_tax_pct=None, premium=None,
 )
 BASE = dict(
@@ -41,7 +41,7 @@ async def mundo(session):
     source = DataSource(code="aodp", display_name="AODP", is_community_sourced=True)
     couro = Item(unique_name="T5_LEATHER", base_name="T5_LEATHER", tier=5, enchantment=0,
                  display_name_pt="Couro Curtido", subcategory_code="refinedresources",
-                 is_tracked=True)
+                 item_value=32, is_tracked=True)
     session.add_all([server, caerleon, lymhurst, source, couro])
     await session.flush()
 

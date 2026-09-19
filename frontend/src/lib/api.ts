@@ -318,6 +318,7 @@ export type CraftOpportunity = {
     output_quantity: number; focus_cost: number;
     material_cost_gross: number | null; material_cost_net: number | null;
     returned_value: number | null; station_fee: number | null;
+    item_value: number | null; nutrition: number | null;
     sale_revenue_net: number | null; market_fees: number | null;
     profit: number | null; margin_pct: number | null; roi_pct: number | null;
     profit_per_focus: number | null;
@@ -328,7 +329,8 @@ export type CraftingResponse = {
   server: string; buy_location: string; sell_location: string;
   crafts: number; sort_by: string; sourcing_mode: string; total: number;
   params: {
-    return_rate: number | null; station_fee: number | null;
+    return_rate: number | null; station_fee_per_100_nutrition: number | null;
+    nutrition_per_item_value: number | null;
     use_focus: boolean; daily_production_bonus: number; return_rate_source: string;
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
             premium: boolean | null; source: string; complete: boolean; missing: string[] };

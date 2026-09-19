@@ -170,6 +170,9 @@ class NormalizedItem:
     display_name_pt: str | None
     weight: float | None
     max_quality: int | None
+    # `@itemvalue`: base da nutrição consumida na estação. NULL quando o dump
+    # não traz -- e aí a taxa da estação sai UNKNOWN, não zero.
+    item_value: float | None
     # Ração. Só cultivo, carne e animal adulto têm; nos outros é NULL.
     nutrition: int | None
     food_category: str | None
@@ -195,6 +198,14 @@ def normalize(
     base_name = resolve_base_name(parsed, lambda key: key in metadata_index)
     meta = metadata_index.get(base_name, {})
 
+    # `@itemvalue` é a exceção ao agrupamento por `base_name`, e a única até
+    # agora. `resolve_base_name` prefere a raiz sem `_LEVELN` -- o que está
+    # certo para peso, categoria e tier, idênticos entre as variantes --, mas o
+    # valor do item **quadruplica** no encantamento 2: `T8_LEATHER` = 256 e
+    # `T8_LEATHER_LEVEL2` = 1.024. Herdar a raiz faria a taxa da estação de todo
+    # item encantado sair baixa, e errar para menos em taxa é inflar lucro.
+    valor = metadata_index.get(parsed.literal_base, meta).get("@itemvalue")
+
     localized = name_entry.get("LocalizedNames") or {}
     subcategory = meta.get("@shopsubcategory1")
 
@@ -215,6 +226,7 @@ def normalize(
         display_name_pt=localized.get("PT-BR"),
         weight=_as_float(meta.get("@weight")),
         max_quality=_as_int(meta.get("@maxqualitylevel")),
+        item_value=_as_float(valor),
         nutrition=_as_int(meta.get("@nutrition")),
         food_category=meta.get("@foodcategory"),
         is_tracked=subcategory in tracked_subcategories,
@@ -281,6 +293,7 @@ async def _upsert_items(
             "display_name_pt": item.display_name_pt,
             "weight": item.weight,
             "max_quality": item.max_quality,
+            "item_value": item.item_value,
             "nutrition": item.nutrition,
             "food_category": item.food_category,
             "is_tracked": item.is_tracked,
@@ -306,6 +319,7 @@ async def _upsert_items(
                 "display_name_pt": statement.excluded.display_name_pt,
                 "weight": statement.excluded.weight,
                 "max_quality": statement.excluded.max_quality,
+                "item_value": statement.excluded.item_value,
                 "nutrition": statement.excluded.nutrition,
                 "food_category": statement.excluded.food_category,
                 "active": statement.excluded.active,

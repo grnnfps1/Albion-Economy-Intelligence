@@ -198,3 +198,123 @@ parâmetro da requisição  →  config_parameters  →  UNKNOWN
 As cinco medições continuam valendo: elas definem o **padrão** que aparece
 pré-preenchido para quem não quiser configurar nada. Mas não travam mais o
 produto.
+
+---
+
+## Item 11 — taxa da estação: derivada do valor do item (fase 15)
+
+> Levantado em **19/09/2026**. Diferente dos itens 1 a 5, aqui a fonte é **anúncio
+> oficial da Sandbox**, não engenharia reversa da comunidade.
+
+### O problema
+
+A taxa da estação era `crafting.station_fee`, um número fixo de prata por
+execução, com padrão 100. Reconstruindo o refino de couro na planilha do Albion
+VIP, o resíduo depois de materiais e retorno **escala com o tier**:
+
+| Tier | Resíduo reconstruído |
+|---|---|
+| T2 | 5,17 |
+| T4 | 29,98 |
+| T8 | 2.496,79 |
+
+Um valor único erra por duas ordens de grandeza entre as pontas. Para menos no
+T8, que é o lado que infla lucro.
+
+### A mecânica, com fonte
+
+O jogo não cobra por execução: cobra por **nutrição consumida**. Citando o
+anúncio do patch *Lands Awakened*:
+
+> "Usage Fees are now derived directly from the Nutrition an Item consumes when
+> it is crafted/studied at a building"
+> "Nutrition Cost = Item Value * 0.1125"
+> "Usage Fees are now set as an amount of Silver per 100 Nutrition consumed"
+
+Logo:
+
+```
+nutricao = item_value × 0,1125
+taxa     = nutricao × (prata_por_100_nutricao ÷ 100)
+```
+
+O exemplo que circula desde então: 4.1 Scholar Sandals, item value 256, estação
+cobrando 1.000 → `256 × 0,1125 × 1000 ÷ 100` = **288** de prata. Há teste
+ancorado nesse exemplo (`test_exemplo_da_comunidade_fecha`).
+
+### `@itemvalue` existe no dump, e é limpo
+
+Conferido em 19/09/2026 contra `ao-data/ao-bin-dumps`:
+
+| Item | `@itemvalue` |
+|---|---|
+| `T2_LEATHER` | 4 |
+| `T3_LEATHER` | 8 |
+| `T4_LEATHER` | 16 |
+| `T5_LEATHER` | 32 |
+| `T6_LEATHER` | 64 |
+| `T7_LEATHER` | 128 |
+| `T8_LEATHER` | 256 |
+| `T8_LEATHER_LEVEL2` | 1.024 |
+| `T8_LEATHER_LEVEL4` | 4.096 |
+
+Dobra a cada tier **e** a cada nível de encantamento — exatamente os dois eixos
+em que a taxa precisava escalar.
+
+Cobertura: **2.398** dos 12.237 identificadores têm o campo; **358 dos 455
+rastreados**. Os 97 rastreados sem `@itemvalue` são animais de pasto e
+ferramentas de rastreamento, que não passam por estação de crafting. Neles a
+taxa sai `UNKNOWN`, nunca zero.
+
+### O que NÃO fechou
+
+**Os sete valores da tabela original não validam a fórmula.** Duas coisas:
+
+1. **Só três dos sete chegaram no briefing** (T2, T4 e T8). T3, T5, T6 e T7
+   continuam em aberto.
+2. **Os três que chegaram não são reproduzíveis por uma taxa única.** Cada um
+   implica uma prata/100 nutrição diferente:
+
+   | Tier | Resíduo | Item value | Prata/100 nutrição implicada |
+   |---|---|---|---|
+   | T2 | 5,17 | 4 | 1.148,9 |
+   | T4 | 29,98 | 16 | 1.665,6 |
+   | T8 | 2.496,79 | 256 | 8.669,4 |
+
+   O resíduo cresce **×483** de T2 a T8; o item value cresce **×64**. A taxa
+   sozinha não produz essa curva.
+
+A hipótese de que o resíduo acumula a taxa dos elos anteriores da cadeia foi
+testada e **descartada por aritmética**: mesmo com retorno zero — o teto
+absoluto, nada volta — a soma da cadeia T2→T8 chega a **656,59**, contra os
+2.496,79 observados. Está travado em `test_a_cadeia_acumulada_nao_alcanca_o_t8_nem_com_retorno_zero`.
+
+Isso deixa duas leituras possíveis, e **nenhuma foi confirmada**:
+
+- as três linhas vieram de estações com taxas diferentes (o que é legítimo: cada
+  dono cobra o que quer, e nesse caso os resíduos simplesmente não têm poder de
+  validação);
+- o resíduo da planilha não é só a taxa da estação, e carrega algo proporcional
+  ao preço de mercado do material — que cresce a uma taxa parecida com ×483.
+
+**A fórmula foi adotada porque tem fonte oficial, não porque a planilha a
+confirmou.** Se alguém aparecer com os quatro resíduos que faltam, o teste de
+reconstrução é o lugar de conferir.
+
+### O que precisa ser medido no jogo
+
+| # | O que verificar | Medição | Efeito de errar |
+|---|---|---|---|
+| 11 | Se a taxa cobrada é mesmo `item_value × 0,1125 × fee ÷ 100` | Refinar 1× T4 e 1× T8 na **mesma** estação e anotar os dois débitos. A razão precisa dar 16 | Taxa de estação errada em todo tier alto |
+| 12 | Se o encantamento multiplica a taxa como o `@itemvalue` sugere | Refinar `T8_LEATHER` e `T8_LEATHER_LEVEL2` na mesma estação; a razão precisa dar 4 | Craft encantado com taxa 4× menor que a real |
+| 13 | De onde saíram os quatro resíduos que faltam (T3, T5, T6, T7) | Recuperar as linhas da planilha | Sem eles a reconstrução não fecha nem refuta |
+
+### Bug corrigido de carona
+
+`resolve_base_name` prefere a raiz sem `_LEVELN` — `T8_LEATHER_LEVEL2` vira
+`T8_LEATHER`. Isso está certo para peso, tier e categoria, **idênticos** entre as
+variantes, e por isso nunca incomodou. Mas `@itemvalue` **não** é idêntico: 256
+contra 1.024. Na primeira importação todo item encantado saiu com o valor da
+base, e a taxa da estação de um T8 encantado nível 4 saía **16× menor** que a
+real. `normalize` agora busca `@itemvalue` na entrada literal antes de cair na
+raiz. É o mesmo tipo de armadilha da fase 7 (`T4_ROCK_LEVEL1@1`), em outro campo.

@@ -61,6 +61,37 @@ collector, não do payload.
 colunar. **Não vamos usar**: history já entrega tudo, e ter dois parsers para o mesmo
 dado é dívida gratuita.
 
+### Volume diário — não existe endpoint próprio
+
+> Verificado em **19/09/2026**, contra a documentação da API e contra chamadas reais.
+
+A planilha do Albion VIP tem um feed de volume separado do histórico, e a pergunta
+era se o AODP expõe algo equivalente. **Não expõe.** Os endpoints documentados são
+cinco — `view`, `prices`, `history`, `charts` e `gold` — e nenhum deles é de volume.
+
+`charts` foi conferido lado a lado com `history` para o mesmo item, local e escala:
+
+```
+GET /api/v2/stats/charts/T4_BAG.json?locations=Caerleon&qualities=1&time-scale=24
+→ data: { "timestamps": [...], "prices_avg": [...], "item_count": [...] }
+
+GET /api/v2/stats/history/T4_BAG.json?locations=Caerleon&qualities=1&time-scale=24
+→ data: [ { "item_count": 105, "avg_price": 5191, "timestamp": "..." }, ... ]
+```
+
+As três séries são as mesmas, nos mesmos 30 pontos e com os mesmos valores
+(`item_count` 105, 128, 81 … em ambos). A única diferença é a forma: colunar em
+`charts`, uma linha por bucket em `history`.
+
+**Conclusão: nada muda.** `item_count` do histórico continua sendo a única medida de
+volume que a fonte oferece, e é a que `repositories/liquidity.py` já usa. Trocar de
+endpoint só acrescentaria um segundo parser para o mesmo dado.
+
+Vale repetir a ressalva que já vale para o preço: `item_count` conta **ordens de
+venda** registradas pela coleta comunitária, não transações fechadas. Bucket marcado
+como outlier fica fora do cálculo de liquidez — pico manipulado costuma vir com
+volume igualmente irreal —, e menos de 3 buckets na janela devolve `UNKNOWN`.
+
 ## Rate limit — a restrição que define o scheduler
 
 Documentado: **180 req / 1 min** e **300 req / 5 min**.

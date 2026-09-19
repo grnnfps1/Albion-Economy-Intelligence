@@ -37,7 +37,14 @@ async def refining_opportunities(
     return_rate: float | None = Query(
         None, ge=0, le=1, description="Sobrescreve a matriz de retorno."
     ),
-    station_fee: float | None = Query(None, ge=0),
+    station_fee_per_100_nutrition: float | None = Query(
+        None, ge=0,
+        description=(
+            "Prata por 100 de nutrição que a estação cobra — o número que "
+            "aparece na tela da estação. A taxa de cada item sai dele: "
+            "nutrição = item value × 0,1125."
+        ),
+    ),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
     premium: bool | None = Query(None),
@@ -62,7 +69,7 @@ async def refining_opportunities(
         sell_location=sell_location or buy_location,
         sourcing=SOURCING.get(sourcing.upper(), Sourcing.CHEAPEST),
         return_rate=return_rate,
-        station_fee=station_fee,
+        station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         setup_fee_pct=setup_fee_pct,
         sales_tax_pct=sales_tax_pct,
         premium=premium,

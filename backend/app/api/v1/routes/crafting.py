@@ -38,7 +38,14 @@ async def crafting_opportunities(
         None, ge=0, le=1,
         description="Sobrescreve a matriz. Ex.: 0.15 para 15%.",
     ),
-    station_fee: float | None = Query(None, ge=0, description="Prata por craft."),
+    station_fee_per_100_nutrition: float | None = Query(
+        None, ge=0,
+        description=(
+            "Prata por 100 de nutrição que a estação cobra — o número que "
+            "aparece na tela da estação. A taxa de cada item sai dele: "
+            "nutrição = item value × 0,1125."
+        ),
+    ),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
     premium: bool | None = Query(None),
@@ -76,7 +83,7 @@ async def crafting_opportunities(
         buy_location=buy_location,
         sell_location=sell_location or buy_location,
         return_rate=return_rate,
-        station_fee=station_fee,
+        station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         setup_fee_pct=setup_fee_pct,
         sales_tax_pct=sales_tax_pct,
         premium=premium,

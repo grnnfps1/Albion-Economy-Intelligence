@@ -26,7 +26,7 @@ def resolver(nome, sourcing, precos=None, retorno=0.15, estacao=100):
         nome, sourcing,
         market_price=lambda item: tabela.get(item),
         recipe_for=RECEITAS.get,
-        return_rate=retorno, station_fee=estacao,
+        return_rate=retorno, station_fee_of=lambda _nome: estacao,
     )
 
 
@@ -125,7 +125,7 @@ class TestProtecoes:
             "A", Sourcing.CRAFT,
             market_price=lambda item: 100,
             recipe_for=ciclicas.get,
-            return_rate=0.15, station_fee=100,
+            return_rate=0.15, station_fee_of=lambda _nome: 100,
         )
         assert resultado.known is True
 
@@ -138,7 +138,7 @@ class TestProtecoes:
             "N0", Sourcing.CRAFT,
             market_price=lambda item: 10,
             recipe_for=fundas.get,
-            return_rate=0.15, station_fee=0,
+            return_rate=0.15, station_fee_of=lambda _nome: 0,
         )
         assert resultado.known is True
         assert max(p.depth for p in resultado.steps) <= MAX_DEPTH

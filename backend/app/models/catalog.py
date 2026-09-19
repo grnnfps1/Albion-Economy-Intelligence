@@ -60,6 +60,16 @@ class Item(Base, TimestampMixin):
     weight: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     max_quality: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
+    # `@itemvalue` do dump. É o que determina a nutrição consumida na estação
+    # (`nutrição = item_value × 0,1125`) e, por consequência, a taxa que o dono
+    # da estação cobra. Dobra a cada tier e a cada nível de encantamento.
+    #
+    # NULL quando o dump não traz o campo -- 9.839 dos 12.237 identificadores,
+    # e 97 dos 455 rastreados. Nesses a taxa da estação sai UNKNOWN, nunca zero:
+    # taxa esquecida num T8 é ~2.500 de prata por unidade somindo do custo.
+    # Numeric porque há valores fracionários reais no dump (`T5_HIDE` = 5.34).
+    item_value: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+
     # Ração: `@nutrition` e `@foodcategory` do dump. Só existem em cultivo,
     # carne e animal adulto, e são o que liga um filhote ao que ele come --
     # sem isso não dá para custear uma criação sem chutar a quantidade.

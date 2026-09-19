@@ -17,7 +17,13 @@ export type Preferences = {
   setupFeePct: number;
   salesTaxPct: number;
   returnRate: number;
-  stationFee: number;
+  /**
+   * Prata por 100 de nutrição que a estação cobra — o número que o jogador lê
+   * na tela da estação. Substituiu a taxa fixa por craft na fase 15: a taxa
+   * real sai de `item_value × 0,1125 × isto ÷ 100`, e por isso escala com tier
+   * e encantamento em vez de ser a mesma no T2 e no T8.
+   */
+  stationFeePer100Nutrition: number;
   focusBudget: number;
   quantity: number;
   /**
@@ -46,7 +52,10 @@ export const DEFAULTS: Preferences = {
   setupFeePct: 0.025,
   salesTaxPct: 0.04,
   returnRate: 0.15,
-  stationFee: 100,
+  // Mediana das três taxas que os resíduos da planilha do Albion VIP
+  // implicam (1.149 / 1.666 / 8.669). Não é medição no jogo — o formulário diz
+  // isso — mas tem procedência, ao contrário de um 100 redondo.
+  stationFeePer100Nutrition: 1666,
   focusBudget: 10_000,
   quantity: 100,
   lossPctBlue: 0,
@@ -67,7 +76,7 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     // `return_rate` não vai mais por padrão: a matriz por (cidade, atividade,
     // Focus) é o valor primário, e mandar um número fixo aqui sobrescreveria
     // justamente o que a fase resolveu.
-    station_fee: String(prefs.stationFee),
+    station_fee_per_100_nutrition: String(prefs.stationFeePer100Nutrition),
     use_focus: String(prefs.useFocus),
     daily_production_bonus: String(prefs.dailyProductionBonus),
     loss_pct_blue: String(prefs.lossPctBlue),

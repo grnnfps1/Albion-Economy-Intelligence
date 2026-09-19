@@ -20,7 +20,7 @@ AGORA = datetime.now(UTC)
 PADRAO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
     focus_budget=10_000, horizon_days=7,
-    return_rate=0.15, station_fee=100,
+    return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     sourcing=Sourcing.CHEAPEST, strategy=Strategy.FAST,
     sort_by="realizable_profit", limit=30,
@@ -45,7 +45,9 @@ async def mundo(session):
     for nome, (sub, tier) in itens.items():
         criados[nome] = Item(
             unique_name=nome, base_name=nome, tier=tier, enchantment=0,
-            display_name_pt=nome, subcategory_code=sub, is_tracked=True,
+            display_name_pt=nome, subcategory_code=sub,
+            # Dobra a cada tier, como no dump: é o que move a taxa da estação.
+            item_value=2 ** tier, is_tracked=True,
         )
     session.add_all(criados.values())
     await session.flush()
@@ -130,7 +132,7 @@ async def test_ganho_realizavel_e_diferente_da_taxa(session, mundo):
 async def test_sem_parametros_nao_ha_ranking(session, mundo):
     await mundo["semear"](PRECOS)
     resposta = await build_focus_ranking(
-        session, **(PADRAO | {"return_rate": None, "station_fee": None,
+        session, **(PADRAO | {"return_rate": None, "station_fee_per_100_nutrition": None,
                               "setup_fee_pct": None, "sales_tax_pct": None})
     )
     assert resposta.params.complete is False

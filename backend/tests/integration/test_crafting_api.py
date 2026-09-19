@@ -18,7 +18,7 @@ AGORA = datetime.now(UTC)
 
 PADRAO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
-    return_rate=0.15, station_fee=100,
+    return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     crafts=1, strategy=Strategy.FAST, sort_by="profit_per_focus",
     tier=None, station_category=None, limit=30,
@@ -32,13 +32,17 @@ async def cenario(session):
                         display_name="Caerleon", kind="royal_city")
     source = DataSource(code="aodp", display_name="AODP", is_community_sourced=True)
 
+    # `item_value` espelha o dump real: dobra a cada tier. É o que determina a
+    # nutrição consumida e, portanto, a taxa da estação.
     planks = Item(unique_name="T4_PLANKS", base_name="T4_PLANKS", tier=4, enchantment=0,
                   display_name_pt="Tábuas de Pinho", subcategory_code="refinedresources",
-                  is_tracked=True)
+                  item_value=16, is_tracked=True)
     wood = Item(unique_name="T4_WOOD", base_name="T4_WOOD", tier=4, enchantment=0,
-                display_name_pt="Madeira", subcategory_code="resources", is_tracked=True)
+                display_name_pt="Madeira", subcategory_code="resources",
+                item_value=4, is_tracked=True)
     t3 = Item(unique_name="T3_PLANKS", base_name="T3_PLANKS", tier=3, enchantment=0,
-              display_name_pt="Tábuas T3", subcategory_code="refinedresources", is_tracked=True)
+              display_name_pt="Tábuas T3", subcategory_code="refinedresources",
+              item_value=8, is_tracked=True)
     token = Item(unique_name="T1_FACTION_TOKEN", base_name="T1_FACTION_TOKEN", tier=1,
                  enchantment=0, display_name_pt="Token", subcategory_code="cityresources",
                  is_tracked=True)
@@ -106,13 +110,13 @@ async def test_sem_parametros_o_lucro_e_unknown(session, cenario):
     ])
 
     resposta = await find_crafting_opportunities(
-        session, **(PADRAO | {"return_rate": None, "station_fee": None,
+        session, **(PADRAO | {"return_rate": None, "station_fee_per_100_nutrition": None,
                               "setup_fee_pct": None, "sales_tax_pct": None})
     )
 
     assert resposta.params.complete is False
     assert "crafting.return_rate" in resposta.params.missing
-    assert "crafting.station_fee" in resposta.params.missing
+    assert "crafting.station_fee_per_100_nutrition" in resposta.params.missing
     op = resposta.opportunities[0]
     assert op.economics.known is False
     assert op.economics.profit is None
@@ -207,7 +211,8 @@ async def test_parametros_usados_vao_na_resposta(session, cenario):
     resposta = await find_crafting_opportunities(session, **PADRAO)
 
     assert resposta.params.return_rate == 0.15
-    assert resposta.params.station_fee == 100
+    assert resposta.params.station_fee_per_100_nutrition == 1000
+    assert resposta.params.nutrition_per_item_value == 0.1125
     assert resposta.params.fees.sales_tax_pct == 0.04
     assert resposta.params.fees.premium is True
     assert resposta.params.complete is True

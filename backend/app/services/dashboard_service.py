@@ -83,7 +83,7 @@ async def build_dashboard(
     buy_location: str,
     sell_location: str,
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee_per_100_nutrition: float | None,
     setup_fee_pct: float | None,
     sales_tax_pct: float | None,
     premium: bool | None,
@@ -95,7 +95,8 @@ async def build_dashboard(
 
     comum = dict(
         server=server, buy_location=buy_location, sell_location=sell_location,
-        return_rate=return_rate, station_fee=station_fee,
+        return_rate=return_rate,
+        station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         strategy=Strategy.FAST,
     )
@@ -118,7 +119,8 @@ async def build_dashboard(
     focus = await build_focus_ranking(
         session, server=server, buy_location=buy_location, sell_location=sell_location,
         focus_budget=focus_budget, horizon_days=horizon_days,
-        return_rate=return_rate, station_fee=station_fee,
+        return_rate=return_rate,
+        station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         sourcing=Sourcing.CHEAPEST, strategy=Strategy.FAST,
         sort_by="realizable_profit", limit=10,

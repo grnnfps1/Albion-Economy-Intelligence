@@ -26,7 +26,7 @@ UMA_HORA = 3600
 
 PADRAO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
-    return_rate=0.15, station_fee=100,
+    return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     crafts=1, strategy=Strategy.FAST, sort_by="profit_per_focus",
     tier=None, station_category=None, limit=30,
@@ -35,7 +35,7 @@ PADRAO = dict(
 
 REFINO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
-    sourcing=Sourcing.CRAFT, return_rate=0.15, station_fee=100,
+    sourcing=Sourcing.CRAFT, return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     family=None, tier=None, strategy=Strategy.FAST, limit=30,
     max_age_seconds=UMA_HORA,
@@ -60,13 +60,18 @@ async def cenario(session):
     }
     source = DataSource(code="aodp", display_name="AODP", is_community_sourced=True)
 
+    # `item_value` como no dump: sem ele a taxa da estação sai UNKNOWN e a
+    # cadeia inteira vira desconhecida — que é o comportamento certo, mas não
+    # é o que estes testes querem exercitar.
     planks = Item(unique_name="T4_PLANKS", base_name="T4_PLANKS", tier=4, enchantment=0,
                   display_name_pt="Tábuas de Pinho", subcategory_code="refinedresources",
-                  is_tracked=True)
+                  item_value=16, is_tracked=True)
     wood = Item(unique_name="T4_WOOD", base_name="T4_WOOD", tier=4, enchantment=0,
-                display_name_pt="Madeira", subcategory_code="resources", is_tracked=True)
+                display_name_pt="Madeira", subcategory_code="resources",
+                item_value=4, is_tracked=True)
     t3 = Item(unique_name="T3_PLANKS", base_name="T3_PLANKS", tier=3, enchantment=0,
-              display_name_pt="Tábuas T3", subcategory_code="refinedresources", is_tracked=True)
+              display_name_pt="Tábuas T3", subcategory_code="refinedresources",
+              item_value=8, is_tracked=True)
 
     session.add_all([server, source, *cidades.values(), planks, wood, t3])
     await session.flush()

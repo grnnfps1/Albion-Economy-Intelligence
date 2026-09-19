@@ -17,11 +17,12 @@ from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craf
 from app.calculations.fees import FeeProfile, Strategy
 from app.calculations.returns import Activity
 from app.calculations.risk import adjust_for_risk
+from app.calculations.station import NUTRITION_PER_ITEM_VALUE, StationFee
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
 from app.models.market import MarketPrice
 from app.repositories import market as market_repo
-from app.repositories import recipes_repo, settings_repo
+from app.repositories import recipes_repo
 from app.repositories.liquidity import liquidity_by_item_location
 from app.repositories.reference import list_locations
 from app.schemas.crafting import (
@@ -36,6 +37,11 @@ from app.services.arbitrage_service import resolve_fees
 from app.services.return_service import load_return_policy, return_out
 from app.services.risk_service import load_route_zones, resolve_risk, risk_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
+from app.services.station_service import (
+    StationFeePolicy,
+    item_value_lookup,
+    load_station_fee_policy,
+)
 
 DATA_SOURCE_NOTE = (
     "Custos e receita vêm da coleta comunitária do AODP; as receitas vêm do dump "
@@ -44,7 +50,6 @@ DATA_SOURCE_NOTE = (
 )
 
 RETURN_RATE_KEY = "crafting.return_rate.base"
-STATION_FEE_KEY = "crafting.station_fee_formula"
 
 
 def _age(value: datetime | None, now: datetime) -> int | None:
@@ -57,7 +62,7 @@ async def find_crafting_opportunities(
     buy_location: str,
     sell_location: str,
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee_per_100_nutrition: float | None,
     setup_fee_pct: float | None,
     sales_tax_pct: float | None,
     premium: bool | None,
@@ -89,8 +94,6 @@ async def find_crafting_opportunities(
         local.slug: local.display_name for local in await list_locations(session)
     }
 
-    if station_fee is None:
-        station_fee = await settings_repo.get_value(session, STATION_FEE_KEY)
     if max_age_seconds is None:
         # Acima do limite de frescor o preço deixa de justificar um desvio de
         # cidade: a ordem que o barateava provavelmente já foi consumida.
@@ -100,12 +103,20 @@ async def find_crafting_opportunities(
     matriz = retornos.matrices[Activity.CRAFTING]
     if return_rate is None and not matriz.complete:
         faltando.append("crafting.return_rate")
-    if station_fee is None:
-        faltando.append("crafting.station_fee")
+
+    # A taxa da estação precisa do catálogo para saber o `item_value` de cada
+    # item, e o catálogo só é carregado depois das receitas. Até lá a política
+    # existe sem lookup: serve para saber se a prata por 100 de nutrição foi
+    # informada, que é a parte que pode faltar.
+    taxa_estacao = await load_station_fee_policy(
+        session, lambda _nome: None, station_fee_per_100_nutrition
+    )
+    faltando.extend(taxa_estacao.missing())
 
     params = CraftParamsUsed(
         return_rate=return_rate,
-        station_fee=station_fee,
+        station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        nutrition_per_item_value=NUTRITION_PER_ITEM_VALUE,
         use_focus=use_focus,
         daily_production_bonus=daily_production_bonus,
         return_rate_source="preferencia" if return_rate is not None else "matriz",
@@ -128,6 +139,11 @@ async def find_crafting_opportunities(
         ids.update(m.item_id for m in receita.materials)
 
     catalogo = await recipes_repo.load_items(session, sorted(ids))
+    # Agora o `item_value` está disponível: a política ganha o lookup de verdade.
+    taxa_estacao = StationFeePolicy(
+        fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        item_value_of=item_value_lookup(catalogo),
+    )
     now = datetime.now(UTC)
 
     # Preço do item final: só interessa na cidade onde se vende.
@@ -198,7 +214,9 @@ async def find_crafting_opportunities(
             sell_price=sell_price,
             fees=fees,
             return_rate=retorno.rate,
-            station_fee=station_fee,
+            # A taxa é do item que está sendo produzido, não um valor único da
+            # resposta: ela dobra a cada tier junto com o `item_value`.
+            station_fee=taxa_estacao.fee_of(saida.unique_name),
             crafts=crafts,
             strategy=strategy,
         )
@@ -253,6 +271,8 @@ async def find_crafting_opportunities(
                     material_cost_net=economia.material_cost_net,
                     returned_value=economia.returned_value,
                     station_fee=economia.station_fee,
+                    item_value=economia.item_value,
+                    nutrition=economia.nutrition,
                     sale_revenue_net=economia.sale_revenue_net,
                     market_fees=economia.market_fees,
                     profit=economia.profit,
@@ -314,7 +334,7 @@ class _Contexto:
         sell_price: int | None,
         fees: FeeProfile,
         return_rate: float | None,
-        station_fee: float | None,
+        station_fee: StationFee,
         crafts: int,
         strategy: Strategy,
     ) -> None:

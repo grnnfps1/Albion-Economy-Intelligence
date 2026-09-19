@@ -38,7 +38,7 @@ async def build_focus_ranking(
     focus_budget: float | None,
     horizon_days: int,
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee_per_100_nutrition: float | None,
     setup_fee_pct: float | None,
     sales_tax_pct: float | None,
     premium: bool | None,
@@ -49,7 +49,8 @@ async def build_focus_ranking(
 ) -> FocusResponse:
     comum = dict(
         server=server, buy_location=buy_location, sell_location=sell_location,
-        return_rate=return_rate, station_fee=station_fee,
+        return_rate=return_rate,
+        station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         strategy=strategy,
     )

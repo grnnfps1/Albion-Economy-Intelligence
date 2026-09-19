@@ -81,11 +81,17 @@ def resolve_unit_cost(
     market_price: Callable[[str], int | None],
     recipe_for: Callable[[str], RecipeSpec | None],
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee_of: Callable[[str], float | None],
     _depth: int = 0,
     _visiting: frozenset[str] = frozenset(),
 ) -> ChainResult:
     """Custo por unidade de `unique_name`, seguindo a cadeia quando pedido.
+
+    `station_fee_of` é consultada **por elo**, não uma vez para a cadeia toda.
+    Desde a fase 15 a taxa da estação sai do valor do item, e o valor do item
+    dobra a cada tier: cobrar a taxa do T8 nos seis elos abaixo dele inflaria o
+    custo, e cobrar a do T2 em todos o esvaziaria. Cada elo paga pelo que ele
+    próprio produz.
 
     `_visiting` corta ciclos: uma receita que dependesse de si mesma faria a
     recursão rodar até estourar a pilha. Um dump malformado não pode derrubar a
@@ -104,12 +110,13 @@ def resolve_unit_cost(
         # Recurso bruto não tem receita. Fim natural da cadeia.
         return _apenas_mercado(unique_name, preco, _depth, None)
 
+    station_fee = station_fee_of(unique_name)
     if return_rate is None or station_fee is None:
         faltando = []
         if return_rate is None:
             faltando.append("crafting.return_rate")
         if station_fee is None:
-            faltando.append("crafting.station_fee")
+            faltando.append("crafting.station_fee_per_100_nutrition")
         return ChainResult(
             unit_cost=None,
             focus_per_unit=0.0,
@@ -123,7 +130,7 @@ def resolve_unit_cost(
     for material, quantidade, retorna in receita.materials:
         sub = resolve_unit_cost(
             material, sourcing, market_price, recipe_for, return_rate,
-            station_fee, _depth + 1, _visiting | {unique_name},
+            station_fee_of, _depth + 1, _visiting | {unique_name},
         )
         passos.extend(sub.steps)
         if not sub.known:

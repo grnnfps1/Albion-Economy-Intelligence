@@ -19,7 +19,7 @@ AGORA = datetime.now(UTC)
 
 PADRAO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
-    sourcing=Sourcing.CHEAPEST, return_rate=0.15, station_fee=100,
+    sourcing=Sourcing.CHEAPEST, return_rate=0.15, station_fee_per_100_nutrition=1000,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     family=None, tier=None, strategy=Strategy.FAST, limit=40,
 )
@@ -36,14 +36,17 @@ async def cadeia(session):
 
     itens = {}
     for tier in (2, 3, 4, 5):
+        # `item_value` dobra a cada tier, como no dump. É o que faz a taxa da
+        # estação do T5 ser 8× a do T2 — e por isso cada elo paga a sua.
         itens[f"T{tier}_WOOD"] = Item(
             unique_name=f"T{tier}_WOOD", base_name=f"T{tier}_WOOD", tier=tier, enchantment=0,
-            display_name_pt=f"Madeira T{tier}", subcategory_code="resources", is_tracked=True,
+            display_name_pt=f"Madeira T{tier}", subcategory_code="resources",
+            item_value=2 ** (tier - 1), is_tracked=True,
         )
         itens[f"T{tier}_PLANKS"] = Item(
             unique_name=f"T{tier}_PLANKS", base_name=f"T{tier}_PLANKS", tier=tier, enchantment=0,
             display_name_pt=f"Tábuas T{tier}", subcategory_code="refinedresources",
-            is_tracked=True,
+            item_value=2 ** tier, is_tracked=True,
         )
     session.add_all(itens.values())
     await session.flush()
@@ -143,7 +146,7 @@ async def test_mais_barato_compra_quando_o_mercado_desaba(session, cadeia):
 async def test_sem_parametros_o_lucro_e_unknown(session, cadeia):
     await cadeia["semear"](PRECOS)
     resposta = await find_refining_opportunities(
-        session, **(PADRAO | {"return_rate": None, "station_fee": None,
+        session, **(PADRAO | {"return_rate": None, "station_fee_per_100_nutrition": None,
                               "setup_fee_pct": None, "sales_tax_pct": None})
     )
 

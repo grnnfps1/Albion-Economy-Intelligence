@@ -21,20 +21,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.calculations.chain import ChainResult, RecipeSpec, Sourcing, resolve_unit_cost
 from app.calculations.fees import Strategy, compute_trade
 from app.calculations.returns import Activity
+from app.calculations.station import NUTRITION_PER_ITEM_VALUE
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
 from app.models.catalog import Item
 from app.models.recipes import Recipe
 from app.repositories import market as market_repo
-from app.repositories import recipes_repo, settings_repo
+from app.repositories import recipes_repo
 from app.repositories.liquidity import liquidity_by_item_location
 from app.repositories.reference import list_locations
 from app.schemas.crafting import CraftParamsUsed, SourcingOut
 from app.schemas.refining import ChainStepOut, RefiningOut, RefiningResponse
 from app.services.arbitrage_service import resolve_fees
-from app.services.crafting_service import STATION_FEE_KEY
 from app.services.return_service import load_return_policy, return_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
+from app.services.station_service import (
+    StationFeePolicy,
+    item_value_lookup,
+    load_station_fee_policy,
+)
 
 DATA_SOURCE_NOTE = (
     "Cada elo da cadeia paga a taxa da estação, não só o último. Comprar o insumo "
@@ -64,7 +69,7 @@ async def find_refining_opportunities(
     sell_location: str,
     sourcing: Sourcing,
     return_rate: float | None,
-    station_fee: float | None,
+    station_fee_per_100_nutrition: float | None,
     setup_fee_pct: float | None,
     sales_tax_pct: float | None,
     premium: bool | None,
@@ -85,8 +90,6 @@ async def find_refining_opportunities(
     nomes_de_cidade = {
         local.slug: local.display_name for local in await list_locations(session)
     }
-    if station_fee is None:
-        station_fee = await settings_repo.get_value(session, STATION_FEE_KEY)
     if max_age_seconds is None:
         max_age_seconds = get_settings().freshness_stale_seconds
 
@@ -94,11 +97,19 @@ async def find_refining_opportunities(
     matriz = retornos.matrices[Activity.REFINING]
     if return_rate is None and not matriz.complete:
         faltando.append("refining.return_rate")
-    if station_fee is None:
-        faltando.append("crafting.station_fee")
+
+    # O catálogo ainda não foi carregado; a política ganha o lookup de
+    # `item_value` mais abaixo. Aqui só interessa saber se a prata por 100 de
+    # nutrição foi informada.
+    taxa_estacao = await load_station_fee_policy(
+        session, lambda _nome: None, station_fee_per_100_nutrition
+    )
+    faltando.extend(taxa_estacao.missing())
 
     params = CraftParamsUsed(
-        return_rate=return_rate, station_fee=station_fee,
+        return_rate=return_rate,
+        station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        nutrition_per_item_value=NUTRITION_PER_ITEM_VALUE,
         use_focus=use_focus, daily_production_bonus=daily_production_bonus,
         return_rate_source="preferencia" if return_rate is not None else "matriz",
         fees=resumo_taxas, complete=not faltando, missing=faltando,
@@ -137,6 +148,13 @@ async def find_refining_opportunities(
 
     catalogo = await recipes_repo.load_items(session, sorted(ids))
     por_nome = {item.unique_name: item for item in catalogo.values()}
+    # Cada elo paga a taxa do que ele próprio produz. É aqui que a fase 15 pesa
+    # mais: numa cadeia T2→T8 a taxa do topo é 64× a da base, e cobrar a mesma
+    # em todos os elos errava a conta nas duas pontas.
+    taxa_estacao = StationFeePolicy(
+        fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        item_value_of=item_value_lookup(catalogo),
+    )
     now = datetime.now(UTC)
 
     # Venda: só a cidade onde se vende, e só do item refinado.
@@ -184,7 +202,7 @@ async def find_refining_opportunities(
 
     def resolver(nome: str, modo: Sourcing, preco, taxa_retorno) -> ChainResult:
         return resolve_unit_cost(
-            nome, modo, preco, receita_de, taxa_retorno, station_fee
+            nome, modo, preco, receita_de, taxa_retorno, taxa_estacao.silver_of
         )
 
     resultados: list[RefiningOut] = []
