@@ -14,13 +14,21 @@ import { tierBorderLeft } from "@/lib/tiers";
 
 export const dynamic = "force-dynamic";
 
+/** A ordenação de abertura: o que se leva para casa, não a taxa. */
+const ORDEM_PADRAO = { by: "realizable_profit", dir: "desc" };
+
 const COLUNAS: SheetColumn[] = [
   { label: "item", width: "item", left: true },
-  { label: "prata/focus", width: "num", title: "a taxa: quanto rende cada ponto de focus" },
+  { label: "prata/focus", width: "num", sortKey: "profit_per_focus",
+    title: "a taxa: quanto rende cada ponto de focus" },
   { label: "focus/un", width: "focus" },
   { label: "cabe no focus", width: "num", title: "quantas unidades o orçamento de focus paga" },
   { label: "mercado escoa", width: "num", title: "quantas unidades o giro absorve no horizonte" },
-  { label: "ganho realizável", width: "num", title: "o que se leva para casa, não a taxa" },
+  // `numWide` pelo mesmo motivo do "lucro ajustado" em /crafting: com a seta
+  // de ordenação o rótulo não cabe em 6,8rem, e rótulo truncado num
+  // cabeçalho clicável é pior que noutro lugar — ele é o alvo do clique.
+  { label: "ganho realizável", width: "numWide", sortKey: "realizable_profit",
+    title: "o que se leva para casa, não a taxa" },
   { label: "quanto fazer", width: "num" },
   { label: "trava", width: "focus", title: "o que limita: o focus ou o mercado" },
 ];
@@ -43,13 +51,6 @@ const EXPORTACAO: ExportColumn<FocusPlan>[] = [
 ];
 
 const GRUPOS = [
-  {
-    chave: "sort_by", padrao: "realizable_profit",
-    opcoes: [
-      { valor: "realizable_profit", rotulo: "ganho realizável" },
-      { valor: "profit_per_focus", rotulo: "prata/focus" },
-    ],
-  },
   {
     chave: "horizon_days", padrao: "7",
     opcoes: [1, 3, 7, 14, 30].map((d) => ({ valor: String(d), rotulo: `${d}d` })),
@@ -120,7 +121,11 @@ export default async function FocusPage({
       )}
 
       {data && data.total > 0 && (
-        <SheetTable columns={COLUNAS}>
+        <SheetTable
+          columns={COLUNAS}
+          sort={{ by: data.sort_by, dir: data.sort_dir }}
+          sortDefault={ORDEM_PADRAO}
+        >
           {data.plans.map((plano) => (
             <FocusLine key={plano.item} plano={plano} dias={data.horizon_days} />
           ))}

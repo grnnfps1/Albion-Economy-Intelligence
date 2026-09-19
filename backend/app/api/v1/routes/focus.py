@@ -52,6 +52,7 @@ async def focus_ranking(
     sourcing: str = Query("MAIS_BARATO"),
     strategy: str = Query("IMEDIATA"),
     sort_by: str = Query("realizable_profit", description=f"um de {ORDENACOES}"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(30, ge=1, le=100),
 ) -> FocusResponse:
     modos = {"MERCADO": Sourcing.MARKET, "PRODUZIR": Sourcing.CRAFT,
@@ -76,5 +77,6 @@ async def focus_ranking(
         sourcing=modos.get(sourcing.upper(), Sourcing.CHEAPEST),
         strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
         sort_by=sort_by if sort_by in ORDENACOES else "realizable_profit",
+        sort_desc=sort_dir == "desc",
         limit=limit,
     )

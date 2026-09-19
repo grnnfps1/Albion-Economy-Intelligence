@@ -49,6 +49,7 @@ async def build_focus_ranking(
     strategy: Strategy,
     sort_by: str,
     limit: int,
+    sort_desc: bool = True,
 ) -> FocusResponse:
     comum = dict(
         server=server, buy_location=buy_location, sell_location=sell_location,
@@ -102,7 +103,7 @@ async def build_focus_ranking(
         )
         liquidez.setdefault(op.item, op.liquidity_units_per_day)
 
-    planos = build_ranking(candidatos, focus_budget, horizon_days, sort_by)
+    planos = build_ranking(candidatos, focus_budget, horizon_days, sort_by, sort_desc)
 
     nomes = [plano.item for plano in planos[:limit]]
     catalogo: dict[str, Item] = {}
@@ -142,6 +143,7 @@ async def build_focus_ranking(
         focus_budget=focus_budget,
         horizon_days=horizon_days,
         sort_by=sort_by,
+        sort_dir="desc" if sort_desc else "asc",
         total=len(planos),
         # Os parâmetros são os mesmos das duas telas de origem; basta reportar um.
         params=craft.params,

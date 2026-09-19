@@ -519,7 +519,8 @@ export type FocusPlan = {
 
 export type FocusResponse = {
   server: string; buy_location: string; sell_location: string;
-  focus_budget: number | null; horizon_days: number; sort_by: string; total: number;
+  focus_budget: number | null; horizon_days: number;
+  sort_by: string; sort_dir: string; total: number;
   params: CraftingResponse["params"];
   generated_at: string; data_source_note: string;
   plans: FocusPlan[];

@@ -675,14 +675,6 @@ function Faixa({ faixa }: { faixa: PriceRange | null }) {
 }
 
 /**
- * Um material: ícone com a **quantidade a comprar** no badge, e o preço
- * editável no balão de hover.
- *
- * A quantidade do badge é a da lista de compras — já com o retorno e
- * arredondada para cima —, não a da receita. É a diferença entre "a receita
- * pede 5" e "compre 317".
- */
-/**
  * O que impede a linha de ter número.
  *
  * Oito traços numa linha não informam nada — era a queixa, e estava certa. O
@@ -719,6 +711,68 @@ function Impedimento({ linha }: { linha: CalcRow }) {
   );
 }
 
+/**
+ * Idade sem o "há": numa coluna, o prefixo se repete em toda linha e some do
+ * olho sem parar de ocupar largura. `formatDataAge` o mantém onde a idade
+ * aparece solta e precisa se anunciar como idade.
+ */
+function idadeCurta(segundos: number | null): string {
+  return formatDataAge(segundos).replace(/^há /, "");
+}
+
+/**
+ * O balão do material: cidade, preço e idade, uma linha por cidade.
+ *
+ * ## O que saiu, e por quê
+ *
+ * Saíram o id técnico, o "receita pede N", o "comprar N", o intervalo e a
+ * contagem de cidades frescas. Os três do meio **já estão na célula**, e
+ * repetir no balão é a regra "nada duplicado". O id e a contagem são metadado:
+ * não decidem nada e empurravam para baixo as seis linhas que decidem.
+ *
+ * ## O que ficou
+ *
+ * Ordem por preço crescente, a marca na cidade em uso, e a idade — que é o que
+ * separa preço bom de preço velho, e é decisão do projeto desde a fase 4.
+ *
+ * ## Por que monoespaçada
+ *
+ * As colunas são montadas com espaço, e em fonte proporcional o espaço é mais
+ * estreito que o dígito: a coluna sairia torta. O preço vai alinhado à direita
+ * para se comparar na vertical sem esforço — mesma razão de `.figure` existir
+ * na tabela. A marca tem coluna própria, senão o nome da cidade usada nasceria
+ * deslocado em relação aos outros.
+ */
+function balaoDeCidades(faixa: PriceRange | null): string {
+  if (!faixa || faixa.cities.length === 0) return "sem cotação em nenhuma cidade";
+
+  const linhas = faixa.cities.map((c) => ({
+    marca: c.is_chosen ? "←" : c.is_manual ? "✎" : " ",
+    nome: c.location_name,
+    preco: formatSilverCompact(c.unit_price),
+    idade: idadeCurta(c.age_seconds),
+  }));
+
+  const larguraNome = Math.max(...linhas.map((l) => l.nome.length));
+  const larguraPreco = Math.max(...linhas.map((l) => l.preco.length));
+  const larguraIdade = Math.max(...linhas.map((l) => l.idade.length));
+
+  return linhas
+    .map(
+      (l) =>
+        `${l.marca} ${l.nome.padEnd(larguraNome)}  ` +
+        `${l.preco.padStart(larguraPreco)}  ${l.idade.padStart(larguraIdade)}`,
+    )
+    .join("\n");
+}
+
+/**
+ * Um material: ícone, preço editável e o que comprar.
+ *
+ * A quantidade de "comprar N" é a da lista de compras — já com o retorno e
+ * arredondada para cima —, não a da receita. É a diferença entre "a receita
+ * pede 5" e "compre 317".
+ */
 function Material({
   material,
   tier,
@@ -731,40 +785,7 @@ function Material({
   buyLocation: string;
 }) {
   const faixa = material.price_range;
-
-  // O balão é onde o detalhe cabe sem ocupar coluna. As cidades vão ordenadas
-  // por preço, com a escolhida marcada e a velha etiquetada — ver uma cotação
-  // de três dias em Thetford é informação, e é por isso que ela aparece na
-  // lista mesmo ficando de fora do intervalo.
-  const cabecalho = [
-    `${material.item_name ?? material.item} · ${material.item}`,
-    `receita pede ${material.quantity} por unidade`,
-    `comprar ${formatSilverCompact(material.buy_units)}${
-      material.saved_by_return > 0
-        ? ` (retorno poupou ${formatSilverCompact(material.saved_by_return)})`
-        : ""
-    }`,
-  ].join(" · ");
-
-  // Uma linha por cidade, curta. A idade fica — ela decide, e é decisão do
-  // projeto desde a fase 4. "velha" e "fora do intervalo" saíram: são
-  // dedutíveis da própria idade, e repetir a dedução ao lado do dado gasta
-  // três palavras para não dizer nada novo.
-  const listaDeCidades = (faixa?.cities ?? []).map((c) => {
-    const marca = c.is_chosen ? "←" : c.is_manual ? "✎" : " ";
-    return `${marca} ${c.location_name} ${formatSilverCompact(c.unit_price)} · ${formatDataAge(
-      c.age_seconds,
-    )}`;
-  });
-
-  const resumoDaFaixa = !faixa
-    ? "sem cotação em nenhuma cidade"
-    : faixa.comparable
-      ? `${formatSilverCompact(faixa.min_price)}–${formatSilverCompact(faixa.max_price)}` +
-        ` · +${faixa.spread_pct}% · ${faixa.fresh_city_count} cidades frescas`
-      : "1 cidade fresca — sem alternativa para comparar";
-
-  const dica = [cabecalho, resumoDaFaixa, ...listaDeCidades].join("\n");
+  const dica = balaoDeCidades(faixa);
 
   return (
     <td className="l align-top">

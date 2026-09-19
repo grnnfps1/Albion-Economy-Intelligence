@@ -160,9 +160,17 @@ body {
 /* Balão de lista: quebra em `
 ` e ganha largura máxima, para a relação de
    cidades caber sem virar uma linha mais larga que a tela. */
+/* Balão de lista: uma linha por item, em colunas alinhadas.
+
+   `pre` e não `pre-line`: as colunas são montadas com espaço, e `pre-line`
+   colapsa espaços consecutivos — o alinhamento sumiria. E fonte monoespaçada
+   pelo mesmo motivo: em proporcional o espaço é mais estreito que o dígito, e
+   coluna montada com espaço sai torta. */
 .hover-tip--lista::after {
-  white-space: pre-line;
-  max-width: 22rem;
+  white-space: pre;
+  max-width: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   line-height: 1.5;
 }
 

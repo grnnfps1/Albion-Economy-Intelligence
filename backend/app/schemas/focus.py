@@ -35,6 +35,7 @@ class FocusResponse(BaseModel):
     focus_budget: float | None
     horizon_days: int
     sort_by: str
+    sort_dir: str = "desc"
     total: int
     params: CraftParamsUsed
     generated_at: str

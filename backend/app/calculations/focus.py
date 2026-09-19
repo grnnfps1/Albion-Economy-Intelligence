@@ -123,6 +123,7 @@ def build_ranking(
     focus_budget: float | None,
     horizon_days: int = 7,
     sort_by: str = "realizable_profit",
+    sort_desc: bool = True,
 ) -> list[FocusPlan]:
     """Ordena e deduplica.
 
@@ -132,10 +133,19 @@ def build_ranking(
     """
     planos = [plan_for(candidate, focus_budget, horizon_days) for candidate in candidates]
 
-    def valor(plano: FocusPlan) -> float:
+    def bruto(plano: FocusPlan) -> float | None:
         if sort_by == "profit_per_focus":
-            return plano.profit_per_focus if plano.profit_per_focus is not None else -1e18
-        return plano.realizable_profit if plano.realizable_profit is not None else -1e18
+            return plano.profit_per_focus
+        return plano.realizable_profit
+
+    def valor(plano: FocusPlan) -> float:
+        """Só para a deduplicação: entre dois caminhos, fica o de maior valor.
+
+        Aqui o desconhecido tem de perder sempre, e por isso vira `-1e18` — é
+        escolha de qual linha manter, não posição no ranking.
+        """
+        v = bruto(plano)
+        return v if v is not None else -1e18
 
     melhores: dict[str, FocusPlan] = {}
     for plano in planos:
@@ -143,4 +153,15 @@ def build_ranking(
         if atual is None or valor(plano) > valor(atual):
             melhores[plano.item] = plano
 
-    return sorted(melhores.values(), key=valor, reverse=True)
+    def ordem(plano: FocusPlan):
+        """Desconhecido no fim, nas duas direções.
+
+        A separação entra **antes** do valor na tupla e o sinal entra no valor.
+        Com `reverse`, a inversão pegaria também a separação e as linhas sem
+        cálculo subiriam ao topo no crescente. Mesma regra do calculador e de
+        `/crafting`.
+        """
+        v = bruto(plano)
+        return (v is None, -(v or 0.0) if sort_desc else (v or 0.0))
+
+    return sorted(melhores.values(), key=ordem)

@@ -34,6 +34,21 @@ const COLUNAS: SheetColumn[] = [
 
 const GRUPOS = [
   {
+    /**
+     * `/market` **mantém a pílula**, e é a única das telas densas que mantém.
+     *
+     * Decidido em 19/09/2026, quando as outras migraram para `SortHeader`. O
+     * motivo é estrutural, não de gosto: as colunas desta tela são **blocos
+     * compostos** — "comprando agora" mostra `sell_min` e `sell_max` juntos,
+     * "vendendo agora" mostra `buy_max` e `buy_min`. As ordenações são por
+     * *um* desses valores, e um cabeçalho que contém dois números não pode
+     * dizer por qual deles está ordenando sem ficar ambíguo.
+     *
+     * Separar os blocos em colunas simples resolveria a ambiguidade e mudaria
+     * a leitura de uma tela que funciona: o par lado a lado é o que permite
+     * ver o spread de relance, e essa é a razão de a tela existir assim.
+     * Trocar isso por uniformidade de mecanismo seria pagar caro pelo barato.
+     */
     chave: "sort_by", padrao: "item",
     opcoes: [
       { valor: "item", rotulo: "item" },

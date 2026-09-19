@@ -48,6 +48,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 28 | Uma barra de rolagem; ícone ancora a coluna | ✅ |
 | 29 | Pílula espelha a resposta; painel por tela; desvio de sessão em dev | ✅ |
 | 30 | Ordenação clicável no cabeçalho, resolvida no servidor | ✅ |
+| 31 | Ordenação uniformizada; tabela deixa de encolher | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -337,6 +338,42 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 31 — ordenação uniforme, e a tabela que encolhia
+
+- **`width: 100%` com `table-layout: fixed` encolhe em silêncio.** Virou regra
+  na seção "Linguagem visual". O sintoma aparece longe da causa: quem vê um
+  rótulo cortado procura a largura daquela coluna, e o problema está numa
+  declaração que vale para a tabela inteira.
+- **`/crafting` e `/focus` trocaram pílula por `SortHeader`.** Dois mecanismos
+  para a mesma ação obrigam a aprender duas vezes, e o do cabeçalho mostra em
+  **qual coluna** a ordem está aplicada, em vez de num rótulo separado da
+  tabela. Cada tela manteve o seu padrão: prata/focus em `/crafting`, ganho
+  realizável em `/focus`.
+- **`/crafting` ordenava por ROI e não mostrava ROI.** Ele ganhou coluna na
+  conversão: ordenar por um número que não se vê é pedir confiança sem dar como
+  conferir.
+- **Rótulo longo precisa de `numWide` quando a coluna ordena.** "lucro
+  ajustado" e "ganho realizável" não cabem em 6,8rem com a seta, e rótulo
+  truncado num cabeçalho clicável é pior que em outro lugar — ele é o alvo do
+  clique. Medido antes de propagar, e foi o que o piloto existia para achar.
+- **`/market` fica com a pílula, e a decisão está escrita no arquivo.** As
+  colunas dela são blocos compostos (`sell_min` e `sell_max` juntos), e um
+  cabeçalho que contém dois números não pode dizer por qual ordena. Separar os
+  blocos resolveria a ambiguidade e mataria o que a tela faz de melhor: ver o
+  spread de relance.
+- **PENDENTE — `/refining` e `/arbitrage` não têm ordenação nenhuma.** Nem
+  pílula, nem `sort_by` no backend: ordenam com ordem fixa no serviço.
+  Convertê-las **não é trocar de componente** — é escrever a ordenação no
+  backend (chave, direção e a regra de desconhecido-no-fim), e só depois o
+  cabeçalho. Ficou fora desta leva de propósito.
+- **O balão do material virou só a lista de cidades.** Saíram o id técnico, o
+  "receita pede N", o "comprar N", o intervalo e a contagem de cidades. Os três
+  do meio já estão na célula — repetir é a regra "nada duplicado"; o id e a
+  contagem são metadado que não decide nada e empurrava para baixo as seis
+  linhas que decidem. Fonte monoespaçada e `white-space: pre` porque as colunas
+  são montadas com espaço: em proporcional, o espaço é mais estreito que o
+  dígito e a coluna sai torta.
 
 ## Notas da fase 30 — ordenação por coluna
 
@@ -1080,6 +1117,12 @@ masmorra que também não têm EN — e nenhum deles é rastreado.
 
 ## Backlog
 
+- **`/refining` e `/arbitrage` sem ordenação.** As outras telas densas ordenam
+  por cabeçalho clicável desde a fase 31; estas duas não ordenam de jeito
+  nenhum — o serviço devolve ordem fixa e o backend não aceita `sort_by`. Exige
+  ordenação **no backend** (chave, direção e desconhecido-no-fim), não só o
+  componente de cabeçalho.
+
 - **Hideout em zona preta chega a 58–60% de retorno com Focus.** Fora de escopo:
   a plataforma modela as cidades reais, onde está a esmagadora maioria dos
   jogadores. Registrado para não se perder.
@@ -1155,6 +1198,15 @@ Regras que a tela materializa:
   vago esconde taxa.
 - **Hierarquia por tamanho.** Lucro é o maior número da linha; custo e receita
   encolhem. Tudo com o mesmo peso visual é o mesmo que nada ter peso.
+- **Tabela densa usa `width: max-content; min-width: 100%`.** Nunca
+  `width: 100%`. Com `table-layout: fixed`, quando a soma do `colgroup` passa
+  da largura usada, o navegador **não deixa a tabela transbordar — ele encolhe
+  todas as colunas proporcionalmente**. O defeito é traiçoeiro porque nada
+  some: tudo fica um pouco mais estreito, e só o conteúdo mais largo denuncia,
+  longe da causa. Era isto por trás de "custo de produç" e do lucro de nove
+  dígitos virando "+1.", e a barra de rolagem horizontal existia sem rolar
+  nada, porque não havia transbordo.
+
 - **Número cheio onde ele decide; abreviado onde ele situa.** A regra da fase
   18 era "cheio, nunca abreviado" e a fase 25 a reverteu **parcialmente** —
   leia a nota da fase 25 antes de reverter de novo. A fronteira:
