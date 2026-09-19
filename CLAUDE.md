@@ -420,7 +420,9 @@ masmorra que também não têm EN — e nenhum deles é rastreado.
   retorno zero é 656,59. A fórmula ficou pela fonte oficial, não pela planilha.
   Há teste travando as duas conclusões.
 - **Só três dos sete valores prometidos chegaram.** T3, T5, T6 e T7 seguem em
-  aberto em `docs/04-taxas.md` §11.
+  aberto em `docs/04-taxas.md` §11 — que é hoje o **candidato número um para
+  medição no jogo**: fonte oficial que não reproduz o observado, e duas
+  execuções na mesma estação resolvem.
 - **Bug corrigido de carona:** `resolve_base_name` prefere a raiz sem `_LEVELN`,
   o que é certo para peso e categoria (idênticos) e errado para `@itemvalue`
   (256 contra 1.024). Todo item encantado estava herdando a taxa da base — 16×
@@ -560,10 +562,18 @@ As dez fases do plano original estão implementadas, e mais duas vieram depois. 
 é o que o documento original listava como "futuro". Em ordem de valor:
 
 1. **Medir as taxas no jogo** (`docs/04-taxas.md`). Não bloqueia mais nada, mas
-   define o padrão pré-preenchido. Dez medições: as seis de mercado e craft, mais
+   define o padrão pré-preenchido. Treze medições: as seis de mercado e craft,
    as quatro que a agricultura trouxe (ciclos de Focus da criação, o que
    `@activefarmbonus` multiplica, o bônus de comida favorita e o preço fixo do
-   comerciante de fazenda).
+   comerciante de fazenda) e as três da taxa de estação.
+
+   **A número 11 — taxa da estação — é a prioridade.** É a única da lista em
+   que a fórmula tem fonte **oficial da Sandbox** e mesmo assim **não reproduz
+   os valores observados** na planilha do Albion VIP: dos sete tiers prometidos
+   só três chegaram, e os três implicam três taxas diferentes (1.148,9 /
+   1.665,6 / 8.669,4). Também é a mais barata de resolver — craftar um T4 e um
+   T8 na mesma estação e anotar os dois débitos decide, porque a fórmula é
+   determinística e não exige amostragem.
 2. **Contas e preferências.** Hoje os parâmetros do usuário vivem na URL. Com
    login, viram preferência salva — o cálculo não muda, só a origem do valor.
 3. **Watchlist e alertas.** A arquitetura já está preparada; falta a tabela e o

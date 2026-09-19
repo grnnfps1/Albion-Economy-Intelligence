@@ -1,8 +1,18 @@
 # 04 — Taxas de mercado: levantamento, ainda NÃO aplicado
 
-> Pesquisa feita em 12/09/2026 para a FASE 6. **Nada disto foi gravado no banco.**
-> `config_parameters` continua com `value = NULL` e `source = 'UNKNOWN'`, e há
-> teste que falha se alguém preencher sem verificação (requisito 52).
+> Pesquisa feita em 12/09/2026 para a FASE 6. Os itens 1 a 5 (mercado)
+> **continuam com `value = NULL` e `source = 'UNKNOWN'`** em
+> `config_parameters`, e há teste que falha se alguém preencher sem
+> verificação (requisito 52). Os itens 6 e 11 ganharam valor com procedência
+> declarada nas fases 14 e 15 — procedência não é medição, e eles seguem
+> abertos.
+>
+> **Prioridade de medição:** o **item 11 — taxa da estação** é o candidato
+> número um. É o único desta lista em que a fórmula tem **fonte oficial da
+> Sandbox** e mesmo assim **não reproduz os valores observados** na planilha do
+> Albion VIP, e é o mais barato de resolver: craftar um item e anotar a prata
+> cobrada fecha a questão. Duas execuções bastam, porque a fórmula é
+> determinística.
 
 ## Por que este documento existe separado
 
@@ -203,8 +213,28 @@ produto.
 
 ## Item 11 — taxa da estação: derivada do valor do item (fase 15)
 
-> Levantado em **19/09/2026**. Diferente dos itens 1 a 5, aqui a fonte é **anúncio
-> oficial da Sandbox**, não engenharia reversa da comunidade.
+> **CANDIDATO NÚMERO UM PARA MEDIÇÃO NO JOGO.** É o item desta lista com a
+> maior diferença entre o que se sabe e o que se pode provar, e o mais barato
+> de resolver: **craftar um item e anotar a prata cobrada fecha a questão de
+> vez.** Ver "Como medir" no fim desta seção.
+>
+> Levantado em **19/09/2026**. Situação em uma frase: **a fórmula tem fonte
+> oficial da Sandbox, e mesmo assim não reproduz os valores observados na
+> planilha do Albion VIP.**
+>
+> As duas coisas são verdade ao mesmo tempo:
+>
+> - **A favor:** a fórmula não é engenharia reversa da comunidade como os itens
+>   1 a 5 — é anúncio de patch da própria Sandbox, citado literalmente abaixo. E
+>   `@itemvalue` está no dump, limpo, para todos os recursos refinados.
+> - **Contra:** a reconstrução da planilha **não fecha**. Dos sete tiers
+>   prometidos **só três chegaram** (T2, T4 e T8), e esses três implicam **três
+>   taxas de estação diferentes** — 1.148,9, 1.665,6 e 8.669,4 prata por 100 de
+>   nutrição. Nenhum valor único de taxa gera os três.
+>
+> Ou seja: a fórmula está implementada porque a fonte é oficial, **não porque
+> foi validada**. Enquanto a medição no jogo não acontecer, ela é a melhor
+> hipótese disponível e não um fato conferido.
 
 ### O problema
 
@@ -298,16 +328,67 @@ Isso deixa duas leituras possíveis, e **nenhuma foi confirmada**:
   ao preço de mercado do material — que cresce a uma taxa parecida com ×483.
 
 **A fórmula foi adotada porque tem fonte oficial, não porque a planilha a
-confirmou.** Se alguém aparecer com os quatro resíduos que faltam, o teste de
-reconstrução é o lugar de conferir.
+confirmou.** Repetindo, porque é o ponto que se perde primeiro: os valores
+observados **não são reproduzidos** pela fórmula com uma taxa única, e só três
+dos sete tiers foram reconstruídos. Se alguém aparecer com os quatro resíduos
+que faltam, o teste de reconstrução é o lugar de conferir — mas mesmo os sete
+valeriam menos que uma medição direta, pelo motivo da próxima seção.
 
-### O que precisa ser medido no jogo
+### Como medir — e por que isto é o candidato número um
+
+**A medição resolve o que a reconstrução não resolve.** Os resíduos da planilha
+têm um problema estrutural: a prata por 100 de nutrição é escolha do dono da
+estação, então cada linha pode ter vindo de uma estação diferente. Com a taxa
+livre, qualquer resíduo é "explicável" — e por isso nenhum resíduo prova nada.
+
+Dentro do jogo a taxa deixa de ser livre: ela está escrita na tela da estação.
+Isso transforma a pergunta de "que número explicaria isto?" em "o número bate
+com o previsto, sim ou não?".
+
+**O experimento mínimo — dez minutos, uma estação só:**
+
+1. Abrir uma estação de refino e **anotar a prata por 100 de nutrição** que ela
+   anuncia. Chamar de `F`.
+2. Refinar **1× T4_PLANKS** e anotar a prata debitada. Chamar de `t4`.
+3. Refinar **1× T8_PLANKS** na **mesma** estação e anotar. Chamar de `t8`.
+
+Três conferências independentes saem dessas duas linhas:
+
+| Conferência | O que precisa dar | Se não der |
+|---|---|---|
+| Valor absoluto | `t4 = 16 × 0,1125 × F ÷ 100` | A constante `0,1125` ou a divisão por 100 está errada |
+| Razão entre tiers | `t8 ÷ t4 = 16` (item value 256 ÷ 16) | A taxa não é proporcional ao `@itemvalue`, e a derivação inteira cai |
+| Linearidade na taxa | Repetir o passo 2 noutra estação com `F` diferente: a razão dos débitos precisa ser a razão dos `F` | A taxa não é linear na prata por nutrição |
+
+**Uma quarta, se a estação permitir:** refinar `T8_PLANKS` e a variante
+encantada nível 2 (`@itemvalue` 256 contra 1.024). A razão precisa dar **4**.
+É o que confirma que o encantamento entra pelo mesmo eixo — hoje é inferência a
+partir do dump, não observação.
+
+**Bastam duas execuções para decidir**, porque a fórmula é determinística: não
+há sorteio, não há variação por qualidade, não há média a apurar. É o contraste
+com o retorno de material (item 6), que exige amostragem grande justamente por
+ser sorteado por unidade.
+
+### Resumo do que continua aberto
 
 | # | O que verificar | Medição | Efeito de errar |
 |---|---|---|---|
-| 11 | Se a taxa cobrada é mesmo `item_value × 0,1125 × fee ÷ 100` | Refinar 1× T4 e 1× T8 na **mesma** estação e anotar os dois débitos. A razão precisa dar 16 | Taxa de estação errada em todo tier alto |
-| 12 | Se o encantamento multiplica a taxa como o `@itemvalue` sugere | Refinar `T8_LEATHER` e `T8_LEATHER_LEVEL2` na mesma estação; a razão precisa dar 4 | Craft encantado com taxa 4× menor que a real |
-| 13 | De onde saíram os quatro resíduos que faltam (T3, T5, T6, T7) | Recuperar as linhas da planilha | Sem eles a reconstrução não fecha nem refuta |
+| **11** | **Se a taxa cobrada é mesmo `item_value × 0,1125 × F ÷ 100`** | **O experimento mínimo acima: um T4 e um T8 na mesma estação** | **Taxa de estação errada em todo tier alto — e o erro cresce com o tier** |
+| 12 | Se o encantamento multiplica a taxa como o `@itemvalue` sugere | Refinar `T8_PLANKS` e a variante encantada nível 2 na mesma estação; a razão precisa dar 4 | Craft encantado com taxa 4× menor que a real |
+| 13 | De onde saíram os quatro resíduos que faltam (T3, T5, T6, T7) | Recuperar as linhas da planilha do Albion VIP | Sem eles a reconstrução não fecha nem refuta — mas a medição 11 torna isto secundário |
+
+**Enquanto 11 não for medido**, o padrão pré-preenchido (1.666 prata por 100 de
+nutrição, a mediana das três taxas implicadas) continua sendo estimativa
+declarada, e a interface segue avisando que não foi verificado no jogo.
+
+> **Armadilha ao conferir:** com esse padrão, a taxa calculada para o T4 dá
+> **29,99** — praticamente idêntica aos **29,98** do resíduo da planilha. Isso
+> **não é validação, é circularidade**: 1.666 foi obtido da mediana das taxas
+> implicadas, e a implicada pelo T4 é 1.665,6. A fórmula reproduz o T4 porque
+> foi calibrada nele. No T8 a mesma taxa dá **479,81** contra os 2.496,79
+> observados — cinco vezes menos. Quem conferir só a linha do T4 vai concluir
+> que fechou.
 
 ### Bug corrigido de carona
 
