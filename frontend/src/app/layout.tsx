@@ -36,23 +36,39 @@ export const metadata: Metadata = {
     "Inteligência econômica para Albion Online: mercado, arbitragem, crafting, refinamento e Focus.",
 };
 
+/**
+ * Aviso de que a sessão foi dispensada.
+ *
+ * Um app que **parece** logado e não está é o pior resultado possível de um
+ * desvio de autenticação: alguém demonstra a tela, conclui que o portão
+ * funciona, e ele não foi exercitado nenhuma vez. A tira existe para esse
+ * engano não caber.
+ *
+ * Ela desaparece de produção pelo mesmo mecanismo do middleware — a condição
+ * vira literal no build e o bloco é eliminado. Não é "escondida em produção":
+ * não está lá.
+ */
+function AvisoDeDesvio() {
+  if (process.env.NODE_ENV !== "development" || process.env.DEV_AUTH_BYPASS !== "1") {
+    return null;
+  }
+  return (
+    <div className="shrink-0 bg-warn/15 px-4 py-1 text-center font-semibold text-[11px] text-warn">
+      DEV_AUTH_BYPASS ligado — a sessão foi dispensada e ninguém está autenticado. O portão
+      não está sendo testado.
+    </div>
+  );
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   return (
     <html lang="pt-BR" className={`${inter.variable} ${cinzel.variable}`}>
       <body className="min-h-dvh">
-        {/* Em telas largas o app ocupa exatamente a janela e **nada** rola
-            aqui: quem rola é a tabela, lá dentro. Era isto que faltava para
-            haver uma barra só — com a página rolando *e* a tabela rolando,
-            apareciam duas, e a de fora movia o cabeçalho que a de dentro
-            acabara de prender.
-
-            Abaixo de `md` o comportamento antigo continua: a página rola
-            inteira, porque numa tela estreita prender a tabela deixaria a
-            janela de leitura menor que a própria linha. */}
-        <div className="flex min-h-dvh flex-col md:h-dvh md:flex-row md:overflow-hidden">
+        <AvisoDeDesvio />
+        <div className="flex min-h-dvh flex-col md:flex-row">
           <Sidebar session={session} />
-          <main className="flex min-w-0 flex-1 flex-col md:min-h-0">{children}</main>
+          <main className="min-w-0 flex-1">{children}</main>
         </div>
       </body>
     </html>

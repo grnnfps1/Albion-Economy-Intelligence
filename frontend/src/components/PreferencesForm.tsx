@@ -26,13 +26,55 @@ const CIDADES = [
 ];
 
 /**
+ * Todos os parâmetros que o formulário sabe pedir.
+ *
+ * Existe para cada tela poder declarar **o que ela de fato usa**. Parâmetro que
+ * aparece e não afeta nada é pior que parâmetro ausente: ele ensina o usuário a
+ * ignorar o painel inteiro, e a partir daí o que importa também passa
+ * despercebido. Risco de rota no calculador era o caso claro — refinar numa
+ * cidade não envolve viagem, e o campo só ocupava espaço.
+ */
+export type CampoPref =
+  | "servidor"
+  | "comprarEm"
+  | "venderEm"
+  | "premium"
+  | "setupFee"
+  | "imposto"
+  | "focusLigado"
+  | "bonusDoDia"
+  | "taxaDaEstacao"
+  | "focusDisponivel"
+  | "focusPorDia"
+  | "quantidade"
+  | "risco"
+  | "specFamilia"
+  | "specPorItem";
+
+export const TODOS_OS_CAMPOS: CampoPref[] = [
+  "servidor", "comprarEm", "venderEm", "premium", "setupFee", "imposto",
+  "focusLigado", "bonusDoDia", "taxaDaEstacao", "focusDisponivel", "focusPorDia",
+  "quantidade", "risco", "specFamilia", "specPorItem",
+];
+
+/**
  * Um formulário só, para todas as telas.
  *
  * Antes cada tela pedia os mesmos sete campos. Isso era eu levando "não
  * inventar número" longe demais: a regra é não inventar **em silêncio**, não
  * deixar a tela vazia esperando o usuário preencher.
+ *
+ * `campos` recorta o conjunto por tela. O padrão é mostrar tudo: uma tela que
+ * ainda não declarou o que usa continua como estava, e o recorte é uma decisão
+ * explícita de quem a conhece — não um efeito colateral de esquecimento.
  */
-export function PreferencesForm({ initial }: { initial: Preferences }) {
+export function PreferencesForm({
+  initial,
+  campos = TODOS_OS_CAMPOS,
+}: {
+  initial: Preferences;
+  campos?: CampoPref[];
+}) {
   const router = useRouter();
   const [prefs, setPrefs] = useState(initial);
   const [pending, startTransition] = useTransition();
@@ -49,6 +91,8 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
     setPrefs(proximo);
     setSalvo(false);
   }
+
+  const mostra = (c: CampoPref) => campos.includes(c);
 
   // Cookie antigo não tem `specItems`; `?? []` evita quebrar quem já salvou.
   const itens: SpecItem[] = prefs.specItems ?? [];
@@ -79,155 +123,184 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
 
   return (
     <div className="grid gap-3 border-line border-b bg-sunken p-4 sm:grid-cols-3 lg:grid-cols-6">
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Servidor</span>
-        <select className={campo} value={prefs.server}
-          onChange={(e) => atualizar({ server: e.target.value })}>
-          <option value="west">Americas</option>
-          <option value="east">Asia</option>
-          <option value="europe">Europe</option>
-        </select>
-      </label>
+      {mostra("servidor") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Servidor</span>
+          <select className={campo} value={prefs.server}
+            onChange={(e) => atualizar({ server: e.target.value })}>
+            <option value="west">Americas</option>
+            <option value="east">Asia</option>
+            <option value="europe">Europe</option>
+          </select>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Comprar em</span>
-        <select className={campo} value={prefs.buyLocation}
-          onChange={(e) => atualizar({ buyLocation: e.target.value })}>
-          {CIDADES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
-        </select>
-      </label>
+      {mostra("comprarEm") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Comprar em</span>
+          <select className={campo} value={prefs.buyLocation}
+            onChange={(e) => atualizar({ buyLocation: e.target.value })}>
+            {CIDADES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+          </select>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Vender em</span>
-        <select className={campo} value={prefs.sellLocation}
-          onChange={(e) => atualizar({ sellLocation: e.target.value })}>
-          {CIDADES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
-        </select>
-      </label>
+      {mostra("venderEm") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Vender em</span>
+          <select className={campo} value={prefs.sellLocation}
+            onChange={(e) => atualizar({ sellLocation: e.target.value })}>
+            {CIDADES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+          </select>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Conta</span>
-        <select className={campo} value={prefs.premium ? "1" : "0"}
-          onChange={(e) => atualizar({ premium: e.target.value === "1" })}>
-          <option value="1">Premium</option>
-          <option value="0">Sem premium</option>
-        </select>
-      </label>
+      {mostra("premium") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Conta</span>
+          <select className={campo} value={prefs.premium ? "1" : "0"}
+            onChange={(e) => atualizar({ premium: e.target.value === "1" })}>
+            <option value="1">Premium</option>
+            <option value="0">Sem premium</option>
+          </select>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Setup fee</span>
-        <input className={campo} value={(prefs.setupFeePct * 100).toFixed(2)}
-          onChange={(e) => atualizar({ setupFeePct: (parseFloat(e.target.value) || 0) / 100 })} />
-      </label>
+      {mostra("setupFee") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Setup fee</span>
+          <input className={campo} value={(prefs.setupFeePct * 100).toFixed(2)}
+            onChange={(e) => atualizar({ setupFeePct: (parseFloat(e.target.value) || 0) / 100 })} />
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Imposto de venda</span>
-        <input className={campo} value={(prefs.salesTaxPct * 100).toFixed(2)}
-          onChange={(e) => atualizar({ salesTaxPct: (parseFloat(e.target.value) || 0) / 100 })} />
-      </label>
+      {mostra("imposto") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Imposto de venda</span>
+          <input className={campo} value={(prefs.salesTaxPct * 100).toFixed(2)}
+            onChange={(e) => atualizar({ salesTaxPct: (parseFloat(e.target.value) || 0) / 100 })} />
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Focus ligado</span>
-        <select className={campo} value={prefs.useFocus ? "1" : "0"}
-          onChange={(e) => atualizar({ useFocus: e.target.value === "1" })}>
-          <option value="0">não</option>
-          <option value="1">sim</option>
-        </select>
-      </label>
+      {mostra("focusLigado") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Focus ligado</span>
+          <select className={campo} value={prefs.useFocus ? "1" : "0"}
+            onChange={(e) => atualizar({ useFocus: e.target.value === "1" })}>
+            <option value="0">não</option>
+            <option value="1">sim</option>
+          </select>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Bônus do dia (%)</span>
-        {/* Era um select de 0/10/20%. Virou campo livre porque o bônus é
-            sorteado e não vem de uma lista fixa: três opções inventadas dariam
-            ares de constante do jogo a um número que só está na tela. */}
-        <input className={campo}
-          placeholder="0"
-          value={prefs.dailyProductionBonus ? prefs.dailyProductionBonus * 100 : ""}
-          onChange={(e) => {
-            const texto = e.target.value.trim();
-            const numero = parseFloat(texto.replace(",", "."));
-            atualizar({
-              dailyProductionBonus:
-                texto === "" || !Number.isFinite(numero)
-                  ? 0
-                  : Math.min(100, Math.max(0, numero)) / 100,
-            });
-          }} />
-        <span className="text-[11px] text-zinc-500">
-          O bônus de produção do dia, lido na tela da cidade. Soma em{" "}
-          <b>B</b> junto do Focus e do bônus da cidade — não sobre o retorno já
-          calculado. Vazio significa <b>não estou modelando</b>: o retorno sai
-          igual ao da fórmula sem ele, e a tela diz isso.
-        </span>
-      </label>
+      {mostra("bonusDoDia") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Bônus do dia (%)</span>
+          {/* Era um select de 0/10/20%. Virou campo livre porque o bônus é
+              sorteado e não vem de uma lista fixa: três opções inventadas dariam
+              ares de constante do jogo a um número que só está na tela. */}
+          <input className={campo}
+            placeholder="0"
+            value={prefs.dailyProductionBonus ? prefs.dailyProductionBonus * 100 : ""}
+            onChange={(e) => {
+              const texto = e.target.value.trim();
+              const numero = parseFloat(texto.replace(",", "."));
+              atualizar({
+                dailyProductionBonus:
+                  texto === "" || !Number.isFinite(numero)
+                    ? 0
+                    : Math.min(100, Math.max(0, numero)) / 100,
+              });
+            }} />
+          <span className="text-[11px] text-zinc-500">
+            O bônus de produção do dia, lido na tela da cidade. Soma em{" "}
+            <b>B</b> junto do Focus e do bônus da cidade — não sobre o retorno já
+            calculado. Vazio significa <b>não estou modelando</b>: o retorno sai
+            igual ao da fórmula sem ele, e a tela diz isso.
+          </span>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Taxa da estação (prata / 100 nutrição)</span>
-        {/* Único campo que **não** vem pré-preenchido. Não há valor defensável
-            para pôr aqui, e o número está escrito na tela da estação. */}
-        <input className={campo}
-          placeholder="não informado"
-          value={prefs.stationFeePer100Nutrition ?? ""}
-          onChange={(e) => {
-            const texto = e.target.value.trim();
-            const numero = parseFloat(texto.replace(",", "."));
-            atualizar({
-              stationFeePer100Nutrition:
-                texto === "" || !Number.isFinite(numero) ? null : Math.max(0, numero),
-            });
-          }} />
-        <span className="text-[11px] text-zinc-500">
-          Abra a estação no jogo e leia a taxa de uso. Sem ela, craft e refino
-          respondem <b className="text-warn">desconhecido</b> — calcular sem a
-          taxa inventaria lucro.
-        </span>
-      </label>
+      {mostra("taxaDaEstacao") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Taxa da estação (prata / 100 nutrição)</span>
+          {/* Único campo que **não** vem pré-preenchido. Não há valor defensável
+              para pôr aqui, e o número está escrito na tela da estação. */}
+          <input className={campo}
+            placeholder="não informado"
+            value={prefs.stationFeePer100Nutrition ?? ""}
+            onChange={(e) => {
+              const texto = e.target.value.trim();
+              const numero = parseFloat(texto.replace(",", "."));
+              atualizar({
+                stationFeePer100Nutrition:
+                  texto === "" || !Number.isFinite(numero) ? null : Math.max(0, numero),
+              });
+            }} />
+          <span className="text-[11px] text-zinc-500">
+            Abra a estação no jogo e leia a taxa de uso. Sem ela, craft e refino
+            respondem <b className="text-warn">desconhecido</b> — calcular sem a
+            taxa inventaria lucro.
+          </span>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Focus disponível</span>
-        <input className={campo} value={prefs.focusBudget}
-          onChange={(e) => atualizar({ focusBudget: parseFloat(e.target.value) || 0 })} />
-        <span className="text-[11px] text-zinc-500">
-          O estoque que você tem agora — acumula até 30.000.
-        </span>
-      </label>
+      {mostra("focusDisponivel") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Focus disponível</span>
+          <input className={campo} value={prefs.focusBudget}
+            onChange={(e) => atualizar({ focusBudget: parseFloat(e.target.value) || 0 })} />
+          <span className="text-[11px] text-zinc-500">
+            O estoque que você tem agora — acumula até 30.000.
+          </span>
+        </label>
+      )}
 
       {/* Taxa, não estoque: é o que limita quanto se produz num dia típico, e
           o que torna craft e refino comparáveis com a fazenda. */}
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Focus por dia</span>
-        <input className={campo} value={prefs.focusPerDay ?? 10000}
-          onChange={(e) => atualizar({ focusPerDay: parseFloat(e.target.value) || 0 })} />
-        <span className="text-[11px] text-zinc-500">
-          Quanto regenera por dia — 10.000 com Premium.
-        </span>
-      </label>
+      {mostra("focusPorDia") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Focus por dia</span>
+          <input className={campo} value={prefs.focusPerDay ?? 10000}
+            onChange={(e) => atualizar({ focusPerDay: parseFloat(e.target.value) || 0 })} />
+          <span className="text-[11px] text-zinc-500">
+            Quanto regenera por dia — 10.000 com Premium.
+          </span>
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Quantidade</span>
-        <input className={campo} value={prefs.quantity}
-          onChange={(e) => atualizar({ quantity: parseFloat(e.target.value) || 1 })} />
-      </label>
+      {mostra("quantidade") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Quantidade</span>
+          <input className={campo} value={prefs.quantity}
+            onChange={(e) => atualizar({ quantity: parseFloat(e.target.value) || 1 })} />
+        </label>
+      )}
 
       {/* Risco de rota. Zero é o padrão e significa "não estou modelando
           perda" — o lucro ajustado sai igual ao bruto, à vista. */}
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Perda % · zona azul</span>
-        <input className={campo} value={(prefs.lossPctBlue * 100).toFixed(1)}
-          onChange={(e) => atualizar({ lossPctBlue: (parseFloat(e.target.value) || 0) / 100 })} />
-      </label>
+      {mostra("risco") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Perda % · zona azul</span>
+          <input className={campo} value={(prefs.lossPctBlue * 100).toFixed(1)}
+            onChange={(e) => atualizar({ lossPctBlue: (parseFloat(e.target.value) || 0) / 100 })} />
+        </label>
+      )}
 
-      <label className="flex flex-col gap-1">
-        <span className={rotulo}>Perda % · vermelha/preta</span>
-        <input className={campo} value={(prefs.lossPctRedBlack * 100).toFixed(1)}
-          onChange={(e) =>
-            atualizar({ lossPctRedBlack: (parseFloat(e.target.value) || 0) / 100 })
-          } />
-      </label>
+      {mostra("risco") && (
+  <label className="flex flex-col gap-1">
+          <span className={rotulo}>Perda % · vermelha/preta</span>
+          <input className={campo} value={(prefs.lossPctRedBlack * 100).toFixed(1)}
+            onChange={(e) =>
+              atualizar({ lossPctRedBlack: (parseFloat(e.target.value) || 0) / 100 })
+            } />
+        </label>
+      )}
 
       {/* Especialização por família. Zero não é "não informado": é "não
           especializado", e o custo em Focus sai igual ao do dump. */}
-      {FAMILIAS.map(([chave, nome]) => (
+      {mostra("specFamilia") &&
+        FAMILIAS.map(([chave, nome]) => (
         <label key={chave} className="flex flex-col gap-1">
           <span className={rotulo}>Spec · {nome}</span>
           <input className={campo} value={prefs[chave] as number}
@@ -236,8 +309,8 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
                 [chave]: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
               } as Partial<Preferences>)
             } />
-        </label>
-      ))}
+          </label>
+        ))}
 
       {/* Especialização por item, para craft de equipamento.
 
@@ -245,8 +318,9 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
           centenas de níveis, um por item do Destiny Board, e isso não cabe num
           formulário. Quem crafta duas peças informa duas. O resto fica em zero,
           com o aviso de sempre. */}
+      {mostra("specPorItem") && (
       <div className="col-span-full flex flex-col gap-1.5">
-        <span className={rotulo}>Spec por item · craft de equipamento</span>
+        <span className={rotulo}>Spec por item</span>
         {itens.length === 0 && (
           <span className="text-[11px] text-dim">
             Nenhum item informado — o craft de equipamento assume spec 0.
@@ -293,6 +367,7 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
           </span>
         </span>
       </div>
+      )}
 
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}

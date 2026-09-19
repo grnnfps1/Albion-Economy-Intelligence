@@ -163,6 +163,67 @@ houver disposição para o major.
 
 ---
 
+## Adendo de 19/09/2026 — desvio de sessão em desenvolvimento
+
+O portão impedia conferir qualquer tela sem um navegador logado, e o jeito que
+existia de contornar era apagar `SESSION_SECRET` do `.env` — exatamente o hábito
+que não se quer criar: mexer no segredo para ver a tela, e um dia esquecer de
+repô-lo.
+
+`DEV_AUTH_BYPASS=1` dispensa a sessão, e **só** funciona com `next dev`. Duas
+condições precisam valer juntas, e a primeira não é configurável:
+
+1. `process.env.NODE_ENV === "development"`. O Next substitui esta expressão por
+   um literal **no build**, e `next build` compila sempre com `"production"`.
+2. `DEV_AUTH_BYPASS === "1"`, exato — o consentimento explícito, para o desvio
+   não ser o padrão de nenhuma máquina de desenvolvimento.
+
+### A garantia, conferida e não afirmada
+
+Depois de `npm run build`, procurando **só no código executável** do artefato de
+produção (`.js`, fora de `.next/dev`):
+
+| Marcador | Arquivos |
+|---|---|
+| `DEV_AUTH_BYPASS` | **0** |
+| `x-dev-auth-bypass` | **0** |
+| `desvioDeDesenvolvimento` | **0** |
+| texto da tira de aviso | **0** |
+
+E o portão em si continua lá, no mesmo artefato: `aei_session` e `/login`
+aparecem no middleware compilado. Ou seja, **não é que o desvio esteja
+desligado em produção — ele não foi compilado**. Nenhuma variável de ambiente,
+painel de deploy ou `.env` vazado reativa código que não existe.
+
+Conferido também de ponta a ponta: o build de produção servido com
+`DEV_AUTH_BYPASS=1` respondeu `307 → /login?de=%2Fcrafting%2Fcalculadora`, sem o
+cabeçalho `x-dev-auth-bypass`.
+
+### O que o desvio faz, e o que não faz
+
+Libera a **passagem**, não forja identidade: a sessão continua nula, que é o
+mesmo estado do modo aberto que já existia. O preço manual fica anônimo e nada é
+gravado em nome de ninguém — o desvio cai num caminho de código que a aplicação
+já tinha, em vez de criar um que só existe em desenvolvimento.
+
+Enquanto está ligado, a aplicação mostra uma **tira âmbar** dizendo que ninguém
+está autenticado, e a resposta sai com `x-dev-auth-bypass: 1`. Um app que parece
+logado e não está é o pior resultado possível de um desvio: alguém demonstra a
+tela, conclui que o portão funciona, e ele não foi exercitado nenhuma vez.
+
+`src/middleware.test.ts` trava as quatro combinações: liga só com as duas
+condições, não liga com uma só, e o valor precisa ser exatamente `"1"` —
+`"true"`, `"yes"` e `" 1"` continuam mandando para o login.
+
+### O risco que sobra, e ele não é zero
+
+Com a variável ligada, a porta 3000 fica aberta para quem alcançar a máquina —
+a rede local, tipicamente. É desenvolvimento, e é reversível apagando a
+variável, mas não é nada. Por isso o padrão é vazio e o `.env.example` pede que
+se ligue só quando precisar.
+
+---
+
 ## O que foi verificado e está limpo
 
 **Injeção SQL.** Todas as queries passam por SQLAlchemy com parâmetros. Há um

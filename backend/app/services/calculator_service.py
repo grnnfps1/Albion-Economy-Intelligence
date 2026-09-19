@@ -157,6 +157,9 @@ async def build_calculator(
     produce_on_island: bool = False,
     spec_levels: dict[str, int] | None,
     spec_item_levels: dict[str, int] | None,
+    # Só ecoa em `params`: nenhuma coluna desta tela o usa. O orçamento de
+    # Focus limita o ranking de `/focus`, não a tabela de uma família — e por
+    # isso o campo saiu do painel de preferências daqui.
     focus_per_day: float | None,
     user_id: str | None,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
@@ -309,7 +312,7 @@ async def build_calculator(
     linhas_out = [
         _linha(
             item, receitas, catalogo, compras, manual, precos_venda, sinais,
-            taxa_estacao, spec, fees, retorno.rate, quantidade, focus_per_day,
+            taxa_estacao, spec, fees, retorno.rate, quantidade,
             sell_location, now,
         )
         for item in itens
@@ -346,7 +349,7 @@ async def build_calculator(
 
 def _linha(
     item, receitas, catalogo, compras, manual, precos_venda, sinais,
-    taxa_estacao, spec, fees, taxa_retorno, quantidade, focus_per_day,
+    taxa_estacao, spec, fees, taxa_retorno, quantidade,
     sell_location, now,
 ) -> CalcRowOut:
     rotulo = f"T{item.tier}.{item.enchantment}"

@@ -1,5 +1,6 @@
 import { PriceInput } from "@/components/calculator/PriceInput";
 import { PageShell } from "@/components/PageShell";
+import type { CampoPref } from "@/components/PreferencesForm";
 import { RetornoPainel } from "@/components/calculator/RetornoPainel";
 import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
 import { CopyButton } from "@/components/sheet/CopyButton";
@@ -30,36 +31,64 @@ const FAMILIAS: [string, string][] = [
   ["STONEBLOCK", "blocos"],
 ];
 
-const GRUPOS = [
-  { chave: "family", padrao: "LEATHER", opcoes: FAMILIAS.map(([v, r]) => ({ valor: v, rotulo: r })) },
-  {
-    // A coluna da matriz de retorno. **Não** há campo de taxa: o número vem da
-    // matriz da fase 14, e o que se escolhe é a situação.
-    chave: "use_focus",
-    padrao: "false",
-    opcoes: [
-      { valor: "false", rotulo: "sem focus" },
-      { valor: "true", rotulo: "com focus" },
-    ],
-  },
-  {
-    // Onde se **produz**, que não é onde se compra: ilha não tem mercado, então
-    // quem produz nela compra numa cidade e carrega.
-    chave: "produce_on_island",
-    padrao: "false",
-    opcoes: [
-      { valor: "false", rotulo: "na cidade" },
-      { valor: "true", rotulo: "na ilha" },
-    ],
-  },
-  {
-    // A base é **uma** unidade, e o padrão daqui tem de ser o mesmo da página —
-    // senão a pílula acesa diz 100 enquanto a conta usa 1.
-    chave: "quantity",
-    padrao: "1",
-    opcoes: [1, 10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
-  },
-];
+/**
+ * Os filtros, com o padrão vindo do que o backend **de fato usou**.
+ *
+ * ## O defeito que isto conserta
+ *
+ * Os padrões eram literais (`padrao: "false"`), e a pílula acesa saía de
+ * `params.get(chave) ?? padrao`. Só que o valor enviado ao backend não vem só
+ * da URL: sem parâmetro na URL, ele vem do **cookie de preferências**. Com
+ * "Focus ligado: sim" salvo lá, a conta usava Focus, a decomposição somava os
+ * 59% corretamente — e a pílula dizia "sem focus".
+ *
+ * Nada estava errado no cálculo. Errado estava a tela **afirmando um valor que
+ * não era o dela**: a pílula exibia um padrão que ela inventou, sobre um
+ * parâmetro cuja fonte é outra.
+ *
+ * A correção é de princípio, não de sintoma: **o filtro espelha a resposta**.
+ * `data.material_return.use_focus` é o que o motor usou; `data.params.quantity`
+ * é a quantidade que ele multiplicou. Assim a pílula não tem como mentir, nem
+ * quando alguém acrescentar uma terceira fonte de valor.
+ */
+function grupos(data: Awaited<ReturnType<typeof fetchCalculator>>) {
+  const usouFoco = data?.material_return.use_focus ?? false;
+  const naIlha = data?.material_return.is_island ?? false;
+  const qtd = String(data?.params.quantity ?? 1);
+
+  return [
+    {
+      chave: "family",
+      padrao: data?.family ?? "LEATHER",
+      opcoes: FAMILIAS.map(([v, r]) => ({ valor: v, rotulo: r })),
+    },
+    {
+      // A coluna da matriz de retorno. **Não** há campo de taxa: o número vem
+      // da fórmula da fase 20, e o que se escolhe é a situação.
+      chave: "use_focus",
+      padrao: String(usouFoco),
+      opcoes: [
+        { valor: "false", rotulo: "sem focus" },
+        { valor: "true", rotulo: "com focus" },
+      ],
+    },
+    {
+      // Onde se **produz**, que não é onde se compra: ilha não tem mercado,
+      // então quem produz nela compra numa cidade e carrega.
+      chave: "produce_on_island",
+      padrao: String(naIlha),
+      opcoes: [
+        { valor: "false", rotulo: "na cidade" },
+        { valor: "true", rotulo: "na ilha" },
+      ],
+    },
+    {
+      chave: "quantity",
+      padrao: qtd,
+      opcoes: [1, 10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
+    },
+  ];
+}
 
 /**
  * Os papéis de material, na ordem em que a cadeia os consome.
@@ -98,7 +127,7 @@ function colunas(papeis: string[]): SheetColumn[] {
   return [
     { label: "tier", width: "focus", left: true },
     { label: "item", width: "item", left: true },
-    { label: "você vende por", width: "num", title: "editável — o seu preço vence o coletado" },
+    { label: "vende por", width: "num", title: "você vende por — editável, e o seu preço vence o coletado" },
     // Uma coluna por papel de material. Empilhá-los dentro da célula do item
     // era o que fazia o terceiro sair do alinhamento e o preço encostar na
     // borda: célula composta não tem largura própria.
@@ -112,16 +141,18 @@ function colunas(papeis: string[]): SheetColumn[] {
       };
     }),
     { label: "material", width: "num", title: "já com o retorno descontado" },
-    { label: "taxa da loja", width: "num", title: "item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
-    { label: "taxa de venda", width: "num", title: "imposto + setup fee sobre a receita bruta" },
+    { label: "taxa loja", width: "num", title: "taxa da loja: item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
+    { label: "taxa venda", width: "num", title: "taxa de venda: imposto + setup fee sobre a receita bruta" },
     {
       label: "focus",
       width: "num",
       title:
         "custo em Focus das unidades pedidas, já reduzido pela sua especialização. Fica entre as colunas de custo porque é custo — só não é em prata.",
     },
-    { label: "custo de produção", width: "num" },
-    { label: "receita bruta", width: "num" },
+    // Rótulo curto porque a coluna tem 6,8rem: "custo de produção" não cabia
+    // e o navegador cortava no meio da palavra, que é pior que abreviar.
+    { label: "custo", width: "num", title: "custo de produção: material líquido + taxa da loja + taxa de venda" },
+    { label: "receita", width: "num", title: "receita bruta, antes das taxas" },
     { label: "lucro", width: "num" },
     // Investimento em coluna própria: com oito dígitos nos dois, ele brigava com
     // o lucro dentro da mesma célula.
@@ -130,6 +161,37 @@ function colunas(papeis: string[]): SheetColumn[] {
     { label: "escoa em", width: "mini", title: "quantos dias o giro leva para absorver a quantidade" },
   ];
 }
+
+/**
+ * As preferências que **este** calculador usa, auditadas contra
+ * `build_calculator`.
+ *
+ * Fora ficaram quatro, e cada uma por um motivo conferido no código:
+ *
+ * | Fora | Por quê |
+ * |---|---|
+ * | risco de rota (duas) | `build_calculator` não recebe. Refinar numa cidade não envolve viagem; o risco é de `/arbitrage`, onde a rota **é** a operação. |
+ * | Focus disponível | Não é parâmetro da rota. O orçamento limita o ranking de `/focus`, não a tabela de uma família. |
+ * | Focus por dia | Chega a `_linha` e morre lá: nenhuma coluna o usa. |
+ * | Quantidade | Virou pílula de filtro; o campo do painel não é lido por esta tela. |
+ *
+ * `Spec por item` fica, e o rótulo perdeu o "craft de equipamento": o mecanismo
+ * é genérico e um nível informado para `T8_LEATHER` **altera** o custo em Focus
+ * desta tabela.
+ */
+const CAMPOS_PREF: CampoPref[] = [
+  "servidor",
+  "comprarEm",
+  "venderEm",
+  "premium",
+  "setupFee",
+  "imposto",
+  "focusLigado",
+  "bonusDoDia",
+  "taxaDaEstacao",
+  "specFamilia",
+  "specPorItem",
+];
 
 const EXPORTACAO: ExportColumn<CalcRow>[] = [
   { header: "imagem", value: (r) => r.icon_url, image: true },
@@ -195,7 +257,8 @@ export default async function CalculadoraPage({
       titulo="Calculador"
       descricao="Uma família por vez, todas as combinações de tier e encantamento. Edite o preço de venda ou de qualquer material e a tabela inteira recalcula. O ranking de /crafting continua respondendo outra pergunta: onde gastar o focus de hoje."
       contagem={data ? `${linhas.length} linhas de ${familia} · ${formatSilver(Number(quantidade))} un` : undefined}
-      grupos={GRUPOS}
+      grupos={grupos(data)}
+      camposPref={CAMPOS_PREF}
       busca={false}
       prefs={prefs}
       acoes={

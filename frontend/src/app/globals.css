@@ -181,21 +181,15 @@ body {
 
    `overflow-x: auto` já torna este div o scrollport dos **dois** eixos — é
    regra do CSS, não escolha —, e por isso é ele, e não a página, que o `sticky`
-   do `thead` procura. Sem altura, ele nunca rolava na vertical e o cabeçalho
-   saía da tela junto com a página.
+   do `thead` procura. Sem altura, ele nunca rola na vertical e o cabeçalho sai
+   da tela junto com a página.
 
-   A altura vem do flex: `PageShell` limita a coluna à janela e este é o único
-   item que cresce. Nada de medir com JavaScript e nada de `calc(100dvh - …)`
-   com um número chutado — quem mede é o layout, que já sabe o que há acima e
-   abaixo da tabela.
-
-   Em telas estreitas a coluna não é limitada, este `flex: 1` não tem o que
-   esticar e o div fica com a altura do conteúdo: a página rola inteira, como
-   sempre rolou. */
+   A altura é medida em `components/sheet/SheetScroll.tsx`: janela menos o topo
+   da tabela menos o que vem depois dela. Não é `calc()` com número fixo nem
+   corrente de flexbox — a primeira erra em toda tela, a segunda encolhe em
+   silêncio quando um ancestral esquece `min-height: 0`. */
 .sheet-scroll {
   overflow: auto;
-  flex: 1 1 auto;
-  min-height: 0;
   overscroll-behavior: contain;
 }
 

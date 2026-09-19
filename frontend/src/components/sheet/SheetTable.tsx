@@ -19,6 +19,8 @@
  * /crafting e em /refining.
  */
 
+import { SheetScroll } from "@/components/sheet/SheetScroll";
+
 /** Larguras por *tipo* de coluna, não por coluna. */
 export const SHEET_WIDTHS = {
   /** Identidade do item: ícone, badge, nome visual e id técnico. */
@@ -41,7 +43,7 @@ export const SHEET_WIDTHS = {
    * "comprar N" — que pode ter seis dígitos. A 9,5rem do ranking o "comprar N"
    * truncava e o preço encostava na borda.
    */
-  calcMat: "11.5rem",
+  calcMat: "10.5rem",
   /** Prata. Cabe `1.683.277` sem quebrar. */
   num: "6.8rem",
   /** Percentual. */
@@ -94,7 +96,7 @@ export function SheetTable({
   }
 
   return (
-    <div className="sheet-scroll">
+    <SheetScroll>
       <table
         className={`sheet text-[11.5px] ${freeze > 0 ? "sheet-freeze" : ""}`}
         style={Object.fromEntries(
@@ -117,6 +119,6 @@ export function SheetTable({
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </SheetScroll>
   );
 }

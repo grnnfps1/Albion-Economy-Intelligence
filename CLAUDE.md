@@ -46,6 +46,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 26 | Histórico coletado; estado vazio da taxa da estação | ✅ |
 | 27 | Retorno e intervalo de preço **antes** do cálculo | ✅ |
 | 28 | Uma barra de rolagem; ícone ancora a coluna | ✅ |
+| 29 | Pílula espelha a resposta; painel por tela; desvio de sessão em dev | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -335,6 +336,49 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 29 — a tela não pode afirmar o que não é dela
+
+- **A pílula "sem focus" mentia, e o cálculo estava certo.** O padrão do filtro
+  era um literal (`padrao: "false"`) e a pílula acesa saía de
+  `params.get(chave) ?? padrao`. Mas o valor enviado ao backend, sem parâmetro
+  na URL, vem do **cookie de preferências**: com "Focus ligado: sim" salvo lá, a
+  conta usava Focus, a decomposição somava os 59% corretamente, e a pílula dizia
+  o contrário. O mesmo para o bônus do dia de 20%, que é valor gravado e não
+  padrão indevido — `DEFAULTS.dailyProductionBonus` é zero.
+- **A correção é de princípio: o filtro espelha a resposta.** `padrao` passou a
+  vir de `data.material_return.use_focus` e `data.params.quantity` — o que o
+  motor de fato usou. Uma tela não pode afirmar o valor de um parâmetro cuja
+  fonte é outra; quando há duas fontes, a única afirmação honesta é a que veio
+  de volta.
+- **Parâmetro que aparece e não afeta nada ensina a ignorar o painel inteiro.**
+  O painel de preferências passou a receber a lista de campos que a tela usa. No
+  calculador saíram quatro, cada um conferido contra `build_calculator`: risco de
+  rota (não é parâmetro da rota — refinar numa cidade não envolve viagem), Focus
+  disponível (limita o ranking de `/focus`), Focus por dia (chega a `_linha` e
+  morre lá) e Quantidade (virou pílula; o campo não é lido). O padrão continua
+  "mostrar tudo": recortar é decisão explícita de quem conhece a tela, não efeito
+  de esquecimento.
+- **A corrente de flexbox da fase 28 estava errada, e errou em silêncio.** Ela
+  dependia de cinco ancestrais com altura definida e `min-height: 0`; um elo
+  frouxo não quebra — **encolhe**, e a tabela virou cinco linhas com espaço
+  sobrando. Voltou a medição, agora com o que faltava na fase 26: somar os
+  **irmãos seguintes** (o rodapé de "como ler"). Sem isso a tabela ia até o fim
+  da janela, o rodapé transbordava e a página ganhava a segunda barra.
+- **Rótulo que não cabe na coluna é pior que rótulo abreviado.** "custo de
+  produção" em 6,8rem era cortado no meio da palavra pelo navegador, sem aviso.
+  Virou "custo", com o nome inteiro no balão.
+- **Desvio de sessão em desenvolvimento, com garantia de build.**
+  `DEV_AUTH_BYPASS=1` só vale com `next dev`, porque a outra condição
+  (`NODE_ENV === "development"`) vira literal no build e o bloco é **eliminado**
+  do artefato. Conferido grepando o `.next`: zero ocorrências no `.js` de
+  produção, e o portão intacto no mesmo arquivo. Não é "desligado em produção" —
+  não foi compilado. Detalhe e a medição em `docs/06-seguranca.md`.
+- **O desvio libera passagem, não forja identidade.** A sessão segue nula, que é
+  o estado do modo aberto que já existia — assim ele não cria caminho de código
+  exclusivo de desenvolvimento. E enquanto está ligado há uma tira âmbar
+  dizendo que ninguém está autenticado: um app que **parece** logado e não está
+  é o pior resultado possível de um desvio.
 
 ## Notas da fase 28 — a rolagem, o ícone e o que ainda mora nas preferências
 
