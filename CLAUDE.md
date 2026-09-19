@@ -51,6 +51,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 31 | Ordenação uniformizada; tabela deixa de encolher | ✅ |
 | 32 | Focus fracionário derrubava /crafting e /focus | ✅ |
 | 33 | Memoização da cadeia: /focus sai do tempo limite | ✅ |
+| 34 | Receitas por fecho: /focus 89% e calculador 96% | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -372,6 +373,41 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 34 — o filtro estava no lugar errado
+
+- **A pergunta certa não era "como deixar a consulta rápida", e sim "por que o
+  modo caro é usado".** `/refining` e o calculador pediam as **12.917 receitas
+  do jogo** para usar algumas centenas: o chamador descartava 97% do que pedia,
+  depois de o ORM ter construído 41 mil objetos. Quando o chamador descarta a
+  maior parte, o filtro está do lado errado da consulta.
+- **`recipes_for_chain` pede o fecho.** Parte dos itens pedidos e segue os
+  materiais até não achar receita nova — **3 rodadas** na prática, que é a
+  profundidade real do grafo. 411 receitas em vez de 12.917, e 36 ms em vez de
+  1781.
+- **Filtrar por `subcategory_code` seria mais simples e falharia em silêncio.**
+  120 materiais dessas receitas têm receita própria sem serem refinados:
+  recurso bruto **encantado**, como `T4_WOOD_LEVEL1@1`. Cortar ali faria a
+  cadeia parar de descer e usar o preço de mercado dele — custo diferente, sem
+  erro aparecer. É a regra 12 outra vez: `_LEVELN` muda o que a categoria
+  sugere. Há teste com o caso.
+- **Equivalência conferida, não suposta.** Para as 235 saídas do fecho o
+  conjunto de variantes é idêntico ao da carga completa, e dos 251 itens
+  alcançados nenhum com receita ficou de fora.
+- **Um `selectinload` voltava ao pai.**
+  `selectinload(Recipe.materials).selectinload(RecipeMaterial.recipe)`
+  carregava, para cada material, a receita que já estava na mão. O
+  back-reference não é usado em lugar nenhum, e `Recipe.materials` já é
+  `lazy="selectin"` no modelo. Sozinho custava 20% da consulta.
+- **Nada estrutural.** Nenhum índice novo — `ix_recipes_output` existe desde a
+  migration inicial e é o que a consulta usa —, nenhuma desnormalização, nenhum
+  cache entre requisições.
+
+| Rota | antes | depois |
+|---|---:|---:|
+| `/focus` | 5068 ms (pico 10.547) | **578 ms** (pico 683) |
+| `/refining` | 2955 ms | **285 ms** |
+| `/crafting/calculator` | 2100 ms | **81 ms** |
 
 ## Notas da fase 33 — memoizar a cadeia, e o que não rendeu
 

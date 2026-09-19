@@ -170,7 +170,11 @@ async def find_refining_opportunities(
     # era um `setdefault` sobre uma consulta ordenada por `variant_index`, o que
     # significava usar sempre a variante 0 e ignorar em silêncio a que leva
     # token de facção — que muda bastante o custo.
-    todas = await recipes_repo.list_recipes(session, tracked_only=False, limit=50_000)
+    #
+    # E **só** as receitas que a cadeia alcança, não as 12.917 do jogo. O
+    # filtro estava no lugar errado: este bloco descartava 97% do que pedia,
+    # depois de o ORM ter construído os objetos. Ver `recipes_for_chain`.
+    todas = await recipes_repo.recipes_for_chain(session, [item.id for item in refinados])
     receitas: dict[int, list[Recipe]] = {}
     for receita in todas:
         receitas.setdefault(receita.output_item_id, []).append(receita)

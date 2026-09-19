@@ -262,6 +262,69 @@ cumulativos, e a diferença entre os modos continua enorme:
 `tracked_only=False` custa 1131 ms para 12.917 receitas contra 30 ms para as
 435 rastreadas.
 
+## Adendo de 19/09/2026 — o `list_recipes`, e o filtro no lugar errado
+
+> Três mudanças, medidas separadamente. **Nenhuma estrutural**: nenhum índice
+> novo, nenhuma desnormalização, nenhum cache entre requisições.
+
+### A pergunta certa era "por que o modo caro é usado"
+
+`/refining` e o calculador pediam `list_recipes(tracked_only=False)` — as
+**12.917 receitas do jogo** — e usavam algumas centenas. O chamador descartava
+**97%** do que pedia, depois de o ORM ter construído 41 mil objetos.
+
+### Mudança A — tirar um `selectinload` que voltava ao pai
+
+`options(selectinload(Recipe.materials).selectinload(RecipeMaterial.recipe))`:
+depois de carregar os materiais, ele carregava **a receita de cada material** —
+que é a receita que já estava na mão. O back-reference não é usado em lugar
+nenhum do código, e `Recipe.materials` já é `lazy="selectin"` no modelo.
+
+| | antes | depois |
+|---|---:|---:|
+| `list_recipes(tracked_only=False)` | 1781 ms | **1555 ms** |
+
+### Mudança B — pedir o fecho, não o catálogo
+
+`recipes_for_chain(seed_ids)` parte dos itens pedidos e segue os materiais até
+não achar receita nova. Na prática são **3 rodadas** — a profundidade real do
+grafo, não um número escolhido — e **411 receitas** em vez de 12.917.
+
+| | antes | depois |
+|---|---:|---:|
+| carregar as receitas | 1781 ms | **36 ms** |
+| `find_refining_opportunities(200)` | ~1900 ms | **232 ms** |
+
+**Por que não filtrar por `subcategory_code = 'refinedresources'`.** Seria mais
+simples e falharia em silêncio: **120 materiais** dessas receitas têm receita
+própria sem serem refinados — recurso bruto **encantado**, como
+`T4_WOOD_LEVEL1@1`, que se faz de `T4_WOOD` mais material de encantamento.
+Cortar ali faria a cadeia parar de descer e usar o preço de mercado do bruto
+encantado. O custo sairia diferente, sem nenhum erro aparecer. Há teste com
+esse caso.
+
+**Equivalência conferida, não suposta.** Para as 235 saídas do fecho, o conjunto
+de variantes é idêntico ao da carga completa; dos 251 itens alcançados, zero com
+receita ficaram de fora.
+
+**Não precisou de índice.** `ix_recipes_output` existe desde a migration
+inicial e é exatamente o que a consulta usa.
+
+### Mudança C — a mesma correção no calculador
+
+Era o gargalo dele desde a fase 19, com 93% do tempo numa consulta descartada.
+
+### O resultado, por HTTP
+
+| Rota | antes | depois | ganho |
+|---|---:|---:|---:|
+| `/focus` (limit=40) | 5068 ms | **578 ms** | 89% |
+| `/refining` (limit=40) | 2955 ms | **285 ms** | 90% |
+| `/crafting/calculator` | 2100 ms | **81 ms** | 96% |
+
+O pior caso de `/focus` saiu de **10.547 ms** — acima do teto de 10 s — para
+**683 ms**.
+
 ## Conclusão
 
 A escolha de calcular no servidor **não** é o gargalo e não precisa ser

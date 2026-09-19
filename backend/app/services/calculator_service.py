@@ -263,8 +263,12 @@ async def build_calculator(
     if not itens:
         return _vazio(server, familia, buy_location, sell_location, params, now)
 
-    # Receitas: todas as variantes, para o motor poder comparar.
-    todas = await recipes_repo.list_recipes(session, tracked_only=False, limit=50_000)
+    # Receitas: todas as variantes, para o motor poder comparar — e só as que
+    # esta família alcança. Pedir as 12.917 do jogo para usar as poucas de uma
+    # linha de recurso era o gargalo desta tela desde a fase 19, medido em
+    # `docs/07-desempenho.md`: 93% do tempo da requisição numa consulta cujo
+    # resultado era descartado quase inteiro.
+    todas = await recipes_repo.recipes_for_chain(session, [i.id for i in itens])
     receitas: dict[int, list] = {}
     for receita in todas:
         receitas.setdefault(receita.output_item_id, []).append(receita)
