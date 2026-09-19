@@ -107,8 +107,9 @@ async def find_crafting_opportunities(
         max_age_seconds = get_settings().freshness_stale_seconds
 
     faltando = list(resumo_taxas.missing)
-    matriz = retornos.matrices[Activity.CRAFTING]
-    if return_rate is None and not matriz.complete:
+    # A taxa agora é derivada dos bônus; o que pode faltar são os
+    # componentes, não uma célula.
+    if return_rate is None and not retornos.components.complete:
         faltando.append("crafting.return_rate")
 
     # A taxa da estação precisa do catálogo para saber o `item_value` de cada
@@ -133,7 +134,7 @@ async def find_crafting_opportunities(
         nutrition_per_item_value=NUTRITION_PER_ITEM_VALUE,
         use_focus=use_focus,
         daily_production_bonus=daily_production_bonus,
-        return_rate_source="preferencia" if return_rate is not None else "matriz",
+        return_rate_source="preferencia" if return_rate is not None else "formula",
         specialization=SpecializationUsed(**spec_out(spec)),
         fees=resumo_taxas,
         complete=not faltando,

@@ -37,6 +37,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 17 | Preço manual sobrescrevendo a cotação coletada | ✅ |
 | 18 | Layout de planilha + exportação CSV | ✅ |
 | 19 | Calculador de crafting, spec por item, lucro/dia | ✅ |
+| 20 | Retorno vira fórmula `RRR = B/(1+B)` | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -318,6 +319,46 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 20 — o retorno virou fórmula
+
+- **A matriz de valores fixos saiu; entraram os bônus e a conversão.**
+  `RRR = B ÷ (1 + B)`, com base de cidade +18%, refino da cidade +40%, craft da
+  cidade +15% e foco +59%. Guardar a tabela **e** a fórmula deixaria as duas
+  divergirem no primeiro ajuste.
+- **A contradição do item 6 era aparente.** +40% oficial e 36,7% medido não se
+  contradiziam: `0,58/1,58 = 0,367`. `B` é o que a estação soma, `RRR` é a
+  fração que volta. É por isso que o número oficial é redondo e o da comunidade
+  tem decimal.
+- **Os bônus somam antes da conversão.** Somar as taxas convertidas daria 0,954
+  onde o certo é 0,539 — quase o dobro.
+- **A fórmula corrigiu uma célula da fase 14.** Craft com bônus de cidade e foco
+  era 0,477 tabelado e é 0,479 pela fórmula. Sete das oito células fecham abaixo
+  de 0,0006; essa desviava 0,0022, dez vezes mais. O tabelado é que estava
+  impreciso.
+- **É o inverso do erro da fase 15**, e vale notar: lá eu descartei uma fórmula
+  com fonte oficial por causa de números reconstruídos. Aqui a fórmula corrige
+  um número tabelado — porque ela reproduz sete de oito, e nenhuma reconstrução
+  reproduzia mais de uma. O peso da evidência é que decide, não a ordem em que
+  ela chegou.
+- **Ilha é local de produção, não de compra.** `kind = 'island'`, inativa para
+  coleta e sem ordens de compra: ilha não tem mercado. Quem produz nela compra
+  numa cidade e carrega, e a tela trata as duas coisas como separadas. Sem a
+  base de cidade, o retorno é 0% sem Focus e 37,1% com.
+- **O bônus diário continua fora, e agora com evidência.** Somá-lo erra de 3 a 8
+  pontos, com desvio **inconstante** — o que descarta tanto a soma quanto um
+  fator fixo. Antes da fase 20 ele era somado como suposição declarada; a
+  suposição estava errada. O parâmetro é aceito e não aplicado, e volta como 0
+  na resposta para a tela poder dizer que foi ignorado. Virou o item 14 de
+  `docs/04-taxas.md`.
+- **O imposto não era bug.** Conferido: o backend escolhe
+  `market.sales_tax_pct.premium` ou `.standard` pela flag, ambos `UNKNOWN`, e o
+  formulário acopla o seletor de Premium a 4%/8%. Ponta a ponta dá 6,5% com
+  Premium e 10,5% sem.
+- **No calculador a densidade cai de propósito.** Ícones maiores no item e nos
+  materiais, botão de copiar em cada material da lista de compras, e coluna de
+  Focus junto das outras de custo. São 27 linhas de uma família, não 40 de um
+  ranking: o calculador é para examinar, não para varrer.
 
 ## Notas da fase 19 — calculador, spec por item, lucro por dia
 

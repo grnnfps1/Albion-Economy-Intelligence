@@ -22,28 +22,32 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.calculations.returns import Activity, ReturnMatrix, ReturnResolution, resolve_return_rate
+from app.calculations.returns import (
+    Activity,
+    ReturnComponents,
+    ReturnResolution,
+    resolve_return_rate,
+)
 from app.repositories import settings_repo
+from app.repositories.reference import list_locations
 from app.schemas.crafting import ReturnOut
 
 CRAFT_FAMILIES_KEY = "crafting.city_bonus_families"
 REFINE_RESOURCES_KEY = "refining.city_bonus_resources"
 UNMAPPED_KEY = "crafting.city_bonus_unmapped"
 
-MATRIX_KEYS = {
-    Activity.REFINING: (
-        "refining.return_rate.bonus.base",
-        "refining.return_rate.bonus.focus",
-        "refining.return_rate.base",
-        "refining.return_rate.focus",
-    ),
-    Activity.CRAFTING: (
-        "crafting.return_rate.bonus.base",
-        "crafting.return_rate.bonus.focus",
-        "crafting.return_rate.base",
-        "crafting.return_rate.focus",
-    ),
-}
+# Os quatro componentes de `B`. A matriz de valores fixos da fase 14 saiu na
+# fase 20: o que se guarda agora é o bônus oficial, e a taxa é derivada.
+COMPONENT_KEYS = (
+    "crafting.return_bonus.city_base",
+    "refining.return_bonus.city",
+    "crafting.return_bonus.city",
+    "crafting.return_bonus.focus",
+)
+
+# Locais sem a base de cidade. Quem refina em ilha tem 0% sem Focus e 37,1%
+# com — é o que a base zerada produz.
+ISLAND_KINDS = frozenset({"island"})
 
 # `T5_PLANKS_LEVEL2@2` -> `PLANKS`. O mesmo formato que o refino já usava.
 _FAMILIA = re.compile(r"^T\d_([A-Z]+?)(?:_LEVEL\d+)?(?:@\d)?$")
@@ -89,7 +93,8 @@ class CityBonus:
 
 @dataclass
 class ReturnPolicy:
-    matrices: dict[Activity, ReturnMatrix]
+    components: ReturnComponents = field(default_factory=ReturnComponents)
+    island_slugs: frozenset[str] = frozenset()
     craft_families: dict[str, list[str]] = field(default_factory=dict)
     refine_resources: dict[str, list[str]] | None = None
     unmapped: dict[str, list[str]] = field(default_factory=dict)
@@ -131,36 +136,53 @@ class ReturnPolicy:
 
         A segunda parte é a pergunta que as telas deviam responder e não
         respondiam: *onde* refinar ou craftar isto rende mais, e quanto muda.
+
+        `daily_bonus` é **aceito e não aplicado**, de propósito — ver
+        `calculations/returns.py`. Somá-lo não reproduz as colunas publicadas
+        (erro de 3 a 8 pontos, desvio inconstante), e aplicar uma composição
+        que se sabe errada seria inventar número. O parâmetro continua na
+        assinatura para a resposta poder dizer que ele foi ignorado, em vez de
+        sumir sem explicação.
         """
-        matriz = self.matrices.get(activity, ReturnMatrix())
         cidade_bonus = self.bonus_city(activity, unique_name)
         tem_bonus = cidade_bonus is not None and cidade_bonus == city_slug
+        na_ilha = city_slug in self.island_slugs
 
-        atual = resolve_return_rate(matriz, tem_bonus, use_focus, daily_bonus, override)
+        atual = resolve_return_rate(
+            self.components, activity, tem_bonus, use_focus, na_ilha, override
+        )
 
-        # Quanto renderia na cidade do bônus, com os mesmos parâmetros.
+        # Quanto renderia na cidade do bônus, com os mesmos parâmetros. A ilha
+        # nunca é a cidade do bônus, então a comparação sai de uma cidade real.
         if cidade_bonus is None:
             melhor = CityBonus(None, atual.rate, None)
         else:
-            la = resolve_return_rate(matriz, True, use_focus, daily_bonus, override)
+            la = resolve_return_rate(
+                self.components, activity, True, use_focus, False, override
+            )
             melhor = CityBonus(cidade_bonus, atual.rate, la.rate)
 
         return atual, melhor
 
 
 async def load_return_policy(session: AsyncSession) -> ReturnPolicy:
-    chaves = [k for chaves in MATRIX_KEYS.values() for k in chaves]
     valores = await settings_repo.get_values(
-        session, [*chaves, CRAFT_FAMILIES_KEY, REFINE_RESOURCES_KEY, UNMAPPED_KEY]
+        session,
+        [*COMPONENT_KEYS, CRAFT_FAMILIES_KEY, REFINE_RESOURCES_KEY, UNMAPPED_KEY],
+    )
+    componentes = ReturnComponents(*(valores.get(chave) for chave in COMPONENT_KEYS))
+
+    # Quais locais são ilha. Vem do cadastro e não de uma lista aqui: o dia em
+    # que existir um segundo tipo sem base de cidade, ele entra pelo `kind`.
+    ilhas = frozenset(
+        local.slug
+        for local in await list_locations(session, only_active=False)
+        if local.kind in ISLAND_KINDS
     )
 
-    matrices = {
-        atividade: ReturnMatrix(*(valores.get(chave) for chave in chaves_atividade))
-        for atividade, chaves_atividade in MATRIX_KEYS.items()
-    }
-
     return ReturnPolicy(
-        matrices=matrices,
+        components=componentes,
+        island_slugs=ilhas,
         craft_families=valores.get(CRAFT_FAMILIES_KEY) or {},
         refine_resources=valores.get(REFINE_RESOURCES_KEY),
         unmapped=valores.get(UNMAPPED_KEY) or {},
@@ -179,8 +201,11 @@ def return_out(
         source=resolucao.source,
         has_city_bonus=resolucao.has_city_bonus,
         use_focus=resolucao.use_focus,
-        daily_bonus=resolucao.daily_bonus,
-        matrix_rate=resolucao.matrix_rate,
+        # O bônus diário é sempre 0 na resposta: ele é aceito e não aplicado.
+        daily_bonus=0.0,
+        matrix_rate=resolucao.formula_rate,
+        bonus_total=resolucao.bonus_total,
+        is_island=resolucao.is_island,
         best_city=melhor.city_slug,
         best_city_name=nomes.get(melhor.city_slug or "", melhor.city_slug),
         rate_at_best_city=melhor.rate_there,

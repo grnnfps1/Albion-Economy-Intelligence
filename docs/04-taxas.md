@@ -15,9 +15,11 @@
 >    há anúncio oficial, não há validação independente, e um erro de 2 pontos
 >    numa margem de 8% inverte o sinal do lucro. Continuam `NULL`/`UNKNOWN` no
 >    banco.
-> 2. **Item 6 — retorno de material.** Tem procedência de comunidade, e exige
->    amostragem grande por ser sorteado por unidade.
-> 3. **Itens 7 a 10 — agricultura.**
+> 2. ~~**Item 6 — retorno de material.**~~ **Fechado em 19/09/2026**: a
+>    contradição entre os +40% oficiais e os 36,7% medidos era aparente, e
+>    `RRR = B/(1+B)` reproduz os cenários publicados.
+> 3. **Itens 7 a 10 — agricultura**, e o **item 14** (bônus diário), que a
+>    tentativa da fase 20 não resolveu.
 > 4. **Item 11 — taxa da estação.** Já foi prioridade 1; **deixou de ser.**
 >    Ganhou confirmação independente em duas abas da planilha do Albion VIP,
 >    além do anúncio oficial da Sandbox. A medição continua valendo — é a única
@@ -75,83 +77,91 @@ Cinco medições, todas de dentro do cliente:
 Com 100.000 de valor, cada ponto percentual são 1.000 de prata — a diferença é
 visível a olho nu no log de transações.
 
-## Item 6 — retorno de material: de "sem fonte" para estimativa de alta fidelidade
+## Item 6 — retorno de material: RESOLVIDO pela fórmula
 
-> **Status em 16/09/2026:** os números estão gravados e os cálculos rodam. O item
-> **continua aberto**, porque nada disto foi medido dentro do jogo.
+> **Status em 19/09/2026: fechado.** A contradição que mantinha este item aberto
+> era **aparente**, e a fórmula que a desfaz reproduz todos os cenários
+> publicados. O que continua em aberto é só o bônus diário, que virou item 14.
 
-### A matriz
+### A contradição era aparente
 
-| Atividade | Local | Sem Focus | Com Focus |
+O impasse era este: a documentação oficial fala em **+40% de bônus** de refino
+na cidade do recurso, e a comunidade mede **36,7% de retorno**. Por dois meses
+isto ficou registrado como "36,7% e 40% não se contradizem, mas não sabemos a
+conversão".
+
+A conversão é:
+
+```
+RRR = B ÷ (1 + B)
+```
+
+`0,58 ÷ 1,58 = 0,367`. Os dois números medem coisas diferentes, e agora está
+claro quais: **`B` é o que a estação soma** e **`RRR` é a fração das unidades
+que volta**. É por isso que o número oficial é redondo e o da comunidade tem
+decimal — um é parâmetro, o outro é resultado.
+
+### Os quatro componentes
+
+| Componente | Valor | Quando entra | Chave |
 |---|---|---|---|
-| Refino | cidade com bônus do recurso | **0,367** | **0,539** |
-| Refino | sem bônus | 0,152 | 0,435 |
-| Craft | cidade com bônus do item | **0,248** | **0,477** |
-| Craft | sem bônus | 0,152 | 0,435 |
+| base de cidade | **+18%** | sempre, exceto em ilha | `crafting.return_bonus.city_base` |
+| refino da cidade | **+40%** | refinando na cidade do recurso | `refining.return_bonus.city` |
+| craft da cidade | **+15%** | craftando na cidade da família | `crafting.return_bonus.city` |
+| foco | **+59%** | com Focus | `crafting.return_bonus.focus` |
 
-`source`, gravado em cada uma das oito chaves:
+Os bônus **somam antes da conversão**, não depois. Somar as taxas convertidas
+daria `0,152 + 0,367 + 0,435 = 0,954`, que é quase o dobro do correto.
 
-```
-engenharia reversa da comunidade (logs de transacao + simulacao de alta
-amostragem); albioncodex, albionfreemarket, albiononlinegrind; consultado em
-16/09/2026; nao auditado contra codigo da Sandbox
-```
+### Conferência contra o que a comunidade mediu
 
-### Por que 36,7% e não 40%
+| Cenário | B | Fórmula | Medido | Desvio |
+|---|---|---|---|---|
+| refino, sem bônus, sem foco | 0,18 | 0,15254 | 0,152 | +0,00054 |
+| refino, com bônus, sem foco | 0,58 | 0,36709 | 0,367 | +0,00009 |
+| refino, sem bônus, com foco | 0,77 | 0,43503 | 0,435 | +0,00003 |
+| refino, com bônus, com foco | 1,17 | 0,53917 | 0,539 | +0,00017 |
+| craft, com bônus, sem foco | 0,33 | 0,24812 | 0,248 | +0,00012 |
+| **craft, com bônus, com foco** | **0,92** | **0,47917** | **0,477** | **+0,00217** |
+| ilha, sem foco | 0,00 | 0,00000 | 0 | 0 |
+| ilha, com foco | 0,59 | 0,37107 | 0,371 | +0,00007 |
 
-A documentação oficial cita **+40%** e a comunidade mediu **36,7%**. Os dois
-estão certos: **não descrevem a mesma coisa.**
+**Sete dos oito fecham abaixo de 0,0006.** O oitavo — craft com bônus de cidade
+**e** foco — desvia **0,0022**, dez vezes mais que qualquer outro. Conclusão: é
+o valor que a fase 14 tabelou que estava impreciso, não a fórmula. A célula
+passou a valer **0,479**.
 
-- O número oficial é o **bônus bruto** da estação — o modificador que o jogo
-  aplica.
-- O número da comunidade é o **efeito realizado**: quanto do material de fato
-  volta para o inventário, depois de como o retorno é sorteado por unidade e
-  arredondado.
+Isso é o oposto do que aconteceu no item 11: lá eu descartei uma fórmula com
+fonte oficial por causa de números reconstruídos; aqui a fórmula corrige um
+número tabelado. A diferença é que a fórmula reproduz sete de oito, e nenhuma
+reconstrução reproduzia mais de uma.
 
-É por isso que os números da comunidade têm casa decimal e o oficial é redondo:
-um é parâmetro de sistema, o outro é resultado medido. Usar 40% no cálculo
-superestimaria o retorno em ~9% relativos — e superestimar retorno é
-superestimar lucro, que é o lado errado de errar neste projeto.
+### Ilha
 
-### O bônus por cidade
+Ilha não tem a base de cidade — `B` começa em zero. Consequência direta:
 
-Refino segue o **recurso**, que segue o bioma:
+- **sem Focus: 0% de retorno.** Nada volta;
+- **com Focus: 37,1%** (`0,59 ÷ 1,59`).
 
-| Cidade | Recurso |
-|---|---|
-| Fort Sterling | madeira / tábuas |
-| Lymhurst | fibra / tecido |
-| Bridgewatch | pedra / blocos |
-| Martlock | couro / peles curtidas |
-| Thetford | minério / barras |
-| Caerleon | nenhum dos cinco básicos |
+Ela entra no cadastro como local com `kind = 'island'`, **inativa para coleta**
+e sem ordens de compra: ilha não tem mercado. É escolha de *onde produzir*, não
+de *onde comprar* — quem produz na ilha compra numa cidade e carrega, e a tela
+trata as duas como coisas separadas.
 
-Craft segue a **família do item**, que é outra divisão. Conferido: em 9 de 9
-peças de armadura, a cidade que refina o material **não** é a que dá bônus para
-craftá-la. Isso não é inconsistência entre as duas tabelas — é o que obriga o
-material a viajar.
+### O que mudou no código
 
-Fonte do mapeamento de refino: guia oficial de refino da Albion Online +
-tabelas de bônus locais de albiononlinegrind, consultados em 16/09/2026.
+A matriz de oito células saiu de `config_parameters` (migration 0011). Guardar a
+tabela **e** a fórmula deixaria as duas divergirem no primeiro ajuste; agora se
+guarda o parâmetro e deriva-se o resultado. `calculations/returns.py` é a
+fórmula, e a resposta carrega `bonus_total` para a conta poder ser refeita na
+mão.
 
-### O que continua aberto
+## Item 15 — quais materiais retornam
 
-1. **Medição direta no jogo.** Refinar um lote de tamanho conhecido na cidade
-   com bônus e fora dela, com e sem Focus, e contar o material devolvido. É o
-   que troca "estimativa de alta fidelidade" por "medido".
-2. **O bônus de Focus.** A matriz traz o resultado com Focus, mas não a fórmula:
-   não se sabe se o Focus multiplica o bônus da cidade ou soma a ele.
-3. **O bônus diário de produção** (0, 10% ou 20%). O cálculo o soma à célula da
-   matriz. A soma é a leitura mais simples e **não foi verificada**.
-4. **Famílias de craft não mapeadas.** "Cajados de quartzo" não existe no dump; o
-   candidato é `2H_QUARTERSTAFF` e a tradução não confirma. As linhas HALBERD,
-   SCYTHE, GLAIVE, CLAWPAIR, FLAIL, KNUCKLES, SHAPESHIFTER e as de bastão também
-   ficaram sem confirmação. Todas caem no retorno sem bônus — errar para menos.
+> Pergunta diferente da do item 6, e por isso continua aberta. O item 6 era
+> *qual é a taxa*; este é *sobre o que ela incide*.
 
-## Sexto item para verificar: retorno de material
-
-Além das cinco medições acima, a classificação de **quais materiais retornam** no
-craft não foi verificada. O importador hoje trata `resources` e
+A classificação de **quais materiais retornam** no craft não foi verificada. O importador hoje trata `resources` e
 `refinedresources` como elegíveis, e deixa `cityresources` de fora — é onde o
 dump coloca os tokens de facção.
 
@@ -471,6 +481,37 @@ pior que nenhum padrão.
 O item 11 **continua** valendo como medição, e agora com um segundo motivo:
 além de confirmar a fórmula sem depender de planilha de terceiro, ele é o que
 destrava o cálculo para quem ainda não informou.
+
+## Item 14 — bônus diário de produção: tentado e NÃO resolvido
+
+> Tentado em **19/09/2026**. Fica aberto, e o registro aqui é da tentativa, não
+> de uma conclusão.
+
+O jogo sorteia um bônus diário de produção, e o dump traz `@activefarmbonus`.
+A pergunta era se ele entra em `B` como mais um componente, do mesmo jeito que
+os outros quatro.
+
+**Não entra por soma.** Testado contra as colunas publicadas: o erro vai de **3
+a 8 pontos percentuais**, e — o que decide — **o desvio é inconstante**. Um
+erro constante sugeriria uma parcela faltando; um erro proporcional sugeriria um
+fator. Um erro que varia sem padrão não sugere nenhuma das duas, e não há o que
+calibrar.
+
+Também não foi possível descartar que as colunas publicadas misturem cenários
+diferentes, o que explicaria a inconstância sem que a soma esteja errada. Sem
+saber disso, qualquer composição seria escolhida por caber nos números — e não
+por ser a mecânica.
+
+**Por isso o parâmetro é aceito e não aplicado.** `daily_production_bonus`
+continua na assinatura das rotas e volta como `0` na resposta, para a tela poder
+dizer que ele foi ignorado em vez de ele sumir sem explicação. Antes da fase 20
+ele era **somado à célula da matriz**, declarado como suposição; a evidência
+acima mostra que a suposição estava errada, e aplicar uma composição que se sabe
+errada é pior que não aplicar nenhuma.
+
+O que destravaria: as colunas publicadas com o cenário de cada uma (cidade,
+Focus, atividade), ou uma medição direta — dois dias seguidos com o mesmo item,
+mesmo local e bônus diário diferente.
 
 ### Bug corrigido de carona
 

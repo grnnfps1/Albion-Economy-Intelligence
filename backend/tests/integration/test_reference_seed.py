@@ -90,31 +90,46 @@ async def test_taxas_de_mercado_continuam_null_e_nao_zero(migrated_connection):
         assert source == "UNKNOWN"
 
 
-async def test_retorno_tem_valor_e_procedencia_por_extenso(migrated_connection):
-    """A matriz de retorno tem número — e por isso **precisa** ter fonte.
+async def test_bonus_de_retorno_tem_valor_e_procedencia(migrated_connection):
+    """Os componentes da fórmula têm número — e por isso **precisam** ter fonte.
 
     A regra nunca foi "tudo NULL": era "nenhum número sem procedência". Estes
-    vieram de engenharia reversa da comunidade, não de medição no jogo, e a
-    string de `source` diz as duas coisas. Um valor com `source = 'UNKNOWN'`
-    seria o chute que o requisito 52 proíbe.
+    são os bônus oficiais, e a fórmula que os converte em taxa foi conferida
+    contra os cenários publicados. A string de `source` diz as duas coisas.
+
+    Substituiu a guarda da matriz de quatro células da fase 14: a matriz saiu
+    na fase 20, quando a tabela virou fórmula.
     """
     rows = (
         await migrated_connection.execute(
             text(
                 "SELECT key, value, source FROM config_parameters "
-                "WHERE key LIKE '%.return_rate.%'"
+                "WHERE key LIKE '%.return_bonus.%'"
             )
         )
     ).all()
-    assert len(rows) == 8, "a matriz é 2 atividades x 2 locais x 2 estados de Focus"
+    assert len(rows) == 4, "base de cidade, refino, craft e foco"
 
     for key, value, source in rows:
         assert value is not None, f"{key} ficou sem valor"
-        assert 0 < float(value) < 1, f"{key} fora da faixa de uma taxa de retorno"
+        assert 0 < float(value) < 1, f"{key} fora da faixa de um bônus"
         assert source != "UNKNOWN", f"{key} tem número sem procedência"
-        # A procedência precisa dizer de onde veio e quando.
         assert "consultado em" in source, f"{key} não diz a data da consulta"
-        assert "nao auditado" in source, f"{key} não diz o que ficou por verificar"
+        assert "verificad" in source, f"{key} não diz como foi conferido"
+
+
+async def test_a_matriz_de_valores_fixos_saiu(migrated_connection):
+    """A fase 20 removeu as oito células.
+
+    Mantê-las convidaria alguém a preencher um valor que o motor não lê mais —
+    e a divergir em silêncio da fórmula.
+    """
+    rows = (
+        await migrated_connection.execute(
+            text("SELECT key FROM config_parameters WHERE key LIKE '%.return_rate.%'")
+        )
+    ).all()
+    assert rows == []
 
 
 async def test_bonus_de_refino_cobre_as_cinco_linhas_de_recurso(migrated_connection):

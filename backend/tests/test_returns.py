@@ -1,144 +1,137 @@
-"""A matriz de retorno e a cidade que rende mais.
+"""Taxa de retorno: a fórmula `RRR = B / (1 + B)`.
 
-O que estes testes protegem: que a cidade deixe de ser invisível na conta. Com
-um valor único de retorno, a diferença entre refinar em Thetford e refinar em
-Caerleon não aparecia em lugar nenhum.
+Até a fase 19 isto era uma tabela de valores medidos. A fase 20 guarda os
+bônus oficiais e deriva a taxa — e os testes abaixo são, antes de tudo, a
+conferência de que a fórmula reproduz o que a comunidade mediu.
 """
 
 import pytest
 
 from app.calculations.returns import (
     Activity,
-    ReturnMatrix,
+    ReturnComponents,
     resolve_return_rate,
+    rrr_from_bonus,
+    total_bonus,
 )
-from app.services.return_service import ReturnPolicy, base_token, family_of
 
-REFINO = ReturnMatrix(bonus_base=0.367, bonus_focus=0.539, base=0.152, focus=0.435)
-CRAFT = ReturnMatrix(bonus_base=0.248, bonus_focus=0.477, base=0.152, focus=0.435)
-
-POLITICA = ReturnPolicy(
-    matrices={Activity.REFINING: REFINO, Activity.CRAFTING: CRAFT},
-    craft_families={
-        "bridgewatch": ["ARMOR_PLATE", "2H_CROSSBOW"],
-        "lymhurst": ["2H_BOW", "MAIN_SWORD"],
-    },
-    refine_resources={
-        "thetford": ["ORE", "METALBAR"],
-        "fort-sterling": ["WOOD", "PLANKS"],
-        "caerleon": [],
-    },
+# Os quatro bônus oficiais.
+OFICIAIS = ReturnComponents(
+    city_base=0.18, refining_city=0.40, crafting_city=0.15, focus=0.59
 )
 
 
-def test_a_celula_certa_por_cidade_e_focus():
-    assert REFINO.cell(has_city_bonus=True, use_focus=False) == 0.367
-    assert REFINO.cell(has_city_bonus=True, use_focus=True) == 0.539
-    assert REFINO.cell(has_city_bonus=False, use_focus=False) == 0.152
-    assert REFINO.cell(has_city_bonus=False, use_focus=True) == 0.435
+def taxa(activity, bonus_cidade, foco, ilha=False, override=None):
+    return resolve_return_rate(OFICIAIS, activity, bonus_cidade, foco, ilha, override)
 
 
-def test_mudar_de_cidade_rende_mais_que_ficar_sem_focus():
-    """A decisão que o valor único escondia.
+class TestAFormulaReproduzOMedido:
+    """A conferência que justifica trocar a tabela pela fórmula."""
 
-    Refinar na cidade certa sem Focus (0,367) rende mais que o dobro de refinar
-    na cidade errada sem Focus (0,152).
-    """
-    certa = resolve_return_rate(REFINO, has_city_bonus=True, use_focus=False).rate
-    errada = resolve_return_rate(REFINO, has_city_bonus=False, use_focus=False).rate
-    assert certa > errada * 2
-
-
-def test_bonus_diario_soma_a_celula():
-    resolvido = resolve_return_rate(REFINO, True, True, daily_bonus=0.20)
-    assert resolvido.rate == pytest.approx(0.739)
-    assert resolvido.matrix_rate == 0.539
-    assert resolvido.daily_bonus == 0.20
-
-
-def test_taxa_nunca_passa_de_um():
-    """Célula alta mais bônus diário não pode virar retorno acima de 100%."""
-    assert resolve_return_rate(REFINO, True, True, daily_bonus=0.9).rate == 1.0
-
-
-def test_preferencia_do_usuario_sobrescreve_a_matriz():
-    """Sobrescrita opcional, não valor primário."""
-    resolvido = resolve_return_rate(REFINO, True, True, override=0.20)
-    assert resolvido.rate == pytest.approx(0.20)
-    assert resolvido.source == "preferencia"
-    # A célula continua na resposta, para dar para comparar.
-    assert resolvido.matrix_rate == 0.539
-
-
-def test_celula_desconhecida_vira_unknown_e_nao_zero():
-    vazia = ReturnMatrix()
-    resolvido = resolve_return_rate(vazia, True, True)
-    assert resolvido.rate is None
-    assert resolvido.known is False
-    assert resolvido.source == "UNKNOWN"
-
-
-def test_familia_de_recurso_sai_do_nome():
-    assert family_of("T5_PLANKS") == "PLANKS"
-    assert family_of("T5_PLANKS_LEVEL2@2") == "PLANKS"
-    assert family_of("UNIQUE_HIDEOUT") is None
-
-
-def test_token_base_ignora_tier_e_encantamento():
-    assert base_token("T4_2H_BOW@1") == "2H_BOW"
-    assert base_token("T8_ARMOR_PLATE_SET3") == "ARMOR_PLATE_SET3"
-
-
-def test_bonus_de_refino_segue_o_recurso():
-    assert POLITICA.bonus_city(Activity.REFINING, "T5_METALBAR") == "thetford"
-    assert POLITICA.bonus_city(Activity.REFINING, "T4_PLANKS@2") == "fort-sterling"
-    # Couro não está no mapa desta fixture: sem bônus, não um bônus inventado.
-    assert POLITICA.bonus_city(Activity.REFINING, "T5_LEATHER") is None
-
-
-def test_caerleon_sem_bonus_e_afirmacao_e_nao_lacuna():
-    """Lista vazia no mapa é diferente de a cidade não estar no mapa."""
-    assert POLITICA.bonus_city(Activity.REFINING, "T5_METALBAR") != "caerleon"
-
-
-def test_bonus_de_craft_casa_por_prefixo_e_nao_por_substring():
-    """`2H_BOW` não pode pegar `2H_CROSSBOW`, que é de outra cidade."""
-    assert POLITICA.bonus_city(Activity.CRAFTING, "T6_2H_BOW") == "lymhurst"
-    assert POLITICA.bonus_city(Activity.CRAFTING, "T6_2H_CROSSBOW") == "bridgewatch"
-    assert POLITICA.bonus_city(Activity.CRAFTING, "T6_2H_BOW_AVALON") == "lymhurst"
-
-
-def test_item_sem_familia_mapeada_fica_sem_bonus():
-    """Errar para menos retorno é o lado conservador."""
-    assert POLITICA.bonus_city(Activity.CRAFTING, "T6_2H_QUARTERSTAFF") is None
-
-
-def test_resolve_devolve_a_cidade_que_renderia_mais():
-    atual, melhor = POLITICA.resolve(
-        Activity.REFINING, "T5_METALBAR", city_slug="caerleon", use_focus=False
+    @pytest.mark.parametrize(
+        "atividade,bonus,foco,medido",
+        [
+            (Activity.REFINING, False, False, 0.152),
+            (Activity.REFINING, True, False, 0.367),
+            (Activity.REFINING, False, True, 0.435),
+            (Activity.REFINING, True, True, 0.539),
+            (Activity.CRAFTING, False, False, 0.152),
+            (Activity.CRAFTING, True, False, 0.248),
+            (Activity.CRAFTING, False, True, 0.435),
+        ],
     )
-    assert atual.rate == 0.152
-    assert melhor.city_slug == "thetford"
-    assert melhor.rate_there == 0.367
-    assert melhor.delta == pytest.approx(0.215, abs=0.0001)
-    assert melhor.is_here is False
+    def test_cenarios_publicados(self, atividade, bonus, foco, medido):
+        assert taxa(atividade, bonus, foco).rate == pytest.approx(medido, abs=0.001)
+
+    def test_a_celula_que_a_formula_corrigiu(self):
+        """Craft com bônus de cidade **e** foco.
+
+        A fase 14 gravou 0,477; a fórmula dá 0,4792. O desvio é dez vezes o de
+        qualquer outra célula (todas abaixo de 0,0006), então é o valor tabelado
+        que estava impreciso — não a fórmula.
+        """
+        assert taxa(Activity.CRAFTING, True, True).rate == pytest.approx(0.4792, abs=0.0005)
 
 
-def test_quando_ja_se_esta_na_cidade_certa_nao_ha_o_que_recomendar():
-    atual, melhor = POLITICA.resolve(
-        Activity.REFINING, "T5_METALBAR", city_slug="thetford", use_focus=False
-    )
-    assert atual.rate == 0.367
-    assert melhor.city_slug == "thetford"
-    assert melhor.is_here is True
-    assert melhor.delta == 0
+class TestOImpasseEraAparente:
+    def test_quarenta_por_cento_de_bonus_dao_36_7_de_retorno(self):
+        """A doc oficial diz +40%; a comunidade mede 36,7%. Os dois estão certos.
+
+        O bônus é o que a estação soma; o retorno é a fração que volta. `B/(1+B)`
+        é a conversão entre os dois, e é por isso que o número da comunidade tem
+        decimal.
+        """
+        assert rrr_from_bonus(0.18 + 0.40) == pytest.approx(0.367, abs=0.001)
 
 
-def test_sem_mapeamento_de_refino_nao_ha_recomendacao():
-    """UNKNOWN precisa chegar à tela como 'não levantado', não como 'sem bônus'."""
-    sem_mapa = ReturnPolicy(matrices={Activity.REFINING: REFINO}, refine_resources=None)
-    _atual, melhor = sem_mapa.resolve(
-        Activity.REFINING, "T5_METALBAR", city_slug="caerleon", use_focus=False
-    )
-    assert melhor.city_slug is None
-    assert melhor.known is False
+class TestIlha:
+    def test_ilha_sem_foco_nao_devolve_nada(self):
+        """Sem a base de cidade, `B = 0` e o retorno é zero de verdade."""
+        resultado = taxa(Activity.REFINING, False, False, ilha=True)
+        assert resultado.rate == 0.0
+        assert resultado.is_island is True
+
+    def test_ilha_com_foco(self):
+        assert taxa(Activity.REFINING, False, True, ilha=True).rate == pytest.approx(
+            0.371, abs=0.001
+        )
+
+    def test_ilha_rende_menos_que_cidade_nos_dois_casos(self):
+        for foco in (False, True):
+            assert (
+                taxa(Activity.REFINING, False, foco, ilha=True).rate
+                < taxa(Activity.REFINING, False, foco).rate
+            )
+
+
+class TestComposicao:
+    def test_os_bonus_somam_antes_da_conversao(self):
+        """É a diferença entre somar bônus e somar taxas."""
+        b = total_bonus(OFICIAIS, Activity.REFINING, True, True)
+        assert b == pytest.approx(1.17)
+        # Somar as taxas daria 0,152 + 0,367 + 0,435, que passa de 1.
+        assert taxa(Activity.REFINING, True, True).rate < 1
+
+    def test_refino_e_craft_usam_bonus_de_cidade_diferentes(self):
+        assert total_bonus(OFICIAIS, Activity.REFINING, True, False) == pytest.approx(0.58)
+        assert total_bonus(OFICIAIS, Activity.CRAFTING, True, False) == pytest.approx(0.33)
+
+    def test_a_taxa_nunca_passa_de_um(self):
+        """Propriedade da fórmula: protege contra bônus absurdo."""
+        assert rrr_from_bonus(1e9) < 1
+        assert rrr_from_bonus(0) == 0
+
+
+class TestParametroAusente:
+    def test_componente_faltando_e_unknown_e_nao_zero(self):
+        incompleto = ReturnComponents(city_base=0.18, focus=0.59)
+        resultado = resolve_return_rate(incompleto, Activity.REFINING, True, True)
+        assert resultado.known is False
+        assert resultado.source == "UNKNOWN"
+
+    def test_o_que_falta_e_nomeado(self):
+        incompleto = ReturnComponents(city_base=0.18)
+        assert "refining.return_bonus.city" in incompleto.missing()
+
+
+class TestSobrescrita:
+    def test_preferencia_do_usuario_vence_a_formula(self):
+        resultado = taxa(Activity.REFINING, True, True, override=0.62)
+        assert resultado.rate == 0.62
+        assert resultado.source == "preferencia"
+
+    def test_a_taxa_da_formula_continua_visivel_para_comparar(self):
+        resultado = taxa(Activity.REFINING, True, True, override=0.62)
+        assert resultado.formula_rate == pytest.approx(0.539, abs=0.001)
+
+    def test_sobrescrita_e_limitada_a_faixa(self):
+        assert taxa(Activity.REFINING, False, False, override=5).rate == 1.0
+        assert taxa(Activity.REFINING, False, False, override=-1).rate == 0.0
+
+
+class TestAuditoria:
+    def test_a_resposta_carrega_o_b_para_conferencia(self):
+        """`rate` sozinho não é conferível; com `B` a conta se refaz na mão."""
+        resultado = taxa(Activity.REFINING, True, False)
+        assert resultado.bonus_total == pytest.approx(0.58)
+        assert resultado.source == "formula"

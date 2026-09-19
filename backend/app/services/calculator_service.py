@@ -119,6 +119,7 @@ async def build_calculator(
     return_rate: float | None,
     use_focus: bool,
     daily_production_bonus: float,
+    produce_on_island: bool = False,
     spec_levels: dict[str, int] | None,
     spec_item_levels: dict[str, int] | None,
     focus_per_day: float | None,
@@ -227,10 +228,13 @@ async def build_calculator(
 
     # O bônus de refino segue o recurso, e o recurso é o mesmo da família
     # inteira — basta resolver uma vez.
+    # Onde se **produz**, que não é onde se compra: quem produz na ilha compra
+    # os materiais numa cidade e carrega. A ilha zera a base de cidade.
+    local_de_producao = "island" if produce_on_island else buy_location
     retorno, melhor_cidade = retornos.resolve(
         Activity.REFINING,
         itens[0].unique_name,
-        city_slug=buy_location,
+        city_slug=local_de_producao,
         use_focus=use_focus,
         daily_bonus=daily_production_bonus,
         override=return_rate,

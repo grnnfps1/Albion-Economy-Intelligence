@@ -36,6 +36,16 @@ const GRUPOS = [
     ],
   },
   {
+    // Onde se **produz**, que não é onde se compra: ilha não tem mercado, então
+    // quem produz nela compra numa cidade e carrega.
+    chave: "produce_on_island",
+    padrao: "false",
+    opcoes: [
+      { valor: "false", rotulo: "na cidade" },
+      { valor: "true", rotulo: "na ilha" },
+    ],
+  },
+  {
     chave: "quantity",
     padrao: "100",
     opcoes: [10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
@@ -57,6 +67,12 @@ const COLUNAS: SheetColumn[] = [
   { label: "material", width: "num", title: "já com o retorno descontado" },
   { label: "taxa da loja", width: "num", title: "item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
   { label: "taxa de venda", width: "num", title: "imposto + setup fee sobre a receita bruta" },
+  {
+    label: "focus",
+    width: "num",
+    title:
+      "custo em Focus das unidades pedidas, já reduzido pela sua especialização. Fica entre as colunas de custo porque é custo — só não é em prata.",
+  },
   { label: "custo de produção", width: "num" },
   { label: "receita bruta", width: "num" },
   { label: "lucro", width: "num" },
@@ -267,11 +283,14 @@ function Linha({
 
       <td className="l">
         <span className="flex min-w-0 items-center gap-2">
+          {/* Maior que nas telas de ranking, e de propósito. A densidade cai
+              e aqui isso é aceitável: são 27 linhas de uma família, não 40 de
+              um ranking — o calculador é para examinar, não para varrer. */}
           <ItemIcon
             url={linha.icon_url}
             alt={linha.item_name ?? linha.item}
             tier={linha.tier}
-            size={22}
+            size={38}
           />
           <span className="min-w-0">
             <span className="flex min-w-0 items-center">
@@ -281,7 +300,7 @@ function Linha({
             {/* Os materiais ficam aqui, com o badge dizendo quanto comprar.
                 Não repetimos a receita em texto: as colunas de material já
                 são a receita, e repetir gasta a largura das de decisão. */}
-            <span className="mt-px flex items-center gap-1.5">
+            <span className="mt-1 flex items-center gap-2.5">
               {linha.materials.map((m) => (
                 <Material
                   key={m.item}
@@ -316,6 +335,25 @@ function Linha({
       } />
       <Numero valor={linha.station_fee} />
       <Numero valor={linha.sale_fee} />
+
+      {/* Focus é custo, e por isso fica junto dos outros custos — só não entra
+          no custo de produção, porque não é prata. Prata/focus vem abaixo
+          porque é a razão que compara linhas. */}
+      <td title="focus das unidades pedidas, já com a sua especialização">
+        {linha.focus_cost === 0 ? (
+          <span className="text-[10.5px] text-dim">—</span>
+        ) : (
+          <>
+            <span className="figure">{formatSilver(linha.focus_cost)}</span>
+            {linha.profit_per_focus !== null && (
+              <span className="lbl mt-px block">
+                {formatSilver(linha.profit_per_focus)} /focus
+              </span>
+            )}
+          </>
+        )}
+      </td>
+
       <Numero valor={linha.production_cost} />
       <Numero valor={linha.gross_revenue} />
 
@@ -411,18 +449,27 @@ function Material({
         alt={material.item_name ?? material.item}
         tier={tier}
         quantity={material.buy_units}
-        size={18}
+        size={30}
       />
-      <PriceInput
-        server={server}
-        location={material.location ?? buyLocation}
-        item={material.item}
-        kind="COMPRA"
-        value={material.unit_price}
-        collected={material.collected_price}
-        isManual={material.price_is_manual}
-        ageSeconds={material.age_seconds}
-      />
+      <span className="flex flex-col items-end">
+        <PriceInput
+          server={server}
+          location={material.location ?? buyLocation}
+          item={material.item}
+          kind="COMPRA"
+          value={material.unit_price}
+          collected={material.collected_price}
+          isManual={material.price_is_manual}
+          ageSeconds={material.age_seconds}
+        />
+        {/* Copiar o nome em português, como nas outras telas: é o que a busca
+            do mercado no jogo entende. Aqui ele importa mais que em qualquer
+            outra tela, porque esta lista é literalmente a lista de compras. */}
+        <span className="flex items-center gap-px text-[9px] text-dim">
+          <span>comprar {formatSilver(material.buy_units)}</span>
+          <CopyButton name={material.item_name} id={material.item} />
+        </span>
+      </span>
     </HoverTip>
   );
 }

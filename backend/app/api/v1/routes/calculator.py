@@ -47,7 +47,15 @@ async def calculator(
     return_rate: float | None = Query(
         None, ge=0, le=1, description="Sobrescreve a matriz. Use só se a sua situação for atípica."
     ),
-    use_focus: bool = Query(False, description="Escolhe a coluna da matriz de retorno."),
+    use_focus: bool = Query(False, description="Entra como +59% em B."),
+    produce_on_island: bool = Query(
+        False,
+        description=(
+            "Produzir na ilha. A ilha nao tem a base de cidade: 0% de retorno "
+            "sem Focus, 37,1% com. E escolha de onde produzir, nao de onde "
+            "comprar -- ilha nao tem mercado."
+        ),
+    ),
     daily_production_bonus: float = Query(0, ge=0, le=1),
     station_fee_per_100_nutrition: float | None = Query(None, ge=0),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
@@ -76,6 +84,7 @@ async def calculator(
         return_rate=return_rate,
         use_focus=use_focus,
         daily_production_bonus=daily_production_bonus,
+        produce_on_island=produce_on_island,
         spec_levels=spec_levels_from(
             spec_leather, spec_cloth, spec_planks, spec_metalbar, spec_stoneblock
         ),

@@ -73,7 +73,15 @@ class ReturnOut(BaseModel):
     use_focus: bool = False
     daily_bonus: float = 0.0
     matrix_rate: float | None = Field(
-        default=None, description="A célula da matriz, antes do bônus diário e de sobrescrita."
+        default=None, description="A taxa pela fórmula, antes de qualquer sobrescrita."
+    )
+    bonus_total: float | None = Field(
+        default=None,
+        description="O `B` da fórmula: a soma dos bônus, antes de `B ÷ (1 + B)`.",
+    )
+    is_island: bool = Field(
+        default=False,
+        description="Ilha não tem a base de cidade: 0% sem Focus, 37,1% com.",
     )
 
     best_city: str | None = None
