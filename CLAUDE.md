@@ -96,6 +96,21 @@ decisão errada do usuário.
 
 11. **Testes não chamam a API externa.** Nunca. Use `respx` e payloads fiéis.
 
+12. **Resíduo de subtração não é uma grandeza.** Tirar o que se conhece de um
+    total agregado e chamar o que sobra pelo nome da parcela que falta é
+    inventar um número: o resíduo carrega tudo que não foi modelado **mais** o
+    erro de tudo que foi modelado errado.
+
+    Quando a conta não fecha, **a primeira hipótese é que a coluna certa está
+    em outro lugar** — não que a fórmula está errada. Procurar a coluna é
+    barato; refutar uma fórmula com fonte oficial deveria custar muito mais que
+    três números reconstruídos de segunda mão.
+
+    Isto não é teórico: a fase 15 declarou "a fórmula não reproduz o observado"
+    com base num resíduo, e a fonte estava certa o tempo todo — a planilha tinha
+    a taxa em **duas** colunas próprias, que confirmam a fórmula em 49 linhas.
+    O relato está em `docs/04-taxas.md` §11, "O que eu errei".
+
 ## Arquitetura em uma tela
 
 ```
@@ -413,16 +428,20 @@ masmorra que também não têm EN — e nenhum deles é rastreado.
   recebe `station_fee_of` como função por item, não um número. Cobrar a taxa do
   T8 nos seis elos abaixo inflaria o custo; cobrar a do T2 em todos o
   esvaziaria.
-- **A reconstrução da planilha não fechou, e isso está registrado em vez de
-  forçado.** Os três resíduos conhecidos (5,17 / 29,98 / 2.496,79) implicam três
-  taxas de estação diferentes, e crescem ×483 onde o item value cresce ×64. A
-  hipótese de acumulação em cadeia foi descartada por aritmética: o teto com
-  retorno zero é 656,59. A fórmula ficou pela fonte oficial, não pela planilha.
-  Há teste travando as duas conclusões.
-- **Só três dos sete valores prometidos chegaram.** T3, T5, T6 e T7 seguem em
-  aberto em `docs/04-taxas.md` §11 — que é hoje o **candidato número um para
-  medição no jogo**: fonte oficial que não reproduz o observado, e duas
-  execuções na mesma estação resolvem.
+- **A fórmula está CONFIRMADA — e a conclusão anterior desta nota estava
+  errada.** Durante a fase 15 escrevi aqui que a reconstrução "não fechou". Ela
+  não fechava porque eu reconstruí a taxa como **resíduo de subtração** de uma
+  coluna agregada, sem verificar que a planilha tinha coluna própria. Tinha
+  duas: `BD_Itens_Craft.Taxa Loja` (23/24 linhas dão `item_value × 0,1125 ÷
+  100`) e `Crafters.Taxa da Loja` (26/27 linhas implicam F = 184, contra os 184
+  que a própria planilha declara). Virou a **regra 12**.
+- **Os três resíduos (5,17 / 29,98 / 2.496,79) não são a taxa de estação.** O
+  teste que trava a aritmética da acumulação em cadeia continua válido como
+  aritmética; a premissa é que estava errada. Recuperar os quatro tiers que
+  faltavam deixou de importar.
+- **O padrão pré-preenchido perdeu a base.** Os 1.666 prata por 100 de nutrição
+  saíram da mediana das taxas implicadas por aqueles resíduos. O número segue
+  em uso e a decisão sobre trocá-lo está aberta em `docs/04-taxas.md` §11.
 - **Bug corrigido de carona:** `resolve_base_name` prefere a raiz sem `_LEVELN`,
   o que é certo para peso e categoria (idênticos) e errado para `@itemvalue`
   (256 contra 1.024). Todo item encantado estava herdando a taxa da base — 16×
