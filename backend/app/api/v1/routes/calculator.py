@@ -38,7 +38,14 @@ async def calculator(
     buy_location: str = Query("caerleon"),
     sell_location: str | None = Query(None, description="padrão: a mesma da compra"),
     quantity: int = Query(
-        100, ge=1, le=100_000, description="Quantas unidades você quer produzir."
+        1,
+        ge=1,
+        le=100_000,
+        description=(
+            "Quantas unidades você quer produzir. O padrão é **1**: a base da "
+            "tabela é a unidade, e este campo escala tudo que é extensivo. As "
+            "razões (margem, ROI, prata/focus) não mudam com ele — há teste."
+        ),
     ),
     # A taxa de retorno **não** é campo livre: ela vem da matriz da fase 14, e o
     # que o usuário escolhe é a cidade e se usa Focus. Um campo aberto convida a

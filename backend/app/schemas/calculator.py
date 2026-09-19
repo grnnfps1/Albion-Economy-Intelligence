@@ -94,6 +94,19 @@ class CalcRowOut(BaseModel):
 
     known: bool = False
     reason: str | None = None
+    blocker: str | None = Field(
+        default=None,
+        description=(
+            "O que impede o cálculo desta linha: 'parametro' quando falta "
+            "configuração que o usuário preenche, 'cotacao' quando falta dado "
+            "de mercado que ele não pode preencher, 'ambos' quando as duas "
+            "coisas. A tela precisa separá-los: um pede uma ação, o outro não."
+        ),
+    )
+    blocked_data: list[str] = Field(
+        default_factory=list,
+        description="O que falta de dado, em frase curta, para a linha poder dizê-lo.",
+    )
 
 
 class CalcParamsUsed(BaseModel):

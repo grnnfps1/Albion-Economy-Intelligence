@@ -79,12 +79,29 @@ class CraftEconomics:
 
     roi_pct: float | None = None
     profit_per_focus: float | None = None
+
     missing: list[str] = field(default_factory=list)
+    """Parâmetros de configuração que faltam — coisa que o usuário preenche."""
+
+    missing_data: list[str] = field(default_factory=list)
+    """Dado de mercado que falta — coisa que o usuário **não** pode preencher.
+
+    Separado de `missing` porque a tela precisa distinguir os dois: um pede uma
+    ação ("informe a taxa da estação"), o outro pede paciência ou outra cidade.
+    Uma lista só transformaria as duas coisas na mesma frase.
+    """
 
 
-def _unknown(reason: str, missing: list[str], focus: FocusCost, output: int) -> CraftEconomics:
+def _unknown(
+    reason: str,
+    missing: list[str],
+    focus: FocusCost,
+    output: int,
+    missing_data: list[str] | None = None,
+) -> CraftEconomics:
     return CraftEconomics(
         known=False, reason=reason, missing=missing,
+        missing_data=list(missing_data or []),
         focus_cost=focus.focus, base_focus_cost=focus.base_focus,
         focus_multiplier=focus.multiplier, output_quantity=output,
     )
@@ -131,14 +148,37 @@ def compute_craft(
     if not materials:
         return _unknown("receita sem materiais", faltando, focus_cost, output_quantity)
 
-    sem_preco = [m.unique_name for m in materials if not m.known]
+    # ------------------------------------------------------------------ #
+    # Os impedimentos são colhidos **todos** antes de responder.
+    #
+    # Antes isto era uma sequência de returns: o primeiro impedimento
+    # encontrado virava a resposta e os outros ficavam invisíveis. Uma linha
+    # sem cotação do material **e** sem preço de venda dizia só a primeira
+    # coisa, e quem a consertasse descobriria a segunda só na tentativa
+    # seguinte. Numa tela em que o impedimento é o único conteúdo da linha,
+    # dizer metade é pior que dizer nada — dá a impressão de que falta um
+    # passo quando faltam dois.
+    #
+    # `missing` continua sendo só a lista de **parâmetros** de configuração,
+    # porque quem a consome (a tira do topo) fala de configuração. O que falta
+    # de **dado** vai em `missing_data`: a diferença importa para a tela, que
+    # precisa separar "preencha um campo" de "o mercado não tem cotação".
+    # ------------------------------------------------------------------ #
+    sem_dado: list[str] = []
+
+    # Nome visual **e** id técnico: a tela mostra o nome para quem lê, e o id
+    # continua na frase para quem procura no dump ou abre um chamado. Só o id
+    # seria ilegível; só o nome deixaria a linha sem como ser rastreada.
+    sem_preco = [
+        f"{m.display_name} ({m.unique_name})" if m.display_name else m.unique_name
+        for m in materials
+        if not m.known
+    ]
     if sem_preco:
-        return _unknown(
-            f"sem cotação para {len(sem_preco)} material(is): {', '.join(sem_preco[:3])}",
-            faltando,
-            focus_cost,
-            output_quantity,
-        )
+        sem_dado.append(f"sem cotação de {', '.join(sem_preco[:3])}")
+
+    if sell_price is None or sell_price <= 0:
+        sem_dado.append("sem cotação de venda do item final")
 
     if return_rate is None:
         faltando.append("crafting.return_rate")
@@ -147,16 +187,13 @@ def compute_craft(
     if not fees.complete:
         faltando.extend(fees.missing())
 
-    if faltando:
+    if faltando or sem_dado:
+        partes = list(sem_dado)
+        if faltando:
+            partes.append("parâmetros não configurados: " + ", ".join(faltando))
         return _unknown(
-            "parâmetros não configurados: " + ", ".join(faltando),
-            faltando,
-            focus_cost,
-            output_quantity,
+            "; ".join(partes), faltando, focus_cost, output_quantity, missing_data=sem_dado
         )
-
-    if sell_price is None or sell_price <= 0:
-        return _unknown("sem cotação de venda do item final", faltando, focus_cost, output_quantity)
 
     # ------------------------------------------------------------------ #
     # Tudo por **uma execução** primeiro; `crafts` multiplica no fim.

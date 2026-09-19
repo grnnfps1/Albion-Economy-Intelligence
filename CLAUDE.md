@@ -41,6 +41,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 21 | Taxas de mercado **medidas no jogo** | ✅ |
 | 22 | Bônus diário entra em `B`; calculador em colunas | ✅ |
 | 23 | Calculador escala pela quantidade; razões invariantes | ✅ |
+| 24 | Linha sem número diz **por quê**; base unitária | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -330,6 +331,36 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 24 — o diagnóstico é o conteúdo da linha
+
+- **Oito traços numa linha não informam nada, e o motivo já estava na
+  resposta.** `reason` vinha preenchido desde a fase 19 e morava só no `title`
+  do navegador, que ninguém descobre. O conserto não foi calcular mais coisa —
+  foi mostrar o que já se sabia.
+- **`compute_craft` dizia só o primeiro impedimento.** Era uma sequência de
+  `return`: material sem cotação vencia, e a falta do preço de venda ficava
+  invisível. T7.4 e T8.4 tinham **os dois**, e quem consertasse um descobriria o
+  outro só na tentativa seguinte. Agora os impedimentos são colhidos todos antes
+  de responder.
+- **Falta de parâmetro e falta de cotação não são a mesma ausência.** Uma é
+  global, vale para as 27 linhas e some quando o usuário preenche um campo; a
+  outra é da linha e nenhum campo a resolve — ou o mercado ganha uma ordem, ou
+  se compra em outra cidade. `missing` e `missing_data` ficaram separados, e a
+  tela trata cada uma como o que ela é: a rara e útil vai por extenso, a
+  repetida vira ponteiro para a tira do topo, que já a anuncia.
+- **Nome visual e id técnico juntos no motivo.** "sem cotação de Pelego Grosso
+  Prístino (T7_HIDE_LEVEL4@4)": o nome para quem lê a tela, o id para quem vai
+  procurar no dump. Só o id era ilegível; só o nome deixava a linha sem rastro.
+- **"escoa em" vazio não era bug: `market_history` está com zero linhas.** O
+  coletor de histórico nunca rodou. A coluna dizia "—", que significava ao mesmo
+  tempo sem histórico, giro zero e erro. Agora diz **"sem dado"**, e o balão
+  explica que falta coletar. É a regra 1 na apresentação: ausência tem nome.
+- **A base da tabela virou a unidade.** O padrão era 100, e quase toda coluna
+  nascia com oito dígitos — as células brigavam entre si antes de qualquer
+  questão de largura. Com base unitária e o filtro multiplicando, o mesmo
+  layout respira, e quem quer a produção inteira ainda a tem a um campo de
+  distância.
 
 ## Notas da fase 23 — o que escala e o que não escala
 

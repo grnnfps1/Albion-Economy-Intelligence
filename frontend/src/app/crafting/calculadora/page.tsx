@@ -159,7 +159,10 @@ export default async function CalculadoraPage({
   ) as Record<string, string | undefined>;
 
   const prefs = await getPreferences();
-  const quantidade = query.quantity ?? "100";
+  // Base unitária: a tabela mostra **uma** unidade e o filtro de quantidade
+  // multiplica. Com o padrão em 100 quase toda coluna nascia com oito dígitos,
+  // e as células brigavam entre si antes de qualquer questão de largura.
+  const quantidade = query.quantity ?? "1";
   const data = await fetchCalculator({
     ...feeParams(prefs),
     buy_location: prefs.buyLocation,
@@ -217,8 +220,9 @@ export default async function CalculadoraPage({
           </SheetTable>
 
           <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-            <b>Como ler:</b> a tabela inteira está na quantidade do filtro —{" "}
-            {formatSilver(Number(quantidade))} unidades. Tudo que é soma escala junto: compra,
+            <b>Como ler:</b> a base é <b>uma unidade</b>, e a tabela inteira está multiplicada
+            pela quantidade do filtro — agora em {formatSilver(Number(quantidade))}. Tudo que é
+            soma escala junto: compra,
             gasto, focus, taxa de venda, custo, receita, lucro e investimento.{" "}
             <b>Margem, prata/focus e a margem sobre o custo não escalam</b>, porque são razões —
             ficam idênticas em 1 e em 10.000 unidades, e se mudassem seria bug.
@@ -229,7 +233,10 @@ export default async function CalculadoraPage({
             multiplicar compraria material a mais. {data.return_note} A <i>taxa da loja</i> é
             por execução, não fixa da sessão: {formatSilver(Number(quantidade))} unidades pagam{" "}
             {formatSilver(Number(quantidade))} vezes. A <i>taxa de venda</i> é imposto mais setup
-            fee: uma ordem de venda paga os dois, e o setup mesmo se a ordem não executar.
+            fee: uma ordem de venda paga os dois, e o setup mesmo se a ordem não executar. A
+            coluna <i>escoa em</i> depende do histórico de mercado; enquanto ele não for
+            coletado (<code>python -m app.cli.collect_history</code>) ela diz{" "}
+            <i>sem dado</i> — que é diferente de giro zero.
           </p>
         </>
       )}
@@ -444,7 +451,7 @@ function Linha({
 
       <td title={linha.reason ?? undefined}>
         {linha.profit === null ? (
-          <span className="text-[10.5px] text-dim">—</span>
+          <Impedimento linha={linha} />
         ) : (
           <span
             className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
@@ -470,8 +477,22 @@ function Linha({
         )}
       </td>
 
-      <td className="figure text-[10px] text-dim" title="giro medido no histórico">
-        {linha.days_to_sell === null ? "—" : `${linha.days_to_sell} d`}
+      {/* Traço aqui significava três coisas — sem histórico, giro zero, erro —
+          e não distinguia nenhuma. "sem dado" diz a única que é verdade hoje:
+          a coleta de histórico não passou por este item. */}
+      <td
+        className="figure text-[10px] text-dim"
+        title={
+          linha.days_to_sell === null
+            ? "o histórico de mercado deste item ainda não foi coletado — sem ele não dá para estimar o giro"
+            : "giro medido no histórico dos últimos 30 dias"
+        }
+      >
+        {linha.days_to_sell === null ? (
+          <span className="text-[9.5px]">sem dado</span>
+        ) : (
+          `${linha.days_to_sell} d`
+        )}
       </td>
     </tr>
   );
@@ -497,6 +518,44 @@ function Numero({ valor, dica }: { valor: number | null; dica?: string }) {
  * arredondada para cima —, não a da receita. É a diferença entre "a receita
  * pede 5" e "compre 317".
  */
+/**
+ * O que impede a linha de ter número.
+ *
+ * Oito traços numa linha não informam nada — era a queixa, e estava certa. O
+ * motivo já vinha na resposta e morava só no `title`, que ninguém descobre.
+ *
+ * O texto é curto de propósito, e **diferente conforme quem pode resolver**:
+ *
+ * - falta de **cotação** é da linha e nenhum campo a conserta. É a informação
+ *   rara e útil, então vai por extenso: qual material, com nome de gente.
+ * - falta de **parâmetro** é global, vale para as 27 linhas e a tira do topo
+ *   já a anuncia em âmbar. Repetir a frase inteira vinte e sete vezes seria
+ *   ruído (a regra "nada duplicado"), então aqui vai só o ponteiro.
+ */
+function Impedimento({ linha }: { linha: CalcRow }) {
+  const dados = linha.blocked_data;
+
+  if (dados.length > 0) {
+    return (
+      <span className="flex flex-col items-end gap-px text-[9.5px] text-warn leading-tight">
+        {dados.map((falta) => (
+          <span key={falta}>{falta}</span>
+        ))}
+      </span>
+    );
+  }
+
+  if (linha.blocker === "parametro") {
+    return (
+      <span className="text-[9.5px] text-warn" title={linha.reason ?? undefined}>
+        falta parâmetro ↑
+      </span>
+    );
+  }
+
+  return <span className="text-[10.5px] text-dim">—</span>;
+}
+
 function Material({
   material,
   tier,

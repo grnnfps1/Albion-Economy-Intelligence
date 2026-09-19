@@ -718,6 +718,9 @@ export type CalcRow = {
   days_to_sell: number | null;
   known: boolean;
   reason: string | null;
+  /** "parametro" | "cotacao" | "ambos" — quem consegue destravar a linha. */
+  blocker: string | null;
+  blocked_data: string[];
 };
 
 export type CalculatorResponse = {

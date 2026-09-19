@@ -364,9 +364,11 @@ def _linha(
             base.materials = _materiais_out(
                 receita, catalogo, compras, manual, materiais, quantidade, taxa_retorno
             )
-            base.reason = economia.reason
+            _explica(base, economia)
         else:
             base.reason = "sem cotação para os materiais"
+            base.blocker = "cotacao"
+            base.blocked_data = [base.reason]
         return base
 
     avaliadas.sort(key=lambda a: a[0])
@@ -397,7 +399,7 @@ def _linha(
     base.focus_cost = economia.focus_cost
 
     if not economia.known:
-        base.reason = economia.reason
+        _explica(base, economia)
         return base
 
     receita_bruta = (venda or 0) * quantidade * max(1, receita.output_quantity)
@@ -427,6 +429,25 @@ def _linha(
         base.days_to_sell = round(quantidade / sinal.units_per_day, 1)
 
     return base
+
+
+def _explica(base: CalcRowOut, economia) -> None:
+    """Traduz o impedimento para a linha, separando o que é de quem.
+
+    A distinção não é cosmética. Falta de **parâmetro** é global — vale para as
+    27 linhas de uma vez e some quando o usuário preenche um campo. Falta de
+    **cotação** é da linha, e nenhum campo a resolve: ou o mercado ganha uma
+    ordem, ou se compra em outra cidade. Mostrar as duas com o mesmo traço
+    fazia a tela responder "não sei" a duas perguntas diferentes.
+    """
+    base.reason = economia.reason
+    base.blocked_data = list(economia.missing_data)
+    if economia.missing_data and economia.missing:
+        base.blocker = "ambos"
+    elif economia.missing_data:
+        base.blocker = "cotacao"
+    elif economia.missing:
+        base.blocker = "parametro"
 
 
 def _materiais(receita, catalogo, compras, manual) -> list[MaterialCost] | None:

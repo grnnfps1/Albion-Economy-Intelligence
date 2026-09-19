@@ -225,3 +225,51 @@ class TestEscalaPelaQuantidade:
                     if len(razoes) > 1:
                         divergentes.append((preco, multiplicador, saida, razoes))
         assert divergentes == []
+
+
+class TestODiagnosticoDizTudoQueFalta:
+    """Uma linha sem número tem o impedimento como único conteúdo.
+
+    Antes isto era uma sequência de `return`: o primeiro impedimento virava a
+    resposta e os outros ficavam invisíveis. Quem consertasse o primeiro
+    descobriria o segundo só na tentativa seguinte — e numa tela em que a linha
+    inteira é traço, dizer metade dá a impressão de faltar um passo quando
+    faltam dois.
+    """
+
+    SEM_PRECO = [
+        MaterialCost("T4_WOOD", "Madeira", 2, None, is_returnable=True),
+        MaterialCost("T3_PLANKS", "Tábuas T3", 1, 800, is_returnable=True),
+    ]
+
+    def test_material_e_venda_faltando_aparecem_os_dois(self):
+        r = craft(materials=self.SEM_PRECO, sell_price=None)
+        assert "Madeira" in r.reason
+        assert "venda do item final" in r.reason
+        assert len(r.missing_data) == 2
+
+    def test_material_e_parametro_faltando_aparecem_os_dois(self):
+        r = craft(materials=self.SEM_PRECO, station_fee=taxa(None))
+        assert "Madeira" in r.reason
+        assert "crafting.station_fee_per_100_nutrition" in r.reason
+
+    def test_o_nome_visual_e_o_id_vao_juntos(self):
+        """O nome para quem lê a tela, o id para quem procura no dump."""
+        r = craft(materials=self.SEM_PRECO)
+        assert "Madeira" in r.reason
+        assert "T4_WOOD" in r.reason
+
+    def test_dado_e_parametro_ficam_em_listas_separadas(self):
+        """A tela precisa distinguir "preencha um campo" de "o mercado não tem".
+
+        Um pede uma ação do usuário e some quando ele a faz; o outro não tem
+        ação nenhuma do lado dele. Numa lista só, viravam a mesma frase.
+        """
+        r = craft(materials=self.SEM_PRECO, station_fee=taxa(None))
+        assert r.missing == ["crafting.station_fee_per_100_nutrition"]
+        assert r.missing_data and all("cotação" in d for d in r.missing_data)
+
+    def test_linha_completa_nao_reclama_de_nada(self):
+        r = craft()
+        assert r.known is True
+        assert r.missing == [] and r.missing_data == []
