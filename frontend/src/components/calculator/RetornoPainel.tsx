@@ -82,7 +82,7 @@ export function RetornoPainel({
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
         {/* Nível 1: de onde vem. As parcelas que **não** se aplicam ficam na
             soma, apagadas — são exatamente o que está sobre a mesa. */}
-        <span className="flex flex-wrap items-baseline gap-x-1.5 text-[11px]">
+        <span className="flex flex-wrap items-baseline gap-x-1.5 text-note">
           <span className="lbl">retorno</span>
           {retorno.components.map((parte, i) => (
             <span key={parte.key} className="flex items-baseline gap-1.5">
@@ -112,10 +112,10 @@ export function RetornoPainel({
         {/* Nível 2: o que entra na conta. É o maior número da tira, porque é o
             único que o cálculo usa. */}
         <span className="flex items-baseline gap-1.5">
-          <span className="figure font-semibold text-[15px] text-body">
+          <span className="figure font-semibold text-val text-body">
             {retorno.rate === null ? "—" : `${(retorno.rate * 100).toFixed(1)}%`}
           </span>
-          <span className="text-[10.5px] text-muted" title="B ÷ (1 + B)">
+          <span className="text-aux text-muted" title="B ÷ (1 + B)">
             é o que volta
           </span>
         </span>
@@ -123,7 +123,7 @@ export function RetornoPainel({
         {/* Nível 3: o que se perde. A frase que faltava quando as margens
             apareceram negativas. */}
         {perde !== null && perde > 0.001 && melhor && (
-          <span className="text-[11px] text-warn">
+          <span className="text-note text-warn">
             {melhor.is_island
               ? `a ilha daria ${(melhor.rate! * 100).toFixed(1)}%`
               : `${melhor.name} dá ${(melhor.rate! * 100).toFixed(1)}% para ${familiaLabel}`}
@@ -134,7 +134,7 @@ export function RetornoPainel({
           </span>
         )}
         {perde !== null && perde <= 0.001 && (
-          <span className="text-[11px] text-up">
+          <span className="text-note text-up">
             é o melhor cenário desta família com os parâmetros de agora
           </span>
         )}
@@ -156,7 +156,7 @@ export function RetornoPainel({
                     ? `${opcao.name} tem o bônus de refino desta família`
                     : `${opcao.name} não tem bônus para esta família`
               }
-              className={`flex items-baseline gap-1.5 whitespace-nowrap rounded-[3px] border px-2 py-[5px] text-[11px] ${
+              className={`flex items-baseline gap-1.5 whitespace-nowrap rounded-[3px] border px-2 py-[5px] text-note ${
                 ativo
                   ? "border-line-strong bg-line-strong text-body"
                   : "border-line bg-raised text-muted hover:text-body"
@@ -178,7 +178,7 @@ export function RetornoPainel({
       {/* A ilha é o único caso em que o Focus não é melhoria marginal. Dizê-lo
           só quando ela está selecionada evita virar ruído nas outras. */}
       {atual?.is_island && (
-        <p className="m-0 max-w-prose pt-1.5 text-[11px] text-muted leading-relaxed">
+        <p className="m-0 max-w-prose pt-1.5 text-note text-muted leading-relaxed">
           Na ilha o Focus <b>não é melhoria marginal</b>: é a diferença entre haver retorno e
           não haver. Sem a base de cidade, <code>B</code> é zero e nada volta;{" "}
           {retorno.use_focus ? "com Focus" : "ligando o Focus"} o retorno vai a 37,1%.

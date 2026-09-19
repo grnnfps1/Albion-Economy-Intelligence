@@ -88,6 +88,12 @@
   --text-val--line-height: 1.35;
   --text-note: 0.6875rem;
   --text-note--line-height: 1.5;
+  /* Texto auxiliar de célula: a segunda linha sob um número, o nome da cidade,
+     a idade. Existia como `text-[10px]` e `text-[10.5px]` espalhados; virou
+     token porque a diferença de meio pixel entre telas não significava nada e
+     mesmo assim se via. */
+  --text-aux: 0.625rem;
+  --text-aux--line-height: 1.35;
   --text-micro: 0.5625rem;
   --text-micro--line-height: 1.1;
 

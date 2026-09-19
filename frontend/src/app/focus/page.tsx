@@ -1,6 +1,9 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { ComoLer } from "@/components/sheet/ComoLer";
+import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { TierBadge } from "@/components/ui/Badges";
@@ -10,7 +13,7 @@ import { fetchFocus, type FocusPlan,
   ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatSilver } from "@/lib/format";
+import { formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -122,6 +125,25 @@ export default async function FocusPage({
         </EmptyState>
       )}
 
+      {data && !data.params.complete && (
+        <Aviso>
+          Falta configurar: {data.params.missing.join(", ")}. Sem esses valores as linhas
+          respondem <b>desconhecido</b> em vez de calcular com zero.
+        </Aviso>
+      )}
+
+      {data && data.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="orçamento"
+            valor={data.focus_budget === null ? "não informado" : `${formatSilver(data.focus_budget)} focus`}
+            tom={data.focus_budget === null ? "warn" : undefined}
+            dica="o estoque que limita quanto dá para produzir" />
+          <Param rotulo="horizonte" valor={`${data.horizon_days} d`}
+            dica="a janela em que o mercado precisa absorver o que se produzir" />
+          <ParamsDeTaxa fees={data.params.fees} />
+        </ParamStrip>
+      )}
+
       {data && data.total > 0 && (
         <SheetTable
           columns={COLUNAS}
@@ -135,10 +157,12 @@ export default async function FocusPage({
       )}
 
       {data && data.plans.length > 0 && (
-        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-          Troque a ordenação para “prata/focus” e compare: a taxa mais alta nem sempre é o maior
-          ganho, porque o item com melhor taxa costuma ser o que menos gira.
-        </p>
+        <ComoLer>
+          <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
+            Troque a ordenação para “prata/focus” e compare: a taxa mais alta nem sempre é o maior
+            ganho, porque o item com melhor taxa costuma ser o que menos gira.
+          </p>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -160,12 +184,12 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
             url={plano.icon_url}
             alt={plano.item_name ?? plano.item}
             tier={plano.tier}
-            size={22}
+            size={SHEET_ICON.linha}
           />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={plano.tier} enchantment={plano.enchantment} />
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
                 {plano.route.toLowerCase()}
               </span>
             </span>
@@ -173,16 +197,16 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
               <span className="truncate">{plano.item_name ?? plano.item}</span>
               <CopyButton name={plano.item_name} id={plano.item} />
             </span>
-            <span className="block truncate text-[9px] text-dim">{plano.item}</span>
+            <span className="block truncate text-micro text-dim">{plano.item}</span>
           </span>
         </span>
       </td>
 
-      <td className="figure font-semibold text-[13px]">
+      <td className="figure font-semibold text-val">
         {plano.profit_per_focus === null ? "—" : formatSilver(plano.profit_per_focus)}
       </td>
 
-      <td className="figure text-[10.5px] text-muted">{formatSilver(plano.focus_per_unit)}</td>
+      <td className="figure text-aux text-muted">{formatSilver(plano.focus_per_unit)}</td>
 
       <td>
         <Figure value={plano.units_by_focus} label="unidades" />
@@ -193,7 +217,7 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
 
       <td>
         <span
-          className={`figure font-semibold text-[15px] leading-none ${
+          className={`figure font-semibold text-val leading-none ${
             positivo ? "text-up" : "text-down"
           }`}
         >
@@ -206,7 +230,7 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
       </td>
 
       <td>
-        <span className="figure text-[12px]">{formatSilver(plano.units)}</span>
+        <span className="figure text-note">{formatSilverCompact(plano.units)}</span>
         <span className="lbl mt-px block">
           {plano.days_to_sell === null ? "escoa ?" : `escoa em ${plano.days_to_sell}d`}
         </span>
@@ -214,7 +238,7 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
 
       <td>
         <span
-          className={`figure inline-block rounded-[3px] border px-[6px] py-px text-[10px] ${trava.tom}`}
+          className={`figure inline-block rounded-[3px] border px-[6px] py-px text-aux ${trava.tom}`}
           title={trava.dica}
         >
           {trava.texto}

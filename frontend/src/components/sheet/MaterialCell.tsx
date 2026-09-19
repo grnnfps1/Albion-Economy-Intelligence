@@ -1,4 +1,5 @@
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { HoverTip } from "@/components/sheet/HoverTip";
 import { SHEET_WIDTHS, type SheetColumn, type SheetWidth } from "@/components/sheet/SheetTable";
 import { ItemIcon } from "@/components/ui/ItemIcon";
@@ -100,7 +101,7 @@ export function MaterialCell({
         dica={compact ? `${balao} · comprar em ${cidade}` : balao}
         className="flex min-w-0 items-center gap-1.5"
       >
-        <ItemIcon url={iconUrl} alt={nome} tier={tier} quantity={quantity} size={20} />
+        <ItemIcon url={iconUrl} alt={nome} tier={tier} quantity={quantity} size={SHEET_ICON.material} />
         <span className="min-w-0">
           <span className="flex items-center">
             <span className="figure">{formatSilver(unitPrice)}</span>
@@ -110,13 +111,13 @@ export function MaterialCell({
             // Sem espaço para o nome da cidade, mas o aviso de cidade
             // alternativa é decisão — vira um ponto âmbar.
             isAlternateCity && (
-              <span className="block text-[9px] text-warn" aria-label={`comprar em ${cidade}`}>
+              <span className="block text-micro text-warn" aria-label={`comprar em ${cidade}`}>
                 ● outra cidade
               </span>
             )
           ) : (
             <span
-              className={`block truncate text-[9px] ${
+              className={`block truncate text-micro ${
                 isAlternateCity ? "text-warn" : "text-dim"
               }`}
             >
@@ -146,7 +147,7 @@ export function MaterialOverflow({ extras, names }: { extras: number; names: str
   if (extras <= 0) return null;
   return (
     <span
-      className="figure ml-1 rounded-[2px] border border-warn px-1 text-[8.5px] text-warn"
+      className="figure ml-1 rounded-[2px] border border-warn px-1 text-micro text-warn"
       title={`Esta receita tem mais ${extras} ingrediente(s) que não cabem na tabela: ${names.join(", ")}. O custo já os inclui.`}
     >
       +{extras}

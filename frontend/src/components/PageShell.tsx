@@ -43,7 +43,7 @@ export function PageShell({
     <div className="min-w-0">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-4 pb-2">
         <h1 className="display text-body text-h1">{titulo}</h1>
-        {contagem && <span className="figure text-[11px] text-dim">{contagem}</span>}
+        {contagem && <span className="figure text-note text-dim">{contagem}</span>}
         {acoes && <span className="ml-auto">{acoes}</span>}
         <p className="w-full max-w-prose text-muted text-note leading-relaxed">{descricao}</p>
       </div>

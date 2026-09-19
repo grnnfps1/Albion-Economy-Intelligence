@@ -1,6 +1,9 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { ComoLer } from "@/components/sheet/ComoLer";
+import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { CityTag, QualityBadge, TierBadge, ZoneTag } from "@/components/ui/Badges";
@@ -10,7 +13,7 @@ import { fetchArbitrage, type Opportunity,
   ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatSilver } from "@/lib/format";
+import { formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -124,6 +127,28 @@ export default async function ArbitragePage({
         </EmptyState>
       )}
 
+      {data && !data.fees.complete && (
+        <Aviso>
+          Falta configurar: {data.fees.missing.join(", ")}. Sem imposto e setup fee a
+          plataforma responde <b>desconhecido</b> — arbitragem calculada sem taxa inventa
+          lucro em toda linha.
+        </Aviso>
+      )}
+
+      {data && data.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="estratégia" valor={data.strategy}
+            dica="IMEDIATA consome ordens existentes; PACIENTE cria ordem e paga setup nas duas pernas" />
+          <Param rotulo="quantidade" valor={formatSilver(data.quantity)} />
+          <ParamsDeTaxa fees={data.fees} />
+          <Param rotulo="risco"
+            valor={data.risk.modelled
+              ? `${(data.risk.loss_pct_blue * 100).toFixed(0)}% / ${(data.risk.loss_pct_red_black * 100).toFixed(0)}%`
+              : "não modelado"}
+            dica="perda em zona azul / vermelha-preta. Zero significa não estar modelando perda, e o ajustado sai igual ao bruto." />
+        </ParamStrip>
+      )}
+
       {data && data.total > 0 && (
         <SheetTable columns={COLUNAS}>
           {data.opportunities.map((op) => (
@@ -136,26 +161,28 @@ export default async function ArbitragePage({
       )}
 
       {data && data.opportunities.length > 0 && (
-        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-          <b>Zona da rota.</b> Cidade real para cidade real é <i>zona azul</i>. Qualquer ponta em
-          Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b> — e
-          é por isso que essas rotas pagam mais: o spread maior é o preço do risco de perder a
-          carga inteira, não uma vantagem escondida.{" "}
-          {data.risk.modelled ? (
-            <>
-              Com {(data.risk.loss_pct_red_black * 100).toFixed(1)}% de perda em zona aberta e{" "}
-              {(data.risk.loss_pct_blue * 100).toFixed(1)}% em azul, o lucro exibido já é o
-              esperado: <i>lucro × (1 − p) − investimento × p</i>. O bruto fica riscado ao lado,
-              para o desconto continuar auditável.
-            </>
-          ) : (
-            <>
-              Você ainda não informou perda esperada, então o lucro exibido é o bruto. Preencha{" "}
-              <i>perda %</i> nas preferências para ver o ajustado — perder a carga não custa o
-              lucro, custa o lucro <b>e</b> o investimento.
-            </>
-          )}
-        </p>
+        <ComoLer>
+          <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
+            <b>Zona da rota.</b> Cidade real para cidade real é <i>zona azul</i>. Qualquer ponta em
+            Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b> — e
+            é por isso que essas rotas pagam mais: o spread maior é o preço do risco de perder a
+            carga inteira, não uma vantagem escondida.{" "}
+            {data.risk.modelled ? (
+              <>
+                Com {(data.risk.loss_pct_red_black * 100).toFixed(1)}% de perda em zona aberta e{" "}
+                {(data.risk.loss_pct_blue * 100).toFixed(1)}% em azul, o lucro exibido já é o
+                esperado: <i>lucro × (1 − p) − investimento × p</i>. O bruto fica riscado ao lado,
+                para o desconto continuar auditável.
+              </>
+            ) : (
+              <>
+                Você ainda não informou perda esperada, então o lucro exibido é o bruto. Preencha{" "}
+                <i>perda %</i> nas preferências para ver o ajustado — perder a carga não custa o
+                lucro, custa o lucro <b>e</b> o investimento.
+              </>
+            )}
+          </p>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -186,7 +213,7 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
     <tr className={tinta}>
       <td className={`l ${tierBorderLeft(op.tier)}`}>
         <span className="flex min-w-0 items-center gap-2">
-          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={22} />
+          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={SHEET_ICON.linha} />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={op.tier} enchantment={op.enchantment} />
@@ -196,19 +223,19 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
               <span className="truncate">{op.item_name ?? op.item}</span>
               <CopyButton name={op.item_name} id={op.item} />
             </span>
-            <span className="block truncate text-[9px] text-dim">{op.item}</span>
+            <span className="block truncate text-micro text-dim">{op.item}</span>
           </span>
         </span>
       </td>
 
       <td className="l">
-        <CityTag city={op.origin} className="text-[10.5px]" />
-        <span className="figure block text-[10px] text-muted">{formatSilver(op.buy_price)}</span>
+        <CityTag city={op.origin} className="text-aux" />
+        <span className="figure block text-aux text-muted">{formatSilverCompact(op.buy_price)}</span>
       </td>
 
       <td className="l">
-        <CityTag city={op.destination} className="text-[10.5px]" />
-        <span className="figure block text-[10px] text-muted">{formatSilver(op.sell_price)}</span>
+        <CityTag city={op.destination} className="text-aux" />
+        <span className="figure block text-aux text-muted">{formatSilverCompact(op.sell_price)}</span>
         <span className="mt-px flex">
           <ZoneTag zone={op.risk.zone} label={op.risk.zone_label} />
         </span>
@@ -233,7 +260,7 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
 
       <td>
         <span
-          className={`figure inline-block rounded border px-[6px] py-[2px] text-[12px] ${
+          className={`figure inline-block rounded border px-[6px] py-[2px] text-note ${
             BANDA[op.score.band] ?? BANDA.desconhecida
           }`}
           title={
@@ -251,7 +278,7 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
         <AgeTag seconds={op.worst_age_seconds} />
       </td>
 
-      <td className="figure text-[10px] text-dim">
+      <td className="figure text-aux text-dim">
         {op.liquidity_units_per_day === null
           ? "—"
           : `${formatSilver(op.liquidity_units_per_day)}/d`}

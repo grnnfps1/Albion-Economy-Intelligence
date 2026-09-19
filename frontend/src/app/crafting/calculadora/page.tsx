@@ -3,7 +3,9 @@ import { PageShell } from "@/components/PageShell";
 import type { CampoPref } from "@/components/PreferencesForm";
 import { RetornoPainel } from "@/components/calculator/RetornoPainel";
 import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
+import { Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { ComoLer } from "@/components/sheet/ComoLer";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { HoverTip } from "@/components/sheet/HoverTip";
@@ -324,7 +326,7 @@ export default async function CalculadoraPage({
           </SheetTable>
 
           <ComoLer>
-            <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
+            <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
               <b>Como ler:</b> a base é <b>uma unidade</b>, e a tabela inteira está multiplicada
               pela quantidade do filtro — agora em {formatSilver(Number(quantidade))}. Tudo que é
               soma escala junto: compra,
@@ -332,7 +334,7 @@ export default async function CalculadoraPage({
               <b>Margem, prata/focus e a margem sobre o custo não escalam</b>, porque são razões —
               ficam idênticas em 1 e em 10.000 unidades, e se mudassem seria bug.
             </p>
-            <p className="max-w-prose px-4 pb-4 text-[11px] text-dim leading-relaxed">
+            <p className="max-w-prose px-4 pb-4 text-note text-dim leading-relaxed">
               O <i>comprar N</i> sob o preço de cada material é o consumo total já descontado o
               retorno, arredondado para cima <b>uma vez, no fim</b> — arredondar por unidade e
               multiplicar compraria material a mais. {data.return_note} A <i>taxa da loja</i> é
@@ -360,7 +362,7 @@ function Parametros({
 }) {
   const p = data.params;
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-line border-b px-4 py-2 text-[11px]">
+    <ParamStrip>
       <Param rotulo="quantidade" valor={formatSilver(quantidade)} />
       {/* A taxa de retorno não é campo: vem da matriz, e o que se escolhe é a
           cidade e o Focus. Campo livre convidaria a digitar errado um número
@@ -381,7 +383,7 @@ function Parametros({
       {p.station_fee_per_100_nutrition === null ? (
         <span className="flex items-center gap-1.5">
           <span className="lbl">taxa da loja</span>
-          <span className="figure rounded-[2px] border border-warn px-1.5 py-px text-[10.5px] text-warn">
+          <span className="figure rounded-[2px] border border-warn px-1.5 py-px text-aux text-warn">
             desconhecida
           </span>
         </span>
@@ -398,7 +400,7 @@ function Parametros({
       {data.material_return.assumes_no_daily_bonus ? (
         <span className="flex items-center gap-1.5">
           <span className="lbl">bônus do dia</span>
-          <span className="text-[10.5px] text-muted">
+          <span className="text-aux text-muted">
             assumido zero — informe nas preferências se a cidade tiver bônus hoje
           </span>
         </span>
@@ -408,29 +410,13 @@ function Parametros({
           valor={`+${(data.material_return.daily_bonus * 100).toFixed(0)}% em B`}
         />
       )}
-      <Param
-        rotulo="imposto"
-        valor={p.fees.sales_tax_pct === null ? "—" : `${(p.fees.sales_tax_pct * 100).toFixed(1)}%`}
-      />
-      <Param
-        rotulo="setup fee"
-        valor={p.fees.setup_fee_pct === null ? "—" : `${(p.fees.setup_fee_pct * 100).toFixed(1)}%`}
-      />
+      <ParamsDeTaxa fees={p.fees} />
       {!p.complete && (
-        <span className="text-[10.5px] text-warn">
+        <span className="text-aux text-warn">
           falta configurar: {p.missing.join(", ")}
         </span>
       )}
-    </div>
-  );
-}
-
-function Param({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="lbl">{rotulo}</span>
-      <span className="figure text-body">{valor}</span>
-    </span>
+    </ParamStrip>
   );
 }
 
@@ -479,7 +465,7 @@ function Linha({
             url={linha.icon_url}
             alt={linha.item_name ?? linha.item}
             tier={linha.tier}
-            size={38}
+            size={SHEET_ICON.linha}
           />
           <span className="flex min-w-0 items-center">
             <span className="truncate">{linha.item_name ?? linha.item}</span>
@@ -536,7 +522,7 @@ function Linha({
           porque é a razão que compara linhas. */}
       <td title="focus das unidades pedidas, já com a sua especialização">
         {linha.focus_cost === 0 ? (
-          <span className="text-[10.5px] text-dim">—</span>
+          <span className="text-aux text-dim">—</span>
         ) : (
           <>
             <span className="figure">{formatSilver(linha.focus_cost)}</span>
@@ -557,7 +543,7 @@ function Linha({
           <Impedimento linha={linha} />
         ) : (
           <span
-            className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
+            className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}
           >
             {positivo ? "+" : ""}
             {formatSilver(linha.profit)}
@@ -574,7 +560,7 @@ function Linha({
       >
         {linha.margin_pct === null ? "—" : `${linha.margin_pct.toFixed(1)}%`}
         {linha.margin_on_cost_pct !== null && (
-          <span className="block text-[9px] text-dim">
+          <span className="block text-micro text-dim">
             ({linha.margin_on_cost_pct.toFixed(1)}%)
           </span>
         )}
@@ -584,7 +570,7 @@ function Linha({
           e não distinguia nenhuma. "sem dado" diz a única que é verdade hoje:
           a coleta de histórico não passou por este item. */}
       <td
-        className="figure text-[10px] text-dim"
+        className="figure text-aux text-dim"
         title={
           linha.days_to_sell === null
             ? "o histórico de mercado deste item ainda não foi coletado — sem ele não dá para estimar o giro"
@@ -592,7 +578,7 @@ function Linha({
         }
       >
         {linha.days_to_sell === null ? (
-          <span className="text-[9.5px]">sem dado</span>
+          <span className="text-micro">sem dado</span>
         ) : linha.days_to_sell < 0.1 ? (
           // Arredondado, o giro alto vira "0,0 d", que se lê como ausência. O
           // que ele quer dizer é que o mercado absorve a quantidade no mesmo
@@ -618,7 +604,7 @@ function Numero({ valor, dica }: { valor: number | null; dica?: string }) {
   if (valor === null) {
     return (
       <td title={dica}>
-        <span className="text-[10.5px] text-dim">—</span>
+        <span className="text-aux text-dim">—</span>
       </td>
     );
   }
@@ -654,7 +640,7 @@ function Faixa({ faixa }: { faixa: PriceRange | null }) {
 
   if (!faixa.comparable) {
     return (
-      <span className="w-full text-[9px] text-dim">
+      <span className="w-full text-micro text-dim">
         {faixa.fresh_city_count === 0 ? "nenhuma cotação fresca" : "1 cidade só"}
       </span>
     );
@@ -664,7 +650,7 @@ function Faixa({ faixa }: { faixa: PriceRange | null }) {
   // falso. A cor separa "olhe para isto" de "pode ignorar".
   const vale = (faixa.spread_pct ?? 0) >= 10;
   return (
-    <span className="flex w-full items-baseline gap-1 text-[9px]">
+    <span className="flex w-full items-baseline gap-1 text-micro">
       <span className="figure text-dim">
         {formatSilverCompact(faixa.min_price)}–{formatSilverCompact(faixa.max_price)}
       </span>
@@ -694,7 +680,7 @@ function Impedimento({ linha }: { linha: CalcRow }) {
 
   if (dados.length > 0) {
     return (
-      <span className="flex flex-col items-end gap-px text-[9.5px] text-warn leading-tight">
+      <span className="flex flex-col items-end gap-px text-micro text-warn leading-tight">
         {dados.map((falta) => (
           <span key={falta}>{falta}</span>
         ))}
@@ -706,7 +692,7 @@ function Impedimento({ linha }: { linha: CalcRow }) {
   // Repeti-la em vinte e três linhas seria a mesma frase vinte e três vezes —
   // a regra "nada duplicado". O traço aqui tem quem o explique logo acima.
   return (
-    <span className="text-[10.5px] text-dim" title={linha.reason ?? undefined}>
+    <span className="text-aux text-dim" title={linha.reason ?? undefined}>
       —
     </span>
   );
@@ -799,7 +785,7 @@ function Material({
           url={material.icon_url}
           alt={material.item_name ?? material.item}
           tier={tier}
-          size={30}
+          size={SHEET_ICON.material}
         />
         <span className="flex min-w-0 flex-1 flex-col items-start gap-px">
           <PriceInput
@@ -815,7 +801,7 @@ function Material({
           {/* "comprar N" ganhou linha própria: espremido ao lado do preço ele
               truncava. A quantidade saiu do badge do ícone pelo mesmo motivo —
               seis dígitos não cabem num selo de 30px. */}
-          <span className="flex w-full items-center gap-px whitespace-nowrap text-[9.5px]">
+          <span className="flex w-full items-center gap-px whitespace-nowrap text-micro">
             <span className="text-muted">comprar {formatSilver(material.buy_units)}</span>
             {/* Nome em português: é o que a busca do mercado no jogo entende,
                 e aqui importa mais que em qualquer tela — esta é a lista de

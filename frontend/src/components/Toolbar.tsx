@@ -41,7 +41,7 @@ export function Toolbar({
                 key={opcao.valor}
                 type="button"
                 onClick={() => aplicar(grupo.chave, opcao.valor)}
-                className={`whitespace-nowrap rounded-[3px] px-2.5 py-[5px] text-[11px] ${
+                className={`whitespace-nowrap rounded-[3px] px-2.5 py-[5px] text-note ${
                   atual === opcao.valor ? "bg-line-strong text-body" : "text-muted hover:text-body"
                 }`}
               >
@@ -61,7 +61,7 @@ export function Toolbar({
           onKeyDown={(e) => {
             if (e.key === "Enter") aplicar("search", texto.trim());
           }}
-          className="max-w-72 min-w-40 flex-1 rounded border border-line bg-raised px-2.5 py-1.5 text-[12px] text-body"
+          className="max-w-72 min-w-40 flex-1 rounded border border-line bg-raised px-2.5 py-1.5 text-note text-body"
         />
       )}
 
@@ -70,7 +70,7 @@ export function Toolbar({
           type="button"
           onClick={onConfig}
           title="servidor, cidade de venda, Premium, imposto, setup fee, bônus do dia, orçamento de Focus, risco de rota e especialização"
-          className="rounded border border-line bg-raised px-3 py-1.5 text-[11px] text-muted hover:border-line-strong hover:text-body"
+          className="rounded border border-line bg-raised px-3 py-1.5 text-note text-muted hover:border-line-strong hover:text-body"
         >
           ⚙ preferências
         </button>

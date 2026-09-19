@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Aviso } from "@/components/sheet/Chrome";
 import { COOKIE, type Preferences } from "@/lib/preferences-shared";
 
 /**
@@ -49,13 +50,13 @@ export function StationFeePrompt({ prefs }: { prefs: Preferences }) {
     startTransition(() => router.refresh());
   }
 
+  // A casca é a mesma de todo aviso de dado incompleto (`Chrome.Aviso`):
+  // mesmo lugar, mesma cor, mesma altura. O que esta tela tem a mais — o
+  // campo que resolve o aviso ali mesmo — entra pelo `acao`, no esqueleto,
+  // em vez de virar um arranjo próprio.
   return (
-    <div className="border-warn/40 border-b bg-warn/5 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="font-semibold text-[12.5px] text-warn">
-          Informe a taxa da estação para calcular.
-        </span>
-
+    <Aviso
+      acao={
         <span className="flex items-center gap-1.5">
           <input
             value={texto}
@@ -66,31 +67,25 @@ export function StationFeePrompt({ prefs }: { prefs: Preferences }) {
             disabled={pendente}
             placeholder="ex.: 184"
             aria-label="taxa da estação, em prata por 100 de nutrição"
-            className="figure w-[7rem] rounded-[2px] border border-warn bg-sunken px-1.5 py-px text-right text-[12px] text-body focus:outline-none disabled:opacity-50"
+            className="figure w-[7rem] rounded-[2px] border border-warn bg-sunken px-1.5 py-px text-right text-note text-body focus:outline-none disabled:opacity-50"
           />
-          <span className="text-[10.5px] text-muted">prata / 100 nutrição</span>
+          <span className="text-aux text-muted">prata / 100 nutrição</span>
           <button
             type="button"
             onClick={salvar}
             disabled={pendente}
-            className="cursor-pointer rounded-[2px] border border-line-strong bg-raised px-2.5 py-px text-[11.5px] text-body hover:border-warn disabled:opacity-50"
+            className="cursor-pointer rounded-[2px] border border-line-strong bg-raised px-2.5 py-px text-note text-body hover:border-warn disabled:opacity-50"
           >
             {pendente ? "Aplicando…" : "Calcular"}
           </button>
+          {erro && <span className="text-aux text-down">{erro}</span>}
         </span>
-
-        {erro && <span className="text-[10.5px] text-down">{erro}</span>}
-      </div>
-
-      <p className="m-0 max-w-prose pt-1.5 text-[11px] text-muted leading-relaxed">
-        {/* O "por que está vazio" importa tanto quanto o "o quê": sem ele, o
-            campo em branco parece esquecimento do produto em vez de escolha. */}
-        Ela é <b>escolha do dono da estação</b>, muda por cidade e por hora, e está escrita na
-        tela da estação dentro do jogo — não há valor defensável para pré-preencher, e um chute
-        aqui viraria lucro inventado em todas as 27 linhas. A planilha de referência usava 184,
-        que serve de <i>ordem de grandeza</i> e não de padrão. Os preços abaixo já estão
-        carregados e continuam editáveis enquanto isso.
-      </p>
-    </div>
+      }
+    >
+      <b>Informe a taxa da estação para calcular.</b>{" "}
+      Ela é escolha do dono da estação, muda por cidade e por hora, e está na tela da
+      estação dentro do jogo — não há valor defensável para pré-preencher. A planilha de
+      referência usava 184, que serve de ordem de grandeza e não de padrão.
+    </Aviso>
   );
 }

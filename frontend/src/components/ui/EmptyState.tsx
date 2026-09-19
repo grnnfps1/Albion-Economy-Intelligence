@@ -116,7 +116,7 @@ export function ApiDown({ falha }: { falha?: ApiFailure | null }) {
           </a>{" "}
           para o estado da coleta.
           {falha && (
-            <span className="figure mt-1 block text-[10.5px] text-dim">
+            <span className="figure mt-1 block text-aux text-dim">
               {falha.rota}
               {falha.status ? ` · HTTP ${falha.status}` : ""}
             </span>

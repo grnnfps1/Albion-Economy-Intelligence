@@ -53,6 +53,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 33 | Memoização da cadeia: /focus sai do tempo limite | ✅ |
 | 34 | Receitas por fecho: /focus 89% e calculador 96% | ✅ |
 | 35 | Agricultura: rodapé recolhível e o que falta em cima | ✅ |
+| 36 | Esqueleto único nas seis telas densas | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -393,6 +394,46 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 36 — uniformidade é requisito, não consequência
+
+- **Usar os mesmos componentes não bastou.** As seis telas usavam `SheetTable`,
+  `MaterialCell` e `ItemIcon` — e lado a lado pareciam produtos diferentes,
+  porque o que diverge não é o componente, é **o que sobra em volta dele**:
+  dez tamanhos de fonte (8,5 / 9 / 9,5 / 10 / 10,5 / 11 / 11,5 / 12 / 13 / 15),
+  ícones de 20 a 38, faixa de parâmetros só em uma tela, aviso de dado
+  incompleto em lugares diferentes.
+- **Uniformidade vem de não haver onde divergir.** `components/sheet/Chrome.tsx`
+  guarda a faixa (`ParamStrip`), o aviso (`Aviso`), o tamanho de ícone
+  (`SHEET_ICON`) e os dois parâmetros que toda tela de cálculo mostra
+  (`ParamsDeTaxa`). Uma tela que precise de algo a mais **encaixa no esqueleto**
+  — foi o que `StationFeePrompt` virou: o mesmo `Aviso`, com o campo entrando
+  pelo `acao`.
+- **Dez tamanhos viraram quatro tokens.** `text-val` (13), `text-note` (11),
+  `text-aux` (10), `text-micro` (9), com `--text-aux` novo. Foram 108
+  substituições, e hoje **nenhuma tela densa tem um `text-[Npx]` avulso** — há
+  auditoria contando.
+- **O ícone perdeu o tamanho por tela.** O calculador usava 38 e 30, com a
+  justificativa da fase 19 de que "são 27 linhas para examinar, não 40 para
+  varrer". A justificativa era boa e o efeito colateral era ele parecer outro
+  produto. Uniformidade ganhou — e de quebra a tela ficou mais densa, que era o
+  outro pedido.
+- **A faixa de parâmetros passou a existir em todas, inclusive onde não há
+  taxa.** `/market` não calcula lucro, então mostra o que **recorta** a tabela:
+  servidor, janela da mediana, contagem. Altura e tratamento iguais aos das
+  outras — altura diferente ali é o que mais faz duas telas parecerem de
+  produtos distintos.
+- **Imposto e setup fee agora aparecem nas seis.** Antes só no calculador. Uma
+  tela que calcula lucro sem dizer com que imposto calculou pede confiança sem
+  dar como conferir.
+- **Três divergências sobraram, e as três são decisões registradas:**
+  `/market` sem aviso (não tem parâmetro que possa faltar) e sem ordenação por
+  cabeçalho (colunas compostas, fase 31); `/refining` e `/arbitrage` sem
+  ordenação (não existe no backend — backlog).
+- **Os dois textos longos saíram do painel de preferências.** O do bônus do dia
+  e o da taxa da estação repetiam o que o aviso âmbar do calculador já diz. No
+  campo da taxa ficou uma linha: *"Está na tela da estação, no jogo"* — a única
+  informação que o aviso não repete.
 
 ## Notas da fase 35 — agricultura, e uma suspeita que não era bug
 
@@ -1372,7 +1413,12 @@ aumenta o número de execuções, ao contrário do lucro absoluto.
 ## Linguagem visual
 
 Desde a fase 18 as telas densas são **tabela** (`components/sheet/`), com
-`table-layout: fixed` e largura por tipo de coluna. Uma coluna por grandeza,
+`table-layout: fixed` e largura por tipo de coluna. Desde a fase 36 elas
+compartilham o **esqueleto** de `components/sheet/Chrome.tsx` — faixa de
+parâmetros, aviso de dado incompleto e tamanho de ícone —, e o texto usa quatro
+tokens (`text-val`, `text-note`, `text-aux`, `text-micro`) em vez de
+`text-[Npx]` avulso. Uniformidade é requisito: uma tela que precise de algo a
+mais encaixa no esqueleto em vez de montar o seu. Uma coluna por grandeza,
 uma coluna por material, zebra fraca e filtros em caixa alta. O que segue vale
 dentro dessa tabela.
 

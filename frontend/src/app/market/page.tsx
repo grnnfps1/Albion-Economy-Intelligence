@@ -1,8 +1,11 @@
 import { ExportButton } from "@/components/sheet/ExportButton";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { Param, ParamStrip } from "@/components/sheet/Chrome";
+import { ComoLer } from "@/components/sheet/ComoLer";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
 import { AgeTag } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
@@ -10,7 +13,7 @@ import { fetchMarketPrices, type MarketPrice, type PriceField,
   ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatSilver } from "@/lib/format";
+import { formatSilver, formatSilverCompact } from "@/lib/format";
 import { getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -143,12 +146,38 @@ export default async function MarketPage({
         </EmptyState>
       )}
 
+      {/* `/market` não calcula lucro, então não tem imposto nem setup fee a
+          mostrar — mas tem a mesma faixa, no mesmo lugar e com a mesma altura.
+          Ela diz o que **recorta** a tabela, que é o equivalente aqui. */}
+      {page && page.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="servidor" valor={prefs.server} />
+          <Param rotulo="mediana" valor="30 d"
+            dica="a janela da referência: mediana de 30 dias, e não média — um preço manipulado contamina a média inteira" />
+          <Param rotulo="cotações" valor={formatSilver(page.total)} />
+        </ParamStrip>
+      )}
+
       {page && page.total > 0 && (
         <SheetTable columns={COLUNAS}>
           {page.prices.map((p) => (
             <MarketLine key={`${p.item}-${p.location}-${p.quality}`} price={p} />
           ))}
         </SheetTable>
+      )}
+
+      {page && page.total > 0 && (
+        <ComoLer>
+          <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
+            <b>Como ler:</b> <i>comprando agora</i> é o que você <b>paga</b> e{" "}
+            <i>vendendo agora</i> é o que você <b>recebe</b> — são preços diferentes, e
+            trocá-los inverte o sinal do lucro. A referência é a <b>mediana</b> de 30 dias,
+            não a média: o histórico do AODP já vem em média por dia, e um único preço
+            manipulado contamina a janela inteira. Frescor e cobertura andam juntos de
+            propósito: <i>há 8 min</i> ao lado de <i>3/30d</i> é um alerta, não um elogio —
+            preço fresco em mercado que ninguém visita é preço frágil.
+          </p>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -170,7 +199,7 @@ function Preco({ campo }: { campo: PriceField }) {
   if (campo.value === null) {
     return (
       <td>
-        <span className="text-[10.5px] text-dim">sem dado</span>
+        <span className="text-aux text-dim">sem dado</span>
         {campo.manual_expired && <ManualExpirado />}
       </td>
     );
@@ -180,17 +209,17 @@ function Preco({ campo }: { campo: PriceField }) {
       <span className="flex items-baseline justify-end gap-1">
         {campo.is_manual && (
           <span
-            className="rounded-[2px] border border-warn px-1 text-[8.5px] leading-[1.35] text-warn"
+            className="rounded-[2px] border border-warn px-1 text-micro leading-[1.35] text-warn"
             title="preço que você informou — vence o coletado enquanto for fresco"
           >
             SEU
           </span>
         )}
-        <span className="figure">{formatSilver(campo.value)}</span>
+        <span className="figure">{formatSilverCompact(campo.value)}</span>
       </span>
       {campo.is_manual && campo.collected_value !== null && (
         <span
-          className="figure block text-[9px] text-dim line-through"
+          className="figure block text-micro text-dim line-through"
           title="o que a coleta dizia"
         >
           {formatSilver(campo.collected_value)}
@@ -207,7 +236,7 @@ function Preco({ campo }: { campo: PriceField }) {
 function ManualExpirado() {
   return (
     <span
-      className="block text-[9px] text-warn"
+      className="block text-micro text-warn"
       title="você informou um preço aqui, mas ele passou do limite de frescor e o coletado voltou"
     >
       manual expirado
@@ -229,20 +258,20 @@ function MarketLine({ price }: { price: MarketPrice }) {
             url={price.icon_url}
             alt={price.item_name ?? price.item}
             tier={price.tier}
-            size={22}
+            size={SHEET_ICON.linha}
           />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={price.tier} enchantment={price.enchantment} />
               <QualityBadge quality={price.quality} />
-              <CityTag city={price.location} className="text-[9.5px] text-muted" />
+              <CityTag city={price.location} className="text-micro text-muted" />
             </span>
             <span className="flex min-w-0 items-center">
               <span className="truncate">{price.item_name ?? price.item}</span>
               {/* Colado no nome, não na borda da célula, e visível sempre. */}
               <CopyButton name={price.item_name} id={price.item} />
             </span>
-            <span className="block truncate text-[9px] text-dim">{price.item}</span>
+            <span className="block truncate text-micro text-dim">{price.item}</span>
           </span>
         </span>
       </td>
@@ -253,7 +282,7 @@ function MarketLine({ price }: { price: MarketPrice }) {
       <Preco campo={price.buy_min} />
 
       <td className="figure">
-        {price.median_30d === null ? "—" : formatSilver(price.median_30d)}
+        {price.median_30d === null ? "—" : formatSilverCompact(price.median_30d)}
       </td>
 
       <td
@@ -271,7 +300,7 @@ function MarketLine({ price }: { price: MarketPrice }) {
         {distancia === null ? "—" : `${distancia > 0 ? "+" : ""}${distancia.toFixed(1)}%`}
       </td>
 
-      <td className="figure text-[10.5px]">
+      <td className="figure text-aux">
         {liq.status === "UNKNOWN" ? (
           <span className="text-dim" title="sem histórico suficiente para medir giro">
             —
@@ -279,17 +308,17 @@ function MarketLine({ price }: { price: MarketPrice }) {
         ) : (
           <>
             {formatSilver(liq.units_per_day)}
-            <span className="text-[9px] text-dim">/d</span>
+            <span className="text-micro text-dim">/d</span>
           </>
         )}
       </td>
 
       <td>
         {liq.status === "UNKNOWN" ? (
-          <span className="text-[10px] text-dim">desconhecida</span>
+          <span className="text-aux text-dim">desconhecida</span>
         ) : (
           <>
-            <span className="figure text-[10px] text-dim">
+            <span className="figure text-aux text-dim">
               {liq.days_with_data}/{liq.period_days}d
             </span>
             <span className="ml-auto block h-[3px] w-10 overflow-hidden rounded-full bg-line">

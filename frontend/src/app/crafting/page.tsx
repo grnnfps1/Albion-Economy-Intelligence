@@ -1,5 +1,13 @@
 import { PageShell } from "@/components/PageShell";
 import { ComoLer } from "@/components/sheet/ComoLer";
+import {
+  Aviso,
+  Param,
+  ParamStrip,
+  ParamsDeTaxa,
+  pctOuTraco,
+} from "@/components/sheet/Chrome";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import {
   EmptyMaterialCell,
@@ -224,6 +232,27 @@ export default async function CraftingPage({
         </EmptyState>
       )}
 
+      {data && !data.params.complete && (
+        <Aviso>
+          Falta configurar: {data.params.missing.join(", ")}. Sem esses valores as linhas
+          respondem <b>desconhecido</b> em vez de calcular com zero.
+        </Aviso>
+      )}
+
+      {data && data.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="retorno" valor={pctOuTraco(data.params.return_rate)}
+            dica="taxa de retorno de material, pela fórmula RRR = B/(1+B)" />
+          <Param rotulo="taxa da loja"
+            valor={data.params.station_fee_per_100_nutrition === null
+              ? "desconhecida"
+              : `${formatSilver(data.params.station_fee_per_100_nutrition)} / 100 nutr.`}
+            tom={data.params.station_fee_per_100_nutrition === null ? "warn" : undefined} />
+          <ParamsDeTaxa fees={data.params.fees} />
+          <Param rotulo="focus" valor={data.params.use_focus ? "ligado" : "desligado"} />
+        </ParamStrip>
+      )}
+
       {data && data.total > 0 && (
         <SheetTable
           columns={colunas(maxMateriais)}
@@ -242,18 +271,20 @@ export default async function CraftingPage({
 
       {data && data.opportunities.length > 0 && (
         <ComoLer>
-          <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-          <b>Como ler:</b> <i>você gasta</i> é o custo dos materiais depois do retorno, mais a
-          taxa da estação. <i>Você recebe</i> já desconta o imposto de venda. Nos materiais, o
-          número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
-          tier. Material com moldura âmbar vem de outra cidade — e o aviso de cidades aparece a
-          partir da terceira, porque economia espalhada por quatro mercados custa quatro viagens.
-          Vender fora da cidade onde se compra cria uma rota, e rota tem zona: qualquer ponta em
-          Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b>, onde
-          a carga inteira pode não chegar. O Black Market aceita equipamento, nunca recurso.
-          A marca <i>↩</i> é o retorno de material: ele muda com a cidade, e craftar na cidade
-          com bônus da família devolve 24,8% do material em vez de 15,2%.
-          </p>
+          <ComoLer>
+            <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
+            <b>Como ler:</b> <i>você gasta</i> é o custo dos materiais depois do retorno, mais a
+            taxa da estação. <i>Você recebe</i> já desconta o imposto de venda. Nos materiais, o
+            número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
+            tier. Material com moldura âmbar vem de outra cidade — e o aviso de cidades aparece a
+            partir da terceira, porque economia espalhada por quatro mercados custa quatro viagens.
+            Vender fora da cidade onde se compra cria uma rota, e rota tem zona: qualquer ponta em
+            Caerleon ou no Black Market atravessa <b className="text-down">vermelha/preta</b>, onde
+            a carga inteira pode não chegar. O Black Market aceita equipamento, nunca recurso.
+            A marca <i>↩</i> é o retorno de material: ele muda com a cidade, e craftar na cidade
+            com bônus da família devolve 24,8% do material em vez de 15,2%.
+            </p>
+          </ComoLer>
         </ComoLer>
       )}
     </PageShell>
@@ -316,7 +347,7 @@ function LucroDia({
   if (profit === null) {
     return (
       <td title={reason ?? undefined}>
-        <span className="text-[10.5px] text-dim">—</span>
+        <span className="text-aux text-dim">—</span>
       </td>
     );
   }
@@ -324,7 +355,7 @@ function LucroDia({
   return (
     <td title={trava.dica}>
       <span
-        className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
+        className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}
       >
         {positivo ? "+" : ""}
         {formatSilver(profit)}
@@ -363,7 +394,7 @@ function CraftLine({
     <tr className={tinta}>
       <td className={`l ${tierBorderLeft(op.tier)}`}>
         <span className="flex min-w-0 items-center gap-2">
-          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={22} />
+          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={SHEET_ICON.linha} />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={op.tier} enchantment={op.enchantment} />
@@ -384,7 +415,7 @@ function CraftLine({
                 names={excedentes.map((m) => m.item_name ?? m.item)}
               />
             </span>
-            <span className="block truncate text-[9px] text-dim">{op.item}</span>
+            <span className="block truncate text-micro text-dim">{op.item}</span>
           </span>
         </span>
       </td>
@@ -437,7 +468,7 @@ function CraftLine({
 
       <td>
         <span
-          className={`figure font-semibold text-[13px] ${
+          className={`figure font-semibold text-val ${
             positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
           }`}
         >
@@ -464,19 +495,19 @@ function CraftLine({
         reason={eco.daily_reason}
       />
 
-      <td className="figure text-[10.5px] text-muted">
+      <td className="figure text-aux text-muted">
         {formatSilver(eco.focus_cost)}
         {/* Sem spec informado o custo é o do dump. A tela diz, em vez de
             apresentar o número como se fosse do usuário. */}
         {eco.base_focus_cost !== null && eco.base_focus_cost !== eco.focus_cost && (
-          <span className="block text-[9px] text-dim line-through">
+          <span className="block text-micro text-dim line-through">
             {formatSilver(eco.base_focus_cost)}
           </span>
         )}
       </td>
 
       <td className="l">
-        <CityTag city={op.sell_location} className="text-[10.5px]" />
+        <CityTag city={op.sell_location} className="text-aux" />
         <span className="mt-px flex">
           <ZoneTag zone={op.risk.zone} label={op.risk.zone_label} />
         </span>
@@ -486,7 +517,7 @@ function CraftLine({
         <AgeTag seconds={op.sell_age_seconds} />
       </td>
 
-      <td className="figure text-[10px] text-dim">
+      <td className="figure text-aux text-dim">
         {op.liquidity_units_per_day === null
           ? "—"
           : `${formatSilver(op.liquidity_units_per_day)}/d`}

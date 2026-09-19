@@ -1,4 +1,4 @@
-import { formatDataAge, formatSilver } from "@/lib/format";
+import { formatDataAge, formatSilver, formatSilverCompact } from "@/lib/format";
 
 /** Número com o rótulo que diz o que ele já inclui. Rótulo vago esconde taxa. */
 export function Figure({
@@ -12,7 +12,12 @@ export function Figure({
 }) {
   return (
     <div className={`pr-3 text-right ${className}`}>
-      <span className="figure text-val">{formatSilver(value)}</span>
+      {/* Coluna de **contexto**: abrevia acima de 10.000, com o exato no
+          balão. `ProfitFigure`, logo abaixo, não abrevia — é o número que
+          decide (ver `formatSilverCompact`). */}
+      <span className="figure text-val" title={formatSilver(value)}>
+        {formatSilverCompact(value)}
+      </span>
       <span className="lbl mt-px block">{label}</span>
     </div>
   );

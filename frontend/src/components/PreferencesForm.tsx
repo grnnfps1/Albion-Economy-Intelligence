@@ -118,8 +118,8 @@ export function PreferencesForm({
   }
 
   const campo =
-    "figure w-full rounded-[3px] border border-line bg-raised px-2 py-1.5 text-[12px] text-body";
-  const rotulo = "text-[10px] text-dim uppercase tracking-[0.05em]";
+    "figure w-full rounded-[3px] border border-line bg-raised px-2 py-1.5 text-note text-body";
+  const rotulo = "text-aux text-dim uppercase tracking-[0.05em]";
 
   return (
     <div className="grid gap-3 border-line border-b bg-sunken p-4 sm:grid-cols-3 lg:grid-cols-6">
@@ -212,12 +212,6 @@ export function PreferencesForm({
                     : Math.min(100, Math.max(0, numero)) / 100,
               });
             }} />
-          <span className="text-[11px] text-zinc-500">
-            O bônus de produção do dia, lido na tela da cidade. Soma em{" "}
-            <b>B</b> junto do Focus e do bônus da cidade — não sobre o retorno já
-            calculado. Vazio significa <b>não estou modelando</b>: o retorno sai
-            igual ao da fórmula sem ele, e a tela diz isso.
-          </span>
         </label>
       )}
 
@@ -237,11 +231,12 @@ export function PreferencesForm({
                   texto === "" || !Number.isFinite(numero) ? null : Math.max(0, numero),
               });
             }} />
-          <span className="text-[11px] text-zinc-500">
-            Abra a estação no jogo e leia a taxa de uso. Sem ela, craft e refino
-            respondem <b className="text-warn">desconhecido</b> — calcular sem a
-            taxa inventaria lucro.
-          </span>
+          {/* O texto longo saiu: o aviso âmbar no topo da tabela do
+              calculador (`StationFeePrompt`) já explica por que o campo nasce
+              vazio e o que fazer. Explicar a mesma coisa em dois lugares é a
+              regra "nada duplicado"; fica só onde ler o número, que é a única
+              informação que o aviso não repete. */}
+          <span className="text-note text-zinc-500">Está na tela da estação, no jogo.</span>
         </label>
       )}
 
@@ -250,7 +245,7 @@ export function PreferencesForm({
           <span className={rotulo}>Focus disponível</span>
           <input className={campo} value={prefs.focusBudget}
             onChange={(e) => atualizar({ focusBudget: parseFloat(e.target.value) || 0 })} />
-          <span className="text-[11px] text-zinc-500">
+          <span className="text-note text-zinc-500">
             O estoque que você tem agora — acumula até 30.000.
           </span>
         </label>
@@ -263,7 +258,7 @@ export function PreferencesForm({
           <span className={rotulo}>Focus por dia</span>
           <input className={campo} value={prefs.focusPerDay ?? 10000}
             onChange={(e) => atualizar({ focusPerDay: parseFloat(e.target.value) || 0 })} />
-          <span className="text-[11px] text-zinc-500">
+          <span className="text-note text-zinc-500">
             Quanto regenera por dia — 10.000 com Premium.
           </span>
         </label>
@@ -322,7 +317,7 @@ export function PreferencesForm({
       <div className="col-span-full flex flex-col gap-1.5">
         <span className={rotulo}>Spec por item</span>
         {itens.length === 0 && (
-          <span className="text-[11px] text-dim">
+          <span className="text-note text-dim">
             Nenhum item informado — o craft de equipamento assume spec 0.
           </span>
         )}
@@ -348,7 +343,7 @@ export function PreferencesForm({
               type="button"
               onClick={() => removerItem(i)}
               aria-label={`remover ${linha.item || "item"}`}
-              className="rounded-[3px] border border-line px-2 py-1 text-[11px] text-dim hover:border-down hover:text-down"
+              className="rounded-[3px] border border-line px-2 py-1 text-note text-dim hover:border-down hover:text-down"
             >
               remover
             </button>
@@ -358,11 +353,11 @@ export function PreferencesForm({
           <button
             type="button"
             onClick={adicionarItem}
-            className="rounded-[3px] border border-line-strong bg-raised px-2.5 py-1 text-[11px] text-body hover:border-warn"
+            className="rounded-[3px] border border-line-strong bg-raised px-2.5 py-1 text-note text-body hover:border-warn"
           >
             + item
           </button>
-          <span className="ml-2 text-[10.5px] text-dim">
+          <span className="ml-2 text-aux text-dim">
             O tier e o encantamento são ignorados: o nó do Destiny Board é da linha do item.
           </span>
         </span>
@@ -371,12 +366,12 @@ export function PreferencesForm({
 
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}
-          className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-[12px] text-body hover:border-warn disabled:opacity-50">
+          className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-note text-body hover:border-warn disabled:opacity-50">
           {pending ? "Aplicando…" : salvo ? "Salvo ✓" : "Salvar"}
         </button>
       </div>
 
-      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+      <p className="col-span-full m-0 text-note text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-up">Imposto e setup fee foram medidos no jogo.</b>{" "}
         4% com Premium saiu de uma notificação de venda do próprio jogo; 8% sem Premium foi
         confirmado à parte. O setup fee de 2,5% é cobrado na criação da ordem, nas duas pernas, e
@@ -387,7 +382,7 @@ export function PreferencesForm({
         estação, dentro do jogo.
       </p>
 
-      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+      <p className="col-span-full m-0 text-note text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-body">Especialização corta o Focus, não o custo.</b>{" "}
         Cada 10.000 pontos de eficiência cortam o custo pela metade, e cada nível de spec vale
         250 pontos. Um refino T4 custa 54 de Focus sem spec e 3 com tudo maximizado — dezoito
@@ -395,7 +390,7 @@ export function PreferencesForm({
         telas calculam assumindo spec 0</b> e dizem isso na linha.
       </p>
 
-      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+      <p className="col-span-full m-0 text-note text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-body">Refino é por família; craft é por item.</b>{" "}
         Quem especializa couro especializa a linha inteira, então cinco campos bastam para o
         refino. Craft de equipamento não funciona assim — quem especializou Capuz de Mercenário
@@ -403,14 +398,14 @@ export function PreferencesForm({
         só os itens que você de fato produz; o resto continua em zero.
       </p>
 
-      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+      <p className="col-span-full m-0 text-note text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-body">O retorno de material não é mais um campo.</b>{" "}
         Ele sai de uma matriz por cidade, atividade e Focus — refinar minério em Thetford rende
         36,7%, e em qualquer outra cidade rende 15,2%. As telas mostram por linha onde rende
         mais. Estes dois campos escolhem a coluna da matriz e somam o sorteio do dia.
       </p>
 
-      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+      <p className="col-span-full m-0 text-note text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
         <b className="font-semibold text-body">Perda de carga começa em zero</b>, e zero não é
         um chute: é dizer que você não está modelando perda, e nesse caso o lucro ajustado sai
         igual ao bruto. Rota entre cidades reais é zona azul; qualquer ponta em Caerleon ou no

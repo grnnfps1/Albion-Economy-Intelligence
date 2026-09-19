@@ -34,7 +34,7 @@ export function ComoLer({ children }: { children: React.ReactNode }) {
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-expanded={aberto}
-        className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-1.5 text-left text-[11px] text-dim hover:text-body"
+        className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-1.5 text-left text-note text-dim hover:text-body"
       >
         <span aria-hidden>{aberto ? "▾" : "▸"}</span>
         <span>como ler esta tabela</span>

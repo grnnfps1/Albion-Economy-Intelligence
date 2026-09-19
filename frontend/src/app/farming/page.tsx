@@ -1,5 +1,7 @@
 import { PageShell } from "@/components/PageShell";
+import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { ComoLer } from "@/components/sheet/ComoLer";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import {
@@ -211,13 +213,20 @@ export default async function FarmingPage({
           acredita no sintoma. Aqui ele conclui que o cálculo está quebrado,
           quando ele está **incompleto e dizendo isso**. */}
       {data && data.total > 0 && data.params.assumptions.length > 0 && (
-        <p className="border-warn/40 border-b bg-warn/5 px-4 py-2 text-[11.5px] text-warn">
+        <Aviso>
           Estes números estão <b>incompletos de propósito</b>: dois multiplicadores do jogo —
           o bônus de fazenda ativa e o de comida favorita — estão gravados e{" "}
           <b>não entram na conta</b>, porque o que eles multiplicam não foi medido. Prejuízo
           aqui não quer dizer prejuízo no jogo. A lista inteira está em{" "}
           <i>como ler</i>, ao pé da tabela.
-        </p>
+        </Aviso>
+      )}
+
+      {data && data.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="estação" valor={data.stations.length === 1 ? data.stations[0] : "todas"} />
+          <ParamsDeTaxa fees={data.params.fees} />
+        </ParamStrip>
       )}
 
       {data && data.total > 0 && (
@@ -238,7 +247,7 @@ export default async function FarmingPage({
 
       {data && data.plans.length > 0 && (
         <ComoLer>
-          <div className="max-w-prose space-y-2 p-4 text-[11px] text-dim leading-relaxed">
+          <div className="max-w-prose space-y-2 p-4 text-note text-dim leading-relaxed">
             <p>
               <b>Como ler:</b> <i>ciclo</i> é quanto tempo o plano leva do começo ao fim — é o
               que divide o lucro para virar prata por dia. <i>Você gasta</i> é semente ou filhote
@@ -289,15 +298,15 @@ function FarmLine({
             url={plano.icon_url}
             alt={plano.item_name ?? plano.item}
             tier={plano.tier}
-            size={22}
+            size={SHEET_ICON.linha}
           />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={plano.tier} enchantment={0} />
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
                 {plano.station_label}
               </span>
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
                 {TIPO_ROTULO[plano.kind] ?? plano.kind.toLowerCase()}
               </span>
             </span>
@@ -309,7 +318,7 @@ function FarmLine({
                 names={excedentes.map((e) => e.item_name ?? e.item)}
               />
             </span>
-            <span className="block truncate text-[9px] text-dim">{plano.item}</span>
+            <span className="block truncate text-micro text-dim">{plano.item}</span>
           </span>
         </span>
       </td>
@@ -334,7 +343,7 @@ function FarmLine({
         );
       })}
 
-      <td className="figure text-[10.5px]">{formatDuracao(eco.cycle_seconds)}</td>
+      <td className="figure text-aux">{formatDuracao(eco.cycle_seconds)}</td>
 
       <td
         title={
@@ -373,7 +382,7 @@ function FarmLine({
           menor que o do dia, de propósito — quem decide é o por dia. */}
       <td title="lucro de um ciclo inteiro, sem dividir pelo tempo">
         {eco.profit_per_cycle === null ? (
-          <span className="text-[10.5px] text-dim">—</span>
+          <span className="text-aux text-dim">—</span>
         ) : (
           <span
             className={`figure ${eco.profit_per_cycle > 0 ? "text-up" : "text-down"}`}
@@ -385,7 +394,7 @@ function FarmLine({
 
       <td>
         <span
-          className={`figure font-semibold text-[13px] ${
+          className={`figure font-semibold text-val ${
             positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
           }`}
         >
@@ -404,13 +413,13 @@ function FarmLine({
                 ? formatSilver(saida.amount_min)
                 : `${saida.amount_min}–${saida.amount_max}`}
             </span>
-            <span className="ml-1 text-[9.5px] text-dim">{saida.item_name ?? saida.item}</span>
+            <span className="ml-1 text-micro text-dim">{saida.item_name ?? saida.item}</span>
           </span>
         ))}
         {eco.outputs_without_price.length > 0 && (
           <span
             title={`Sem cotação: ${eco.outputs_without_price.join(", ")}. O lucro mostrado está abaixo do real.`}
-            className="figure block text-[9px] text-warn"
+            className="figure block text-micro text-warn"
           >
             ⚠ {eco.outputs_without_price.length} sem preço
           </span>

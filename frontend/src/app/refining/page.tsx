@@ -1,6 +1,15 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { ComoLer } from "@/components/sheet/ComoLer";
+import {
+  Aviso,
+  Param,
+  ParamStrip,
+  ParamsDeTaxa,
+  pctOuTraco,
+} from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { ReturnTag, TierBadge } from "@/components/ui/Badges";
@@ -10,7 +19,7 @@ import { fetchRefining, type RefiningOpportunity,
   ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatDataAge, formatSilver } from "@/lib/format";
+import { formatDataAge, formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -163,6 +172,27 @@ export default async function RefiningPage({
         </EmptyState>
       )}
 
+      {data && !data.params.complete && (
+        <Aviso>
+          Falta configurar: {data.params.missing.join(", ")}. Sem esses valores as linhas
+          respondem <b>desconhecido</b> em vez de calcular com zero.
+        </Aviso>
+      )}
+
+      {data && data.total > 0 && (
+        <ParamStrip>
+          <Param rotulo="retorno" valor={pctOuTraco(data.params.return_rate)}
+            dica="taxa de retorno de material, pela fórmula RRR = B/(1+B)" />
+          <Param rotulo="taxa da loja"
+            valor={data.params.station_fee_per_100_nutrition === null
+              ? "desconhecida"
+              : `${formatSilver(data.params.station_fee_per_100_nutrition)} / 100 nutr.`}
+            tom={data.params.station_fee_per_100_nutrition === null ? "warn" : undefined} />
+          <ParamsDeTaxa fees={data.params.fees} />
+          <Param rotulo="focus" valor={data.params.use_focus ? "ligado" : "desligado"} />
+        </ParamStrip>
+      )}
+
       {data && data.total > 0 && (
         <SheetTable columns={COLUNAS}>
           {data.opportunities.map((op) => (
@@ -172,15 +202,17 @@ export default async function RefiningPage({
       )}
 
       {data && data.opportunities.length > 0 && (
-        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-          Cada elo da cadeia paga a taxa da estação, não só o último — em refino isso pesa muito
-          mais que em craft avulso. As duas colunas de custo são as duas respostas certas: quem
-          compra tudo pronto olha a primeira, quem já tem a cadeia montada olha a segunda. O elo
-          com moldura âmbar é comprado fora da cidade base; o aviso de cidades aparece a partir da
-          terceira, porque cada cidade a mais é uma viagem a mais. A marca <i>↩</i> é o retorno
-          de material, e ele segue o <b>recurso</b>: minério rende 36,7% em Thetford e 15,2% em
-          qualquer outra cidade. A diferença é maior que a que o Focus dá sozinho.
-        </p>
+        <ComoLer>
+          <p className="max-w-prose p-4 text-note text-dim leading-relaxed">
+            Cada elo da cadeia paga a taxa da estação, não só o último — em refino isso pesa muito
+            mais que em craft avulso. As duas colunas de custo são as duas respostas certas: quem
+            compra tudo pronto olha a primeira, quem já tem a cadeia montada olha a segunda. O elo
+            com moldura âmbar é comprado fora da cidade base; o aviso de cidades aparece a partir da
+            terceira, porque cada cidade a mais é uma viagem a mais. A marca <i>↩</i> é o retorno
+            de material, e ele segue o <b>recurso</b>: minério rende 36,7% em Thetford e 15,2% em
+            qualquer outra cidade. A diferença é maior que a que o Focus dá sozinho.
+          </p>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -273,14 +305,14 @@ function LucroDia({
   if (profit === null) {
     return (
       <td title={reason ?? undefined}>
-        <span className="text-[10.5px] text-dim">—</span>
+        <span className="text-aux text-dim">—</span>
       </td>
     );
   }
   const positivo = profit > 0;
   return (
     <td title={trava.dica}>
-      <span className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}>
+      <span className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}>
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
@@ -306,12 +338,12 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
     <tr className={tinta}>
       <td className={`l ${tierBorderLeft(op.tier)}`}>
         <span className="flex min-w-0 items-center gap-2">
-          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={22} />
+          <ItemIcon url={op.icon_url} alt={op.item_name ?? op.item} tier={op.tier} size={SHEET_ICON.linha} />
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={op.tier} enchantment={op.enchantment} />
               {op.family && (
-                <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-[9.5px] text-muted">
+                <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
                   {op.family.toLowerCase()}
                 </span>
               )}
@@ -327,7 +359,7 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
               <span className="truncate">{op.item_name ?? op.item}</span>
               <CopyButton name={op.item_name} id={op.item} />
             </span>
-            <span className="block truncate text-[9px] text-dim">{op.item}</span>
+            <span className="block truncate text-micro text-dim">{op.item}</span>
           </span>
         </span>
       </td>
@@ -335,7 +367,7 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
       {/* A idade perdeu a coluna, não o produto: ela vira a cor do rótulo e o
           balão. Preço de seis horas atrás não é preço. */}
       <td title={`cotação de venda ${formatDataAge(op.sell_age_seconds)}`}>
-        <span className="figure text-val">{formatSilver(op.cost_from_market)}</span>
+        <span className="figure text-val">{formatSilverCompact(op.cost_from_market)}</span>
         <span className={`lbl mt-px block ${tomDeIdade(op.sell_age_seconds)}`}>
           {formatDataAge(op.sell_age_seconds)}
         </span>
@@ -353,7 +385,7 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
 
       <td>
         <span
-          className={`figure font-semibold text-[13px] ${
+          className={`figure font-semibold text-val ${
             positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
           }`}
         >
@@ -368,9 +400,9 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
         reason={op.daily_reason}
       />
 
-      <td className="figure text-[10.5px] text-muted">{formatSilver(op.focus_per_unit)}</td>
+      <td className="figure text-aux text-muted">{formatSilver(op.focus_per_unit)}</td>
 
-      <td className="figure text-[10px] text-dim">
+      <td className="figure text-aux text-dim">
         {op.liquidity_units_per_day === null
           ? "—"
           : `${formatSilver(op.liquidity_units_per_day)}/d`}

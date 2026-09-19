@@ -69,7 +69,7 @@ export function ExportButton({
         exportar csv
       </button>
       {erro && (
-        <span role="alert" className="text-[10.5px] text-warn">
+        <span role="alert" className="text-aux text-warn">
           exportação falhou: {erro}
         </span>
       )}
