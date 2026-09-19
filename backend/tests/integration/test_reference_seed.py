@@ -73,11 +73,16 @@ async def test_fonte_aodp_marcada_como_comunitaria(migrated_connection):
     assert community is True
 
 
-async def test_taxas_de_mercado_continuam_null_e_nao_zero(migrated_connection):
-    """Requisito 52: sem valor confirmado, o parâmetro é UNKNOWN, não um chute.
+async def test_taxas_de_mercado_tem_valor_e_procedencia(migrated_connection):
+    """Requisito 52: número **sempre** com procedência; nunca um com `UNKNOWN`.
 
-    Imposto e setup fee seguem sem medição, então seguem NULL. É o que faz a
-    plataforma responder "não sei" em vez de um lucro calculado com taxa zero.
+    A guarda mudou de forma na fase 21 e não de espírito. Antes era "as taxas
+    de mercado seguem NULL", porque nenhuma havia sido medida. Agora as quatro
+    têm valor — três de medição no jogo e uma de confirmação do usuário — e o
+    que se guarda é o invariante que sempre valeu: **valor sem fonte é chute**.
+
+    O teste continua caindo se alguém preencher um número sem dizer de onde
+    veio. Foi exatamente o que ele fez quando as medições entraram.
     """
     rows = (
         await migrated_connection.execute(
@@ -85,9 +90,40 @@ async def test_taxas_de_mercado_continuam_null_e_nao_zero(migrated_connection):
         )
     ).all()
     assert rows, "parâmetros de taxa deveriam existir no seed"
+
     for key, value, source in rows:
-        assert value is None, f"{key} não pode ter valor inventado"
-        assert source == "UNKNOWN"
+        assert value is not None, f"{key} ficou sem valor"
+        assert 0 < float(value) < 1, f"{key} fora da faixa de uma taxa"
+        assert source != "UNKNOWN", f"{key} tem número sem procedência"
+        assert "19/09/2026" in source, f"{key} não diz quando foi obtido"
+
+
+async def test_o_imposto_sem_premium_nao_foi_derivado_do_com_premium(migrated_connection):
+    """As duas procedências são diferentes, e a tabela precisa guardar isso.
+
+    4% tem notificação do jogo discriminando preço, taxa e recebido. 8% veio de
+    confirmação do usuário. São 2×, e é justamente por isso que a distinção
+    importa: se alguém tivesse dobrado o primeiro para obter o segundo, seria um
+    chute com cara de medição — e nada na tabela denunciaria.
+    """
+    fontes = dict(
+        (
+            await migrated_connection.execute(
+                text(
+                    "SELECT key, source FROM config_parameters "
+                    "WHERE key IN ('market.sales_tax_pct.premium', "
+                    "'market.sales_tax_pct.standard')"
+                )
+            )
+        ).all()
+    )
+    premium = fontes["market.sales_tax_pct.premium"]
+    standard = fontes["market.sales_tax_pct.standard"]
+
+    assert "medicao" in premium
+    assert "notificacao" in premium
+    assert premium != standard, "procedências diferentes não podem ter a mesma string"
+    assert "nao derivado" in standard
 
 
 async def test_bonus_de_retorno_tem_valor_e_procedencia(migrated_connection):
