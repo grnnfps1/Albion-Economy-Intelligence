@@ -43,13 +43,22 @@ foco dá `0,92 ÷ 1,92 = 0,4792`, contra os `0,477` que a fase 14 havia gravado.
 O desvio é de 0,0022 — dez vezes maior que o de qualquer outra célula, todas
 abaixo de 0,0006. É o valor tabelado que estava impreciso, não a fórmula.
 
-## O bônus diário continua fora
+## O bônus diário é o quinto componente, e vem do usuário
 
-`@activefarmbonus` e o bônus diário de produção **não** entram em `B`. Tentou-se
-somá-los, e as colunas publicadas não reproduzem: o erro vai de 3 a 8 pontos
-percentuais e o desvio é inconstante, o que descarta tanto a soma quanto um
-fator fixo. Fica como item aberto em `docs/04-taxas.md`; aplicar uma composição
-que se sabe errada seria inventar número.
+O jogo sorteia um bônus diário de produção, e ele entra **em `B`**, somado aos
+outros quatro — não no `RRR` já convertido. Foi essa a confusão que fez as
+tabelas publicadas não fecharem quando se tentou somá-lo ao resultado: somar
+percentual de retorno a percentual de retorno é a mesma categoria de erro que
+somar `0,152 + 0,367` esperando `0,519`.
+
+Ele **não** é constante do jogo: varia por cidade e por dia, e o sistema não tem
+como sabê-lo. Por isso é entrada do usuário, que o lê na tela — mesmo perfil da
+prata por 100 de nutrição.
+
+O padrão é **zero**, e a resposta carrega `assumes_no_daily_bonus`. É o
+precedente do spec (fase 16) e do risco de rota (fase 13): zero aqui significa
+"não estou modelando o bônus", o retorno sai igual ao da fórmula sem ele, e a
+tela diz isso — em vez de travar por um número que só o jogador tem.
 """
 
 from dataclasses import dataclass
@@ -105,6 +114,10 @@ class ReturnResolution:
     has_city_bonus: bool = False
     use_focus: bool = False
     is_island: bool = False
+    daily_bonus: float = 0.0
+    assumes_no_daily_bonus: bool = True
+    """True quando o usuário não informou o bônus do dia. A tela precisa dizê-lo."""
+
     bonus_total: float | None = None
     """O `B` da fórmula — a soma dos bônus, antes da conversão."""
 
@@ -137,8 +150,12 @@ def total_bonus(
     has_city_bonus: bool,
     use_focus: bool,
     is_island: bool = False,
+    daily_bonus: float = 0.0,
 ) -> float | None:
-    """`B`: a soma dos bônus aplicáveis. `None` quando falta componente."""
+    """`B`: a soma dos bônus aplicáveis. `None` quando falta componente.
+
+    `daily_bonus` entra aqui, junto dos outros — e não sobre o `RRR` depois.
+    """
     if not components.complete:
         return None
 
@@ -155,6 +172,9 @@ def total_bonus(
     if use_focus:
         total += components.focus or 0.0
 
+    # O bônus do dia soma como qualquer outro componente.
+    total += max(0.0, daily_bonus)
+
     return total
 
 
@@ -164,6 +184,7 @@ def resolve_return_rate(
     has_city_bonus: bool,
     use_focus: bool,
     is_island: bool = False,
+    daily_bonus: float = 0.0,
     override: float | None = None,
 ) -> ReturnResolution:
     """Taxa de retorno em uso.
@@ -174,7 +195,9 @@ def resolve_return_rate(
     sistema sabe — e o usuário só precisa intervir quando a situação dele é
     atípica.
     """
-    b = total_bonus(components, activity, has_city_bonus, use_focus, is_island)
+    b = total_bonus(
+        components, activity, has_city_bonus, use_focus, is_island, daily_bonus
+    )
     pela_formula = None if b is None else rrr_from_bonus(b)
 
     if override is not None:
@@ -184,6 +207,8 @@ def resolve_return_rate(
             has_city_bonus=has_city_bonus,
             use_focus=use_focus,
             is_island=is_island,
+            daily_bonus=daily_bonus,
+            assumes_no_daily_bonus=daily_bonus <= 0,
             bonus_total=b,
             formula_rate=pela_formula,
         )
@@ -195,6 +220,8 @@ def resolve_return_rate(
             has_city_bonus=has_city_bonus,
             use_focus=use_focus,
             is_island=is_island,
+            daily_bonus=daily_bonus,
+            assumes_no_daily_bonus=daily_bonus <= 0,
         )
 
     return ReturnResolution(
@@ -203,6 +230,8 @@ def resolve_return_rate(
         has_city_bonus=has_city_bonus,
         use_focus=use_focus,
         is_island=is_island,
+        daily_bonus=daily_bonus,
+        assumes_no_daily_bonus=daily_bonus <= 0,
         bonus_total=b,
         formula_rate=pela_formula,
     )

@@ -1,29 +1,34 @@
-# 04 — Taxas de mercado: levantamento, ainda NÃO aplicado
+# 04 — Taxas: o que foi medido, o que foi derivado, o que falta
 
-> Pesquisa feita em 12/09/2026 para a FASE 6. Os itens 1 a 5 (mercado)
-> **continuam com `value = NULL` e `source = 'UNKNOWN'`** em
-> `config_parameters`, e há teste que falha se alguém preencher sem
-> verificação (requisito 52). Os itens 6 e 11 ganharam valor com procedência
-> declarada nas fases 14 e 15 — procedência não é medição, e eles seguem
-> abertos.
+> Começou em 12/09/2026 como levantamento de fontes para a fase 6. Na fase
+> 21 deixou de ser levantamento: os itens 1 a 4 têm **medição no jogo**.
+> O que segue mantém o histórico, porque o caminho até o número importa
+> tanto quanto o número.
+
+> O teste que falha se alguém preencher sem procedência (requisito 52)
+> continua existindo — ele mudou de forma, não de espírito: antes exigia que as
+> taxas de mercado fossem `NULL`; agora exige que tenham valor **e** fonte.
+> Foi ele que caiu quando as medições entraram.
 >
-> **Prioridade de medição (revista em 19/09/2026):**
+> **Situação em 19/09/2026: a lista original de cinco está FECHADA, e o item
+> 14 também.** Sobra o item 15.
 >
-> 1. **Itens 1 a 5 — taxas de mercado.** São os únicos desta lista **sem
->    nenhuma fonte confiável**: o que existe são fontes que *se contradizem*
->    entre si sobre qual percentual é setup fee e qual é imposto de venda. Não
->    há anúncio oficial, não há validação independente, e um erro de 2 pontos
->    numa margem de 8% inverte o sinal do lucro. Continuam `NULL`/`UNKNOWN` no
->    banco.
-> 2. ~~**Item 6 — retorno de material.**~~ **Fechado em 19/09/2026**: a
->    contradição entre os +40% oficiais e os 36,7% medidos era aparente, e
->    `RRR = B/(1+B)` reproduz os cenários publicados.
-> 3. **Itens 7 a 10 — agricultura**, e o **item 14** (bônus diário), que a
->    tentativa da fase 20 não resolveu.
-> 4. **Item 11 — taxa da estação.** Já foi prioridade 1; **deixou de ser.**
->    Ganhou confirmação independente em duas abas da planilha do Albion VIP,
->    além do anúncio oficial da Sandbox. A medição continua valendo — é a única
->    que não depende de terceiro —, mas não é mais a mais urgente.
+> | # | Parâmetro | Status | Como fechou |
+> |---|---|---|---|
+> | 1–2 | setup fee, venda e compra | ✅ **2,5%** nas duas pernas | medição |
+> | 3 | imposto com Premium | ✅ **4%** sobre o preço bruto | medição |
+> | 4 | imposto sem Premium | ✅ **8%** | confirmação do usuário |
+> | 5 | setup fee varia com a duração? | ✅ a duração não existe | **impossibilidade** |
+> | 6 | retorno de material | ✅ `RRR = B/(1+B)` | fórmula (fase 20) |
+> | 11 | taxa da estação | ✅ fórmula confirmada; o valor é do usuário | derivação |
+> | 14 | bônus diário | ✅ quinto componente de `B` | entrada do usuário |
+> | 15 | quais materiais retornam | ❌ **aberto** | — |
+>
+> **A coluna "como fechou" não é decoração.** Fechar por medição, por
+> impossibilidade, por derivação ou por decisão de produto dá garantias
+> diferentes, e quem ler depois precisa saber qual tem em mãos antes de
+> confiar no número. O item 5 é o exemplo: ele está fechado sem que ninguém
+> tenha medido nada.
 
 ## Por que este documento existe separado
 
@@ -40,10 +45,14 @@ sinal do lucro e a plataforma recomenda uma operação que perde prata.
 | Guia de flipping (2026) | **2,5%**, cobrado nas duas pernas | **4%** com Premium, **8%** sem |
 | Calculadora de crafting (2026) | descreve **4% setup + 2,5% sales** com Premium | — |
 
-## O conflito, que é o ponto
+## O conflito, que era o ponto — RESOLVIDO pela medição
 
-Os números **2,5%** e **4% / 8%** aparecem em todas as fontes. O que não bate é
-**qual é qual**:
+> **Fechado em 19/09/2026.** A medição desempatou: **2,5% é o setup fee e 4% é
+> o imposto** (8% sem Premium). A fonte que invertia os rótulos estava errada.
+> O registro abaixo fica porque explica por que a confusão sobrevivia.
+
+Os números **2,5%** e **4% / 8%** aparecem em todas as fontes. O que não batia
+era **qual é qual**:
 
 - a wiki oficial é explícita de que o **imposto de transação** é 8% (4% com
   Premium), o que implica setup fee de 2,5%;
@@ -57,25 +66,123 @@ que não fecha — exatamente o caso que mais aparece em arbitragem.
 
 Há ainda um detalhe que nenhuma fonte quantifica com precisão: parte delas diz
 que o setup fee **varia com a duração da listagem**. Se for verdade, não é uma
-constante e sim uma função.
+constante e sim uma função. **Este é o item 5, e é o único que continua
+aberto** — a medição da fase 21 não o testa, porque as quatro ordens foram
+criadas com a mesma duração.
 
-## O que precisa ser verificado no jogo
+## Itens 1 a 4 — MEDIDOS no jogo
 
-Cinco medições, todas de dentro do cliente:
+> **Fort Sterling Market, 19/09/2026, conta com Premium.** Primeira medição
+> direta do projeto.
 
-1. Criar uma ordem de **venda** de valor redondo (ex.: 100.000) e anotar o débito
-   imediato. Isso isola o setup fee.
-2. Repetir com uma ordem de **compra** do mesmo valor. Confirma se o setup fee é
-   igual nas duas pernas.
-3. Deixar a venda executar e anotar o débito no momento da venda. Isso isola o
-   imposto de transação.
-4. Repetir 1 e 3 **sem** Premium, ou com Premium expirado, para confirmar qual
-   dos dois dobra.
-5. Criar a mesma ordem com durações diferentes de listagem e comparar o setup
-   fee. Confirma se é constante ou função da duração.
+| Parâmetro | Valor | Chave |
+|---|---|---|
+| setup fee, ordem de venda | **2,5%** | `market.sell_order_setup_fee_pct` |
+| setup fee, ordem de compra | **2,5%** | `market.buy_order_setup_fee_pct` |
+| imposto de venda, com Premium | **4%** | `market.sales_tax_pct.premium` |
+| imposto de venda, sem Premium | **8%** | `market.sales_tax_pct.standard` |
 
-Com 100.000 de valor, cada ponto percentual são 1.000 de prata — a diferença é
-visível a olho nu no log de transações.
+### O imposto, com a notificação do próprio jogo
+
+A venda gerou uma notificação discriminando as três parcelas:
+
+```
+preço     140.440
+taxa        5.618
+recebido  134.822
+```
+
+Duas coisas saem daí, e a segunda importa tanto quanto a primeira:
+
+- `5.618 ÷ 140.440 = **4,0003%**`;
+- **incide sobre o preço bruto**, não sobre o líquido. Se incidisse sobre o
+  líquido seria `5.618 ÷ 134.822 = 4,167%`, e `preço − taxa` não daria
+  exatamente o recebido. Dá: `140.440 − 5.618 = 134.822`.
+
+### O setup fee, conferido por saldo
+
+Quatro ordens, com o débito conferido no saldo. Cobrado **na criação**, e nas
+**duas pernas**:
+
+| Ordem | Valor | Debitado | Esperado a 2,5% | Taxa implicada |
+|---|---|---|---|---|
+| venda | 864 | 22 | 21,60 → 22 | 2,546% |
+| venda | 1.284 | **34** | 32,10 → **33** | **2,648%** |
+| compra | 1.305 | 33 (total 1.338) | 32,62 → 33 | 2,529% |
+
+**Uma das observações não fecha, e fica registrada.** A ordem de 1.284 debitou
+34 onde `⌈32,10⌉` daria 33 — um silver de diferença, mas o arredondamento das
+outras duas é exatamente para cima e essa não segue. Não inventei regra para
+explicá-la: pode ser que a ordem não fosse de uma unidade, que o preço listado
+diferisse de 1.284, ou que haja um piso ou degrau na cobrança. Como as outras
+três fecham e o imposto fecha exato, 2,5% fica — mas o resíduo está aqui.
+
+### Três fontes convergindo
+
+Isto é o que dá confiança acima do que uma medição sozinha daria. O total de
+**6,5%** sobre a receita bruta (imposto + setup, ordem de venda) agora tem:
+
+1. **medição direta** no jogo — esta seção;
+2. **a planilha do Albion VIP** — `Taxa de Venda ÷ Receita Bruta` deu 6,5000%
+   exato em todas as linhas conferidas (fase 19);
+3. **fontes de comunidade** — que discordavam sobre *qual* percentual era qual,
+   mas concordavam na soma.
+
+A medição resolve justamente a discordância que as fontes de comunidade tinham:
+**2,5% é o setup fee e 4% é o imposto**, e não o contrário. A confusão passava
+despercebida numa conta de ida e volta, porque a soma é quase a mesma — mas não
+numa conta separada por perna, que é o caso da arbitragem paciente.
+
+### As duas procedências do imposto, e por que a distinção fica gravada
+
+4% e 8% têm origens **diferentes**, e `config_parameters.source` guarda isso:
+
+- **4%** — medição direta, com a notificação do jogo discriminando as parcelas;
+- **8%** — confirmação do usuário.
+
+As duas são melhores que fonte de comunidade. O que **não** aconteceu, e é o
+ponto: o 8% não foi obtido dobrando o 4%. Os dois números são 2× um do outro, e
+é exatamente por isso que a distinção precisa estar escrita — alguém que
+derivasse um do outro produziria o mesmo valor, e nada na tabela denunciaria o
+chute. Há teste guardando isso
+(`test_o_imposto_sem_premium_nao_foi_derivado_do_com_premium`).
+
+## Item 5 — o setup fee varia com a duração da ordem? RESOLVIDO por impossibilidade
+
+> **Fechado em 19/09/2026 — e a forma como fechou importa.** Este item não foi
+> resolvido por medição: foi resolvido por **impossibilidade**. O jogo não
+> oferece escolha de duração da ordem, logo o parâmetro cuja variação se
+> suspeitava não existe.
+
+Parte das fontes de comunidade diz que o setup fee muda conforme o tempo que a
+ordem fica listada. As quatro ordens medidas não testavam isso — todas foram
+criadas com a mesma duração — e o item ficou aberto esperando uma medição que
+comparasse durações.
+
+**Essa medição não pode ser feita, porque a interface não deixa escolher a
+duração.** Não há o que variar, então não há função da duração a descobrir.
+
+### Por que a distinção entre as duas formas de fechar precisa estar escrita
+
+Um item marcado "resolvido" sem dizer como convida quem ler depois a tratar o
+resultado como medido. As duas formas dão garantias diferentes:
+
+| Como fechou | O que garante | O que **não** garante |
+|---|---|---|
+| por medição | o valor observado, naquele cenário | que valha em cenários não medidos |
+| por impossibilidade | que a pergunta não tem objeto | nada sobre o valor em si |
+
+Aqui não se mediu que o setup fee é constante ao longo de durações: mediu-se que
+durações não existem. A conclusão prática é a mesma — 2,5% fixo, e a estratégia
+PACIENTE do calculador está certa —, mas a evidência é de outra natureza. Se um
+patch introduzir escolha de duração, este item **reabre**, e reabre sem
+nenhuma medição prévia que o sustente. Um item fechado por medição não reabriria
+assim.
+
+### Consequência no código
+
+Nenhuma. `calculations/fees.py` não recebe duração como argumento, e agora
+está registrado que isso é uma decisão e não um esquecimento.
 
 ## Item 6 — retorno de material: RESOLVIDO pela fórmula
 
@@ -482,36 +589,111 @@ O item 11 **continua** valendo como medição, e agora com um segundo motivo:
 além de confirmar a fórmula sem depender de planilha de terceiro, ele é o que
 destrava o cálculo para quem ainda não informou.
 
-## Item 14 — bônus diário de produção: tentado e NÃO resolvido
+## Item 14 — bônus diário de produção: RESOLVIDO como entrada do usuário
 
-> Tentado em **19/09/2026**. Fica aberto, e o registro aqui é da tentativa, não
-> de uma conclusão.
+> **Fechado em 19/09/2026.** Ele é o **quinto componente de `B`**, somado aos
+> outros quatro antes da conversão `RRR = B/(1+B)` — e **não** um percentual
+> somado ao retorno já calculado. Como não é constante do jogo, vem do usuário.
 
-O jogo sorteia um bônus diário de produção, e o dump traz `@activefarmbonus`.
-A pergunta era se ele entra em `B` como mais um componente, do mesmo jeito que
-os outros quatro.
+### O erro que mantinha o item aberto
 
-**Não entra por soma.** Testado contra as colunas publicadas: o erro vai de **3
-a 8 pontos percentuais**, e — o que decide — **o desvio é inconstante**. Um
-erro constante sugeriria uma parcela faltando; um erro proporcional sugeriria um
-fator. Um erro que varia sem padrão não sugere nenhuma das duas, e não há o que
-calibrar.
+A tentativa anterior somava o bônus diário **à taxa de retorno**, e as colunas
+publicadas não fechavam: erro de 3 a 8 pontos percentuais, com desvio
+inconstante. A conclusão registrada na época foi "não entra por soma".
 
-Também não foi possível descartar que as colunas publicadas misturem cenários
-diferentes, o que explicaria a inconstância sem que a soma esteja errada. Sem
-saber disso, qualquer composição seria escolhida por caber nos números — e não
-por ser a mecânica.
+Estava certa sobre a soma errada e errada sobre qual era. Somar um percentual de
+retorno a outro percentual de retorno é a mesma categoria de erro que somar
+`0,152 + 0,367` esperando `0,519`: retorno não é grandeza aditiva, bônus é. O
+bônus diário soma **em `B`**, junto do Focus e do bônus de cidade, e só depois a
+fórmula converte.
 
-**Por isso o parâmetro é aceito e não aplicado.** `daily_production_bonus`
-continua na assinatura das rotas e volta como `0` na resposta, para a tela poder
-dizer que ele foi ignorado em vez de ele sumir sem explicação. Antes da fase 20
-ele era **somado à célula da matriz**, declarado como suposição; a evidência
-acima mostra que a suposição estava errada, e aplicar uma composição que se sabe
-errada é pior que não aplicar nenhuma.
+A diferença é grande o bastante para ser visível numa linha só. Refino com bônus
+de cidade e um bônus diário de 10%:
 
-O que destravaria: as colunas publicadas com o cenário de cada uma (cidade,
-Focus, atividade), ou uma medição direta — dois dias seguidos com o mesmo item,
-mesmo local e bônus diário diferente.
+| Conta | Resultado |
+|---|---|
+| certa — `B = 0,18 + 0,40 + 0,10 = 0,68` → `0,68/1,68` | **40,48%** |
+| errada — `0,3671 + 0,10` | 46,71% |
+
+Seis pontos percentuais, dentro da faixa de 3 a 8 que a tentativa anterior
+observou. Há teste travando as duas contas lado a lado
+(`test_somar_ao_rrr_daria_outro_numero`).
+
+### A razão de as tabelas publicadas não fecharem continua desconhecida
+
+E **não importa mais para o cálculo.** A fórmula com o bônus em `B` é derivada
+da mecânica, não calibrada contra aquelas tabelas; ela reproduz todos os
+cenários do item 6 sem usá-las. Por que as tabelas divergem — cenários
+misturados, valores digitados à mão, versão antiga do jogo — segue em aberto e
+sem consequência. Fica registrado para que ninguém reabra o item achando que há
+dívida escondida: a dívida é de explicação da fonte, não do cálculo.
+
+### Por que é entrada do usuário, e não configuração
+
+O bônus varia por cidade e por dia. Não há valor defensável para pré-preencher,
+e o sistema não tem como descobri-lo — está escrito na tela do jogo, como a taxa
+da estação.
+
+**Padrão zero**, e a resposta carrega `assumes_no_daily_bonus`. Zero aqui
+significa "não estou modelando o bônus", e não "o bônus é zero de fato" — mesmo
+precedente do risco de rota (fase 13) e do spec (fase 16). O retorno sai igual ao
+da fórmula sem ele e a tela diz isso, em vez de travar por um número que só o
+jogador tem.
+
+### A lista de 15 taxas da planilha: 11 confirmam a decomposição, 4 não fecham
+
+A aba `Validação` da planilha de referência traz uma lista fixa de 15 taxas de
+retorno (coluna S, "Com Foco"). **Ela não foi replicada** — replicar uma lista
+ao lado de uma fórmula garante divergência no primeiro ajuste, que foi
+exatamente o motivo de a matriz de oito células ter saído de `config_parameters`
+na fase 20. A lista serviu de **conferência**, e nada mais.
+
+Onze dos quinze valores caem exatamente numa combinação dos componentes:
+
+| Planilha | `B` | Combinação | Fórmula |
+|---|---|---|---|
+| 15,2% | 0,18 | cidade | 15,25% |
+| 24,8% | 0,33 | cidade + craft | 24,81% |
+| 30,0% | 0,43 | cidade + craft + diário 10% | 30,07% |
+| 34,6% | 0,53 | cidade + craft + diário 20% | 34,64% |
+| 36,7% | 0,58 | cidade + refino | 36,71% |
+| 40,4% | 0,68 | cidade + refino + diário 10% | 40,48% |
+| 43,5% | 0,77 | cidade + foco | 43,50% |
+| 47,9% | 0,92 | cidade + craft + foco | 47,92% |
+| 50,4% | 1,02 | cidade + craft + foco + diário 10% | 50,50% |
+| 53,9% | 1,17 | cidade + refino + foco | 53,92% |
+| 55,9% | 1,27 | cidade + refino + foco + diário 10% | 55,95% |
+
+Onze valores independentes caindo nas combinações previstas é a confirmação de
+que a decomposição está certa — é mais do que os sete cenários do item 6 já
+davam, e vem de uma fonte que não participou da derivação.
+
+**Quatro não fecham com nenhuma combinação**, e ficam registrados como não
+explicados em vez de forçados:
+
+| Planilha | `B` implícito | Combinação mais próxima | Distância |
+|---|---|---|---|
+| 21,0% | 0,26582 | 21,88% (cidade + diário 10%) | 0,88 pp |
+| 31,0% | 0,44928 | 30,07% (cidade + craft + diário 10%) | 0,93 pp |
+| 41,5% | 0,70940 | 40,83% (ilha + foco + diário 10%) | 0,67 pp |
+| 44,7% | 0,80832 | 44,13% (ilha + foco + diário 20%) | 0,57 pp |
+
+A separação é limpa, e é o que autoriza chamar os quatro de não explicados em
+vez de arredondamento: os onze que fecham erram **no máximo 0,08 pp**; os quatro
+que não fecham erram de 0,57 a 0,93 pp — sete a doze vezes mais. Não é uma
+fronteira de julgamento.
+
+> **Correção de uma contagem anterior nesta mesma investigação:** o número
+> apurado primeiro foi "treze fecham, dois não" (21,0% e 44,7%). Refeita a
+> conferência contra todas as combinações, são **onze e quatro**: 31,0% e 41,5%
+> também não fecham. A conclusão não muda — a decomposição segue confirmada —,
+> mas por onze valores, não treze.
+
+**E 31,00% aparece fora de ordem na lista**, em `S16`, depois de 55,90% em `S15`.
+Os outros catorze estão em ordem crescente de `S2` a `S15`. Valor acrescentado à
+mão depois de a lista estar pronta é a explicação mais simples, e enfraquece a
+lista como fonte — o que é mais uma razão para ela ser conferência e não origem
+de número.
 
 ### Bug corrigido de carona
 

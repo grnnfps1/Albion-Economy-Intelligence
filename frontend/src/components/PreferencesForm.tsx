@@ -40,7 +40,9 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
 
   function atualizar(patch: Partial<Preferences>) {
     const proximo = { ...prefs, ...patch };
-    // Premium é a única coisa que muda outro campo sozinha: o imposto é metade.
+    // Premium é a única coisa que muda outro campo sozinha. Os dois valores
+    // têm procedência própria desde a fase 21 — 4% medido no jogo com
+    // notificação, 8% confirmado pelo usuário —, e não um derivado do outro.
     if (patch.premium !== undefined) {
       proximo.salesTaxPct = patch.premium ? 0.04 : 0.08;
     }
@@ -134,13 +136,29 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className={rotulo}>Bônus diário</span>
-        <select className={campo} value={String(prefs.dailyProductionBonus)}
-          onChange={(e) => atualizar({ dailyProductionBonus: parseFloat(e.target.value) })}>
-          <option value="0">nenhum</option>
-          <option value="0.1">10%</option>
-          <option value="0.2">20%</option>
-        </select>
+        <span className={rotulo}>Bônus do dia (%)</span>
+        {/* Era um select de 0/10/20%. Virou campo livre porque o bônus é
+            sorteado e não vem de uma lista fixa: três opções inventadas dariam
+            ares de constante do jogo a um número que só está na tela. */}
+        <input className={campo}
+          placeholder="0"
+          value={prefs.dailyProductionBonus ? prefs.dailyProductionBonus * 100 : ""}
+          onChange={(e) => {
+            const texto = e.target.value.trim();
+            const numero = parseFloat(texto.replace(",", "."));
+            atualizar({
+              dailyProductionBonus:
+                texto === "" || !Number.isFinite(numero)
+                  ? 0
+                  : Math.min(100, Math.max(0, numero)) / 100,
+            });
+          }} />
+        <span className="text-[11px] text-zinc-500">
+          O bônus de produção do dia, lido na tela da cidade. Soma em{" "}
+          <b>B</b> junto do Focus e do bônus da cidade — não sobre o retorno já
+          calculado. Vazio significa <b>não estou modelando</b>: o retorno sai
+          igual ao da fórmula sem ele, e a tela diz isso.
+        </span>
       </label>
 
       <label className="flex flex-col gap-1">
@@ -284,9 +302,11 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
       </div>
 
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
-        <b className="font-semibold text-warn">Valores padrão, não verificados no jogo.</b>{" "}
-        São o que a comunidade reporta. O imposto muda com Premium; o retorno muda com Focus e
-        especialização. Ajuste uma vez — vale para todas as telas.{" "}
+        <b className="font-semibold text-up">Imposto e setup fee foram medidos no jogo.</b>{" "}
+        4% com Premium saiu de uma notificação de venda do próprio jogo; 8% sem Premium foi
+        confirmado à parte. O setup fee de 2,5% é cobrado na criação da ordem, nas duas pernas, e
+        você paga mesmo que a ordem nunca execute. O retorno vem da fórmula e muda com cidade e
+        Focus. Ajuste uma vez — vale para todas as telas.{" "}
         <b className="font-semibold text-body">A taxa da estação é a exceção:</b> ela nasce
         vazia, porque nenhum número seria honesto aqui e porque ela está escrita na tela da
         estação, dentro do jogo.

@@ -353,7 +353,9 @@ export async function fetchArbitrage(
 /** Retorno de material em uso, e onde ele seria maior. */
 export type MaterialReturn = {
   rate: number | null; source: string;
-  has_city_bonus: boolean; use_focus: boolean; daily_bonus: number;
+  has_city_bonus: boolean; use_focus: boolean;
+  daily_bonus: number; assumes_no_daily_bonus: boolean;
+  bonus_total: number | null; is_island: boolean;
   matrix_rate: number | null;
   best_city: string | null; best_city_name: string | null;
   rate_at_best_city: number | null; delta: number | null;

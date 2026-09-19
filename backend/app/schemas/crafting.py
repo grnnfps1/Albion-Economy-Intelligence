@@ -83,6 +83,13 @@ class ReturnOut(BaseModel):
         default=False,
         description="Ilha não tem a base de cidade: 0% sem Focus, 37,1% com.",
     )
+    assumes_no_daily_bonus: bool = Field(
+        default=True,
+        description=(
+            "O bônus do dia não foi informado, então a conta assume zero. Ele "
+            "varia por cidade e por dia e o jogador o lê na tela."
+        ),
+    )
 
     best_city: str | None = None
     best_city_name: str | None = None

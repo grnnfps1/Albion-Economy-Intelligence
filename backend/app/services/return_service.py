@@ -137,19 +137,17 @@ class ReturnPolicy:
         A segunda parte é a pergunta que as telas deviam responder e não
         respondiam: *onde* refinar ou craftar isto rende mais, e quanto muda.
 
-        `daily_bonus` é **aceito e não aplicado**, de propósito — ver
-        `calculations/returns.py`. Somá-lo não reproduz as colunas publicadas
-        (erro de 3 a 8 pontos, desvio inconstante), e aplicar uma composição
-        que se sabe errada seria inventar número. O parâmetro continua na
-        assinatura para a resposta poder dizer que ele foi ignorado, em vez de
-        sumir sem explicação.
+        `daily_bonus` entra **em `B`**, junto dos outros componentes — não
+        somado ao `RRR` já convertido. Foi essa a confusão que fazia as tabelas
+        publicadas não fecharem.
         """
         cidade_bonus = self.bonus_city(activity, unique_name)
         tem_bonus = cidade_bonus is not None and cidade_bonus == city_slug
         na_ilha = city_slug in self.island_slugs
 
         atual = resolve_return_rate(
-            self.components, activity, tem_bonus, use_focus, na_ilha, override
+            self.components, activity, tem_bonus, use_focus, na_ilha,
+            daily_bonus, override,
         )
 
         # Quanto renderia na cidade do bônus, com os mesmos parâmetros. A ilha
@@ -158,7 +156,8 @@ class ReturnPolicy:
             melhor = CityBonus(None, atual.rate, None)
         else:
             la = resolve_return_rate(
-                self.components, activity, True, use_focus, False, override
+                self.components, activity, True, use_focus, False,
+                daily_bonus, override,
             )
             melhor = CityBonus(cidade_bonus, atual.rate, la.rate)
 
@@ -201,8 +200,8 @@ def return_out(
         source=resolucao.source,
         has_city_bonus=resolucao.has_city_bonus,
         use_focus=resolucao.use_focus,
-        # O bônus diário é sempre 0 na resposta: ele é aceito e não aplicado.
-        daily_bonus=0.0,
+        daily_bonus=resolucao.daily_bonus,
+        assumes_no_daily_bonus=resolucao.assumes_no_daily_bonus,
         matrix_rate=resolucao.formula_rate,
         bonus_total=resolucao.bonus_total,
         is_island=resolucao.is_island,

@@ -38,6 +38,8 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 18 | Layout de planilha + exportação CSV | ✅ |
 | 19 | Calculador de crafting, spec por item, lucro/dia | ✅ |
 | 20 | Retorno vira fórmula `RRR = B/(1+B)` | ✅ |
+| 21 | Taxas de mercado **medidas no jogo** | ✅ |
+| 22 | Bônus diário entra em `B`; calculador em colunas | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -307,9 +309,17 @@ mostraria lucro errado para metade das pessoas. A precedência é:
 parâmetro da requisição  →  config_parameters  →  UNKNOWN
 ```
 
-Enquanto `docs/04-taxas.md` não for resolvido com medição no jogo, o padrão do
-banco continua `NULL`, e a plataforma responde `economics.known = false` com o
-motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
+**As taxas de mercado foram medidas no jogo** (fase 21, Fort Sterling,
+19/09/2026): setup fee **2,5%** nas duas pernas, imposto **4%** com Premium e
+**8%** sem. São os primeiros parâmetros do projeto com medição direta — todo o
+resto que tem valor veio de comunidade, anúncio oficial ou planilha de
+terceiro.
+
+A precedência não mudou: parâmetro da requisição ainda vence a configuração,
+porque quem tem Premium e quem não tem pagam impostos diferentes. O que mudou é
+que o padrão do banco deixou de ser `NULL`. Qualquer parâmetro que continue
+ausente segue respondendo `economics.known = false` com o motivo. **Nunca
+calcular com taxa zero.**
 
 A **taxa da estação** (`crafting.station_fee_per_100_nutrition`) é o único
 parâmetro que também nasce vazio **na interface**, e não só no banco. A fórmula
@@ -319,6 +329,85 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 22 — o bônus diário, e o calculador em colunas
+
+- **O bônus diário é o quinto componente de `B`.** A fase 20 concluiu que ele
+  "não entra por soma" porque somá-lo ao retorno errava de 3 a 8 pontos. A
+  medida estava certa e a conclusão errada: ele soma em `B`, antes da conversão.
+  Refino com bônus de cidade e 10% diário dá `0,68/1,68 = 40,48%`; somado ao
+  `RRR` daria 46,71%. Os 6,2 pontos de diferença caem exatamente na faixa que a
+  tentativa anterior observou.
+- **Retorno não é grandeza aditiva; bônus é.** É a mesma família da regra 13
+  (resíduo de subtração não é grandeza): antes de somar dois números, conferir
+  se eles vivem no espaço onde a soma significa alguma coisa. Somar `0,152 +
+  0,367` esperando `0,519` é o caso óbvio; somar o bônus do dia ao retorno é o
+  mesmo erro com números que não denunciam.
+- **Por que as tabelas publicadas não fechavam segue desconhecido — e não
+  importa mais.** A fórmula é derivada da mecânica, não calibrada contra elas.
+  Fica escrito em `docs/04-taxas.md` para ninguém reabrir o item achando que há
+  dívida escondida.
+- **Lista de 15 taxas da planilha: conferência, nunca origem.** Onze caem
+  exatamente nas combinações previstas (erro ≤ 0,08 pp) e quatro não fecham
+  (0,57 a 0,93 pp — sete a doze vezes pior). A separação é limpa, então os
+  quatro ficam registrados como não explicados em vez de arredondados. E um
+  deles, 31,00%, aparece **fora de ordem** na lista, o que sugere valor digitado
+  à mão e enfraquece a fonte. Replicar a lista ao lado da fórmula garantiria
+  divergência no primeiro ajuste — foi por isso que a matriz de oito células
+  saiu de `config_parameters` na fase 20.
+- **Primeira contagem minha estava errada, e a correção ficou no documento.**
+  Apurei "treze fecham, dois não" antes de conferir contra todas as
+  combinações; são onze e quatro. A conclusão não mudou, o peso da evidência sim.
+- **Campo livre no lugar de select de três opções.** O bônus era um `select` de
+  0/10/20%. Três valores inventados ao lado de uma fórmula dão ares de constante
+  do jogo a um número sorteado. Virou campo em percentual, padrão vazio, com
+  `assumes_no_daily_bonus` na resposta.
+- **Célula composta não tem largura própria.** Os materiais do calculador
+  moravam empilhados dentro da célula do item: o terceiro saía do alinhamento, o
+  preço encostava na borda e o "comprar N" truncava. `table-layout: fixed` só
+  governa colunas, então o conserto é **uma coluna por material**, como no resto
+  do produto. Mesma razão tirou o "investe" de dentro da célula do lucro: dois
+  números de oito dígitos não dividem uma coluna de 6,8rem.
+- **A coluna de material do calculador é mais larga que a do ranking** (11,5rem
+  contra 9,5rem) porque carrega um campo editável e a linha "comprar N". Largura
+  por *tipo* de coluna continua valendo; o tipo é que é outro.
+- **Variante sem cotação não custa zero.** `calculator_service` somava
+  `m.gross_cost or 0`, e a variante incompleta ganhava a comparação de "mais
+  barata" por não ter preço. Agora ela vai para o ramo incompleto e a resposta
+  nomeia o material que falta. É a regra 1 aparecendo num lugar onde ninguém a
+  procurava: um `or 0` dentro de um `sum`.
+
+## Notas da fase 21 — as taxas de mercado foram medidas
+
+- **Primeiro parâmetro do projeto com medição direta.** Até aqui todo número
+  gravado vinha de comunidade (fase 14), de anúncio oficial (15) ou de
+  conferência contra planilha de terceiro (19). Estes foram lidos na tela do
+  jogo.
+- **O imposto incide sobre o preço bruto, e a notificação prova.** `140.440 −
+  5.618 = 134.822` bate exato. Sobre o líquido daria 4,167% e a subtração não
+  fecharia.
+- **A medição desempatou o conflito das fontes.** Elas concordavam nos números
+  2,5% e 4%/8% e discordavam sobre **qual é qual**. Agora se sabe: 2,5% é
+  setup, 4% é imposto. A confusão sobrevivia porque a soma é quase a mesma numa
+  conta de ida e volta — e só se revela numa conta separada por perna.
+- **Três fontes convergem nos 6,5%**: medição, planilha do Albion VIP (6,5000%
+  exato em todas as linhas) e comunidade. É mais confiança do que qualquer uma
+  sozinha daria.
+- **4% e 8% têm procedências diferentes, e a tabela guarda isso.** O 4% tem
+  notificação do jogo; o 8% veio de confirmação do usuário. Os dois são 2× um
+  do outro, e é justamente por isso que a distinção precisa estar escrita: quem
+  derivasse um do outro produziria o mesmo valor e nada denunciaria o chute. Há
+  teste guardando.
+- **Uma das quatro ordens de setup não fecha, e ficou registrada.** 1.284
+  debitou 34 onde `⌈32,10⌉` daria 33. As outras três arredondam para cima
+  exatamente. Não inventei regra para explicar: 2,5% fica pelo peso do resto, e
+  o resíduo está em `docs/04-taxas.md`.
+- **O teste de procedência mudou de forma, não de espírito.** Ele exigia que as
+  taxas fossem `NULL`; agora exige valor **e** fonte. Foi ele que caiu quando as
+  medições entraram, que é exatamente o trabalho dele.
+- **Sobra o item 5:** se o setup fee varia com a duração da ordem. As quatro
+  ordens medidas usaram a mesma duração, então não testam isso — e se variar, a
+  estratégia PACIENTE do calculador está errada.
 
 ## Notas da fase 20 — o retorno virou fórmula
 
@@ -345,12 +434,9 @@ obrigatório. Nenhuma delas lê configuração.
   coleta e sem ordens de compra: ilha não tem mercado. Quem produz nela compra
   numa cidade e carrega, e a tela trata as duas coisas como separadas. Sem a
   base de cidade, o retorno é 0% sem Focus e 37,1% com.
-- **O bônus diário continua fora, e agora com evidência.** Somá-lo erra de 3 a 8
-  pontos, com desvio **inconstante** — o que descarta tanto a soma quanto um
-  fator fixo. Antes da fase 20 ele era somado como suposição declarada; a
-  suposição estava errada. O parâmetro é aceito e não aplicado, e volta como 0
-  na resposta para a tela poder dizer que foi ignorado. Virou o item 14 de
-  `docs/04-taxas.md`.
+- ~~**O bônus diário continua fora**~~ — resolvido na fase 22. A evidência
+  estava certa (somá-lo ao `RRR` erra de 3 a 8 pontos) e a conclusão errada: ele
+  entra em **`B`**, não no `RRR`. Ver as notas da fase 22.
 - **O imposto não era bug.** Conferido: o backend escolhe
   `market.sales_tax_pct.premium` ou `.standard` pela flag, ambos `UNKNOWN`, e o
   formulário acopla o seletor de Premium a 4%/8%. Ponta a ponta dá 6,5% com
@@ -589,7 +675,8 @@ masmorra que também não têm EN — e nenhum deles é rastreado.
   o sistema sabe — e o usuário só precisa intervir quando a situação dele é
   atípica.
 - **Número com valor exige procedência.** O teste que travava chute foi
-  dividido, não afrouxado: imposto e setup fee seguem NULL/UNKNOWN; a matriz
+  dividido, não afrouxado: imposto e setup fee seguiam NULL/UNKNOWN até a fase
+  21 medi-los; a matriz
   exige valor na faixa, `source` diferente de UNKNOWN, data de consulta e a
   ressalva do que não foi auditado.
 - **40% oficial e 36,7% medido não se contradizem.** Um é o bônus bruto da

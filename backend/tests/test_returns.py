@@ -21,8 +21,11 @@ OFICIAIS = ReturnComponents(
 )
 
 
-def taxa(activity, bonus_cidade, foco, ilha=False, override=None):
-    return resolve_return_rate(OFICIAIS, activity, bonus_cidade, foco, ilha, override)
+def taxa(activity, bonus_cidade, foco, ilha=False, diario=0.0, override=None):
+    return resolve_return_rate(
+        OFICIAIS, activity, bonus_cidade, foco, ilha,
+        daily_bonus=diario, override=override,
+    )
 
 
 class TestAFormulaReproduzOMedido:
@@ -135,3 +138,106 @@ class TestAuditoria:
         resultado = taxa(Activity.REFINING, True, False)
         assert resultado.bonus_total == pytest.approx(0.58)
         assert resultado.source == "formula"
+
+
+class TestBonusDiario:
+    """Quinto componente de `B`, e entrada do usuário.
+
+    Entra **antes** da conversão, junto dos outros. Somá-lo ao `RRR` já
+    convertido é a confusão que fazia as tabelas publicadas não fecharem.
+    """
+
+    def test_entra_em_B_e_nao_no_rrr(self):
+        com = taxa(Activity.REFINING, True, False, diario=0.10)
+        assert com.bonus_total == pytest.approx(0.68)
+        assert com.rate == pytest.approx(0.68 / 1.68, abs=1e-6)
+
+    def test_somar_ao_rrr_daria_outro_numero(self):
+        """A demonstração do erro, travada em teste."""
+        sem = taxa(Activity.REFINING, True, False)
+        com = taxa(Activity.REFINING, True, False, diario=0.10)
+        errado = sem.rate + 0.10
+        assert com.rate == pytest.approx(0.4048, abs=0.001)
+        assert errado == pytest.approx(0.4671, abs=0.001)
+        assert com.rate < errado
+
+    def test_padrao_zero_avisa_que_nao_foi_informado(self):
+        resultado = taxa(Activity.REFINING, True, False)
+        assert resultado.assumes_no_daily_bonus is True
+        assert resultado.daily_bonus == 0.0
+
+    def test_informado_deixa_de_avisar(self):
+        resultado = taxa(Activity.REFINING, True, False, diario=0.05)
+        assert resultado.assumes_no_daily_bonus is False
+
+    def test_zero_nao_muda_a_taxa(self):
+        """Zero significa "não estou modelando", não "o bônus é zero de fato"."""
+        assert taxa(Activity.REFINING, True, False, diario=0.0).rate == pytest.approx(
+            taxa(Activity.REFINING, True, False).rate
+        )
+
+    def test_negativo_e_ignorado(self):
+        assert taxa(Activity.REFINING, True, False, diario=-0.5).bonus_total == pytest.approx(0.58)
+
+
+class TestConferenciaContraAPlanilha:
+    """Os 15 valores da aba `Validação` da planilha de referência.
+
+    A lista **não** é replicada em lugar nenhum do código: manter uma tabela ao
+    lado da fórmula garante que as duas divirjam no primeiro ajuste, e foi por
+    isso que a matriz de oito células saiu de `config_parameters` na fase 20.
+    Ela existe aqui como *conferência independente* — onze valores que não
+    participaram da derivação e caem nas combinações previstas.
+    """
+
+    # (valor da planilha, bônus de cidade, foco, bônus diário)
+    FECHAM = [
+        (0.152, False, False, 0.0),
+        (0.248, True, False, 0.0),
+        (0.300, True, False, 0.10),
+        (0.346, True, False, 0.20),
+        (0.435, False, True, 0.0),
+        (0.479, True, True, 0.0),
+        (0.504, True, True, 0.10),
+    ]
+
+    @pytest.mark.parametrize("planilha,bonus,foco,diario", FECHAM)
+    def test_craft(self, planilha, bonus, foco, diario):
+        assert taxa(Activity.CRAFTING, bonus, foco, diario=diario).rate == pytest.approx(
+            planilha, abs=0.001
+        )
+
+    @pytest.mark.parametrize(
+        "planilha,bonus,foco,diario",
+        [
+            (0.367, True, False, 0.0),
+            (0.404, True, False, 0.10),
+            (0.539, True, True, 0.0),
+            (0.559, True, True, 0.10),
+        ],
+    )
+    def test_refino(self, planilha, bonus, foco, diario):
+        assert taxa(Activity.REFINING, bonus, foco, diario=diario).rate == pytest.approx(
+            planilha, abs=0.001
+        )
+
+    @pytest.mark.parametrize("planilha", [0.210, 0.310, 0.415, 0.447])
+    def test_os_quatro_que_nao_fecham_continuam_sem_explicacao(self, planilha):
+        """Trava o que **não** foi explicado, para ninguém "arrumar" depois.
+
+        A distância é o que autoriza chamá-los de não explicados em vez de
+        arredondamento: os onze que fecham erram no máximo 0,0008, e estes
+        erram de 0,0057 a 0,0093 — sete a doze vezes mais. Se um dia aparecer
+        uma combinação que os produza, é este teste que cai, e cair aqui é a
+        notícia boa.
+        """
+        candidatas = [
+            taxa(atividade, bonus, foco, ilha=ilha, diario=diario).rate
+            for atividade in Activity
+            for bonus in (False, True)
+            for foco in (False, True)
+            for ilha in (False, True)
+            for diario in (0.0, 0.10, 0.20)
+            if not (ilha and bonus)
+        ]
+        assert min(abs(c - planilha) for c in candidatas) > 0.005
