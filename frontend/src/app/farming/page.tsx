@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { ComoLer } from "@/components/sheet/ComoLer";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import {
@@ -19,7 +20,7 @@ import { fetchFarming, type FarmPlan,
   ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatSilver } from "@/lib/format";
+import { formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -33,6 +34,12 @@ export const dynamic = "force-dynamic";
  * mesmo teto e o mesmo aviso de excedente do craft, para a regra ser uma só.
  */
 
+/**
+ * Prata por dia é o padrão porque é o que compara 22 horas de fazenda com 28
+ * dias de criação. Por ciclo, o mais lento ganharia por ser lento.
+ */
+const ORDEM_PADRAO = { by: "profit_per_day", dir: "desc" };
+
 function colunas(maxEntradas: number): SheetColumn[] {
   const [primeira, ...demais] = materialColumns(maxEntradas, "entrada");
   return [
@@ -41,8 +48,13 @@ function colunas(maxEntradas: number): SheetColumn[] {
     ...demais,
     { label: "ciclo", width: "focus", title: "do plantio à colheita" },
     { label: "você gasta", width: "num", title: "insumo mais a ração do período" },
-    { label: "lucro/dia", width: "num", title: "o que compara 22 h de fazenda com 28 d de criação" },
-    { label: "prata/focus", width: "num" },
+    // `numWide`: com a seta de ordenação o rótulo não cabe em 6,8rem, e
+    // rótulo truncado num cabeçalho clicável é pior — ele é o alvo do clique.
+    { label: "lucro/dia", width: "numWide", sortKey: "profit_per_day",
+      title: "o que compara 22 h de fazenda com 28 d de criação" },
+    { label: "por ciclo", width: "num", sortKey: "profit_per_cycle",
+      title: "lucro de um ciclo inteiro — o lento ganharia por ser lento, por isso não é o padrão" },
+    { label: "prata/focus", width: "num", sortKey: "profit_per_focus" },
     { label: "sai por ciclo", width: "mat", left: true },
     { label: "idade", width: "mini" },
   ];
@@ -90,17 +102,6 @@ function exportacao(maxEntradas: number): ExportColumn<FarmPlan>[] {
 }
 
 const GRUPOS = [
-  {
-    // Prata por dia é o padrão porque é o que compara 22 horas de fazenda com
-    // 28 dias de criação. Por ciclo, o mais lento ganharia por ser lento.
-    chave: "sort_by",
-    padrao: "profit_per_day",
-    opcoes: [
-      { valor: "profit_per_day", rotulo: "prata/dia" },
-      { valor: "profit_per_focus", rotulo: "prata/focus" },
-      { valor: "profit_per_cycle", rotulo: "por ciclo" },
-    ],
-  },
   {
     chave: "station",
     padrao: "",
@@ -203,8 +204,28 @@ export default async function FarmingPage({
         </EmptyState>
       )}
 
+      {/* O aviso vem ANTES dos números, e curto.
+          As ressalvas já existiam — e no rodapé, embaixo de uma tabela que
+          mostra margem de −3.307%. É o mesmo erro da taxa da estação: quando o
+          sintoma é grande e a explicação é pequena (ou está longe), o usuário
+          acredita no sintoma. Aqui ele conclui que o cálculo está quebrado,
+          quando ele está **incompleto e dizendo isso**. */}
+      {data && data.total > 0 && data.params.assumptions.length > 0 && (
+        <p className="border-warn/40 border-b bg-warn/5 px-4 py-2 text-[11.5px] text-warn">
+          Estes números estão <b>incompletos de propósito</b>: dois multiplicadores do jogo —
+          o bônus de fazenda ativa e o de comida favorita — estão gravados e{" "}
+          <b>não entram na conta</b>, porque o que eles multiplicam não foi medido. Prejuízo
+          aqui não quer dizer prejuízo no jogo. A lista inteira está em{" "}
+          <i>como ler</i>, ao pé da tabela.
+        </p>
+      )}
+
       {data && data.total > 0 && (
-        <SheetTable columns={colunas(maxEntradas)}>
+        <SheetTable
+          columns={colunas(maxEntradas)}
+          sort={{ by: data.sort_by, dir: data.sort_dir }}
+          sortDefault={ORDEM_PADRAO}
+        >
           {data.plans.map((plano) => (
             <FarmLine
               key={`${plano.item}-${plano.kind}`}
@@ -216,23 +237,25 @@ export default async function FarmingPage({
       )}
 
       {data && data.plans.length > 0 && (
-        <div className="max-w-prose space-y-2 p-4 text-[11px] text-dim leading-relaxed">
-          <p>
-            <b>Como ler:</b> <i>ciclo</i> é quanto tempo o plano leva do começo ao fim — é o
-            que divide o lucro para virar prata por dia. <i>Você gasta</i> é semente ou filhote
-            mais a ração consumida no período. A colheita vem em faixa no dump (3 a 6 por pé); o
-            número usa a média dela.
-          </p>
-          <p>
-            <b>O que não foi medido no jogo</b> está separado de propósito — um número
-            plausível ao lado de um medido, sem etiqueta, vira medido:
-          </p>
-          <ul className="list-disc space-y-1 pl-4">
-            {data.params.assumptions.map((linha) => (
-              <li key={linha}>{linha}</li>
-            ))}
-          </ul>
-        </div>
+        <ComoLer>
+          <div className="max-w-prose space-y-2 p-4 text-[11px] text-dim leading-relaxed">
+            <p>
+              <b>Como ler:</b> <i>ciclo</i> é quanto tempo o plano leva do começo ao fim — é o
+              que divide o lucro para virar prata por dia. <i>Você gasta</i> é semente ou filhote
+              mais a ração consumida no período. A colheita vem em faixa no dump (3 a 6 por pé); o
+              número usa a média dela.
+            </p>
+            <p>
+              <b>O que não foi medido no jogo</b> está separado de propósito — um número
+              plausível ao lado de um medido, sem etiqueta, vira medido:
+            </p>
+            <ul className="list-disc space-y-1 pl-4">
+              {data.params.assumptions.map((linha) => (
+                <li key={linha}>{linha}</li>
+              ))}
+            </ul>
+          </div>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -320,7 +343,7 @@ function FarmLine({
             : `O comerciante de fazenda vende por ${formatSilver(plano.npc_silver_cost)} de prata fixa. O número ao lado usa o preço de mercado — compare os dois antes de decidir.`
         }
       >
-        <span className="figure">{formatSilver(eco.input_cost)}</span>
+        <span className="figure">{formatSilverCompact(eco.input_cost)}</span>
         <span className="lbl mt-px block">
           {plano.npc_silver_cost === null
             ? "insumo + ração"
@@ -343,6 +366,21 @@ function FarmLine({
           marginPct={eco.margin_pct}
           unknownReason={eco.reason}
         />
+      </td>
+
+      {/* O do ciclo ganhou coluna ao virar ordenável: ordenar por um número
+          que não se vê é pedir confiança sem dar como conferir. Ele fica
+          menor que o do dia, de propósito — quem decide é o por dia. */}
+      <td title="lucro de um ciclo inteiro, sem dividir pelo tempo">
+        {eco.profit_per_cycle === null ? (
+          <span className="text-[10.5px] text-dim">—</span>
+        ) : (
+          <span
+            className={`figure ${eco.profit_per_cycle > 0 ? "text-up" : "text-down"}`}
+          >
+            {formatSilverCompact(eco.profit_per_cycle)}
+          </span>
+        )}
       </td>
 
       <td>

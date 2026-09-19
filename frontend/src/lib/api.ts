@@ -729,7 +729,7 @@ export type FarmPlan = {
 
 export type FarmingResponse = {
   server: string; buy_location: string; sell_location: string;
-  sort_by: string; sourcing_mode: string; total: number;
+  sort_by: string; sort_dir: string; sourcing_mode: string; total: number;
   params: {
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
             premium: boolean | null; source: string; complete: boolean; missing: string[] };

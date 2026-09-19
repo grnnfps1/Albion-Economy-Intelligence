@@ -106,6 +106,7 @@ async def find_farming_plans(
     strategy: Strategy,
     sort_by: str,
     limit: int,
+    sort_desc: bool = True,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
     max_age_seconds: int | None = None,
 ) -> FarmingResponse:
@@ -190,13 +191,26 @@ async def find_farming_plans(
         valor = getattr(plano.economics, ordem)
         return valor if valor is not None else float("-inf")
 
-    planos.sort(key=chave, reverse=True)
+    def posicao(plano: FarmPlanOut):
+        """Desconhecido no fim, nas duas direções — mesma regra das outras telas.
+
+        Nome diferente de `ordem` de propósito: `ordem` é a **chave** escolhida
+        (`profit_per_day`, …), e uma função com o mesmo nome a sombreava —
+        `getattr(economics, ordem)` passava a receber a função.
+
+        A separação entra antes do valor na tupla e o sinal entra no valor; com
+        `reverse`, a inversão pegaria também a separação.
+        """
+        return (not plano.economics.known, -chave(plano) if sort_desc else chave(plano))
+
+    planos.sort(key=posicao)
 
     return FarmingResponse(
         server=server,
         buy_location=buy_location,
         sell_location=sell_location,
         sort_by=ordem,
+        sort_dir="desc" if sort_desc else "asc",
         sourcing_mode=str(sourcing_mode),
         total=len(planos),
         params=params,
@@ -528,12 +542,15 @@ def _plano_desconhecido(
     )
 
 
-def _vazio(server, buy_location, sell_location, sort_by, sourcing_mode, params) -> FarmingResponse:
+def _vazio(
+    server, buy_location, sell_location, sort_by, sourcing_mode, params, sort_desc=True
+) -> FarmingResponse:
     return FarmingResponse(
         server=server,
         buy_location=buy_location,
         sell_location=sell_location,
         sort_by=sort_by,
+        sort_dir="desc" if sort_desc else "asc",
         sourcing_mode=str(sourcing_mode),
         total=0,
         params=params,

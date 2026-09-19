@@ -100,6 +100,7 @@ class FarmingResponse(BaseModel):
     buy_location: str
     sell_location: str
     sort_by: str
+    sort_dir: str = "desc"
     sourcing_mode: str = "CIDADE_UNICA"
     total: int
     params: FarmingParamsUsed

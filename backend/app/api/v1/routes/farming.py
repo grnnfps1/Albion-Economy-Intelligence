@@ -37,6 +37,7 @@ async def farming_plans(
     # Prata por dia é o padrão porque é o que compara 22 horas de fazenda com
     # 28 dias de criação. Ordenar por lucro por ciclo premiaria o que é lento.
     sort_by: str = Query("profit_per_day", description=f"um de {ORDENACOES}"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     sourcing_mode: str = Query(
         "CIDADE_UNICA", description="CIDADE_UNICA | MAIS_BARATO | COMPARAR"
     ),
@@ -55,6 +56,7 @@ async def farming_plans(
         tier=tier,
         strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
         sort_by=sort_by,
+        sort_desc=sort_dir == "desc",
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
         limit=limit,
     )

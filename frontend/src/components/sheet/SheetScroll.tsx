@@ -35,6 +35,12 @@ import { useEffect, useRef } from "react";
  * Somando os irmãos seguintes, o conjunto inteiro cabe na janela e a página não
  * tem por que rolar. Nenhum número fixo: se a faixa de retorno crescer ou o
  * rodapé encolher, a conta acompanha no mesmo quadro.
+ *
+ * ## O que observar, que é onde isto já errou
+ *
+ * Observar o `body` **não** funciona: ele tem `min-h-dvh`, e quando o conteúdo
+ * encolhe para menos de uma janela o `min-height` segura a altura. Medir só
+ * reagia a crescer. Ver o comentário no `useEffect`.
  */
 
 /**
@@ -97,14 +103,41 @@ export function SheetScroll({ children }: { children: React.ReactNode }) {
     };
 
     medir();
-    // `ResizeObserver` no `body` pega o que muda **acima e abaixo** da tabela:
-    // o painel de preferências abrindo, a faixa de retorno ganhando uma linha,
-    // o aviso da taxa da estação sumindo quando ela é preenchida.
+
+    // Observa o **pai**, não o `body`.
+    //
+    // O `body` tem `min-h-dvh`, e essa única classe quebrava metade da
+    // medição. Abrir o rodapé empurra o conteúdo além da janela, o `body`
+    // cresce e o observador dispara — funcionava. Fechar devolve o conteúdo
+    // para **menos** que uma janela, e aí o `min-height` segura o `body`
+    // exatamente em `100dvh`: a altura não muda, o `ResizeObserver` não tem o
+    // que notificar, e a tabela fica presa no tamanho pequeno com um vão
+    // embaixo.
+    //
+    // Era assimétrico de um jeito que confunde: o mecanismo parecia funcionar
+    // porque o caso que se testa primeiro é o de abrir.
+    //
+    // O pai (`PageShell`) tem altura de conteúdo, sem piso, então encolhe
+    // junto e notifica nas duas direções.
     const observador = new ResizeObserver(medir);
-    observador.observe(document.body);
+    if (el.parentElement) {
+      observador.observe(el.parentElement);
+    }
+
+    // `ResizeObserver` só vê mudança de **tamanho**. O rodapé recolhível
+    // remove o nó da árvore (`{aberto && children}`), e um irmão que deixa de
+    // existir não emite evento de tamanho — o pai emite, mas só se a altura
+    // dele de fato mudar. O `MutationObserver` cobre o caso de o conteúdo
+    // trocar sem o pai mudar de tamanho.
+    const mutacoes = new MutationObserver(medir);
+    if (el.parentElement) {
+      mutacoes.observe(el.parentElement, { childList: true, subtree: true });
+    }
+
     window.addEventListener("resize", medir);
     return () => {
       observador.disconnect();
+      mutacoes.disconnect();
       window.removeEventListener("resize", medir);
     };
   }, []);

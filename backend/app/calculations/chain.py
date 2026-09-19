@@ -110,6 +110,11 @@ class ChainCache:
     oportunidades: 51.407 chamadas a `resolve_unit_cost`, cerca de 250 por
     oportunidade, para um grafo que tem sete níveis.
 
+    **Remedido em 19/09/2026, depois de `recipes_for_chain` cortar a carga de
+    receitas:** ela continua pagando, e muito. `/refining(200)` dá 277 ms com
+    memoização e 1169 ms sem — 892 ms, 76%. O número fica aqui para a próxima
+    pessoa não refazer a medição.
+
     ## Por que nunca é global
 
     Preço muda. Um cache entre requisições devolveria custo calculado com a

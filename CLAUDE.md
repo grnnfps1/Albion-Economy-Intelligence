@@ -52,6 +52,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 32 | Focus fracionário derrubava /crafting e /focus | ✅ |
 | 33 | Memoização da cadeia: /focus sai do tempo limite | ✅ |
 | 34 | Receitas por fecho: /focus 89% e calculador 96% | ✅ |
+| 35 | Agricultura: rodapé recolhível e o que falta em cima | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -175,7 +176,26 @@ decisão errada do usuário.
     descrevem a mesma grandeza em momentos diferentes, o que passou pelo
     multiplicador é o que precisa de mais casas, não menos.
 
-15. **Teste de serialização exercita o parâmetro opcional PREENCHIDO, não só
+15. **Antes de otimizar, pergunte por que o modo caro é usado.**
+
+    A pergunta natural diante de uma consulta lenta é *como deixá-la rápida*.
+    A pergunta certa vem antes: *por que ela é chamada assim?*
+
+    `/refining` e o calculador pediam as **12.917 receitas do jogo** para usar
+    algumas centenas — o chamador descartava **97%** do que pedia, depois de o
+    ORM ter construído 41 mil objetos. A resposta para "por que o modo caro?"
+    era **por nenhuma razão**. Otimizar aquela consulta — índice, `join`
+    diferente, cache — teria consertado o lugar errado, e bem: ela ficaria
+    rápida trazendo lixo.
+
+    **Quando o chamador descarta a maior parte do que pediu, o filtro está do
+    lado errado da consulta.** Pedir o que se usa deu 1781 → 36 ms, sem índice
+    novo, sem desnormalização e sem cache.
+
+    O corolário para quem mede: o perfil aponta *onde* o tempo está, não *por
+    que ele existe*. Ler o chamador é parte da medição.
+
+16. **Teste de serialização exercita o parâmetro opcional PREENCHIDO, não só
     ausente.**
 
     Todos os testes de API passavam `spec_levels=None`, e `None` percorre o
@@ -374,6 +394,42 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
 
+## Notas da fase 35 — agricultura, e uma suspeita que não era bug
+
+- **A ração idêntica entre bichos de tiers diferentes é o dado do jogo, não um
+  erro nosso.** Conferido no dump: os cinco adultos que produzem
+  (galinha T3, cabra T4, ganso T5, ovelha T6, vaca T8) têm **todos**
+  `seconds_per_nutrition = 91,67`, `nutrition_max = 864` e ciclo de 79.200 s. E
+  as quinze plantas da categoria aceita têm **todas** `nutrition = 48`. Logo o
+  consumo é 864 ÷ 48 = 18 unidades para qualquer um deles. A suspeita era
+  razoável e a resposta estava no dump.
+- **A escolha da ração também está certa.** Como toda planta nutre 48, "mais
+  barata por ponto de nutrição" é "mais barata por unidade" — e `T8_YARROW` a
+  340 é de fato a mais barata **com cotação** em Caerleon, abaixo da cenoura T1
+  a 406. Contraintuitivo (galinha T3 comendo erva T8) e economicamente correto.
+- **A aritmética fecha ponta a ponta.** Galinha: 79.200 ÷ 91,67 = 864 pontos →
+  ÷ 48 = 18 unidades × 340 = 6.119,78 de ração; 9 ovos × 20 = 180 bruto, 165,60
+  líquido; −5.954,18 por ciclo; ÷ 0,9167 dia = −6.495,47 por dia. Cada passo
+  confere.
+- **O prejuízo vem de dois multiplicadores que o projeto decidiu não aplicar.**
+  `@activefarmbonus` (2,0 na cenoura!) e o bônus de comida favorita estão
+  gravados e **fora da conta** desde a fase 12, porque o que eles multiplicam
+  não foi medido. Está escrito em `params.assumptions` — e é a decisão certa:
+  número plausível sem etiqueta vira medido.
+- **O defeito era de apresentação, e é o mesmo da taxa da estação.** As
+  ressalvas existiam, no **rodapé**, embaixo de uma tabela mostrando margem de
+  −3.307%. Quando o sintoma é grande e a explicação está longe, o usuário
+  acredita no sintoma — e conclui que a conta quebrou, quando ela está
+  incompleta **e dizendo isso**. O aviso subiu para antes dos números, curto, e
+  o texto longo foi para o `ComoLer`.
+- **Produzir a ração sairia mais caro que comprá-la**, medido: a cenoura sai a
+  476 produzida contra 340 comprada. A nota da fase 12 dizia "a ração sai da
+  fazenda"; hoje o motor compra, e comprar é o mais barato com estes preços.
+- **`ordem` a variável e `ordem` a função.** A função de ordenação nova
+  sombreou a variável que guarda a **chave**, e `getattr(economics, ordem)`
+  passou a receber uma função: dez testes caíram com
+  `attribute name must be string, not 'function'`. Renomeada para `posicao`.
+
 ## Notas da fase 34 — o filtro estava no lugar errado
 
 - **A pergunta certa não era "como deixar a consulta rápida", e sim "por que o
@@ -431,6 +487,9 @@ obrigatório. Nenhuma delas lê configuração.
   alternativo passou a ler o cache do principal — devolvendo o custo da cidade
   errada. Quem pegou foi `test_refino_tambem_escolhe_a_cidade_de_cada_elo`. O
   cache passou a vir por parâmetro.
+- **A memoização foi remedida depois da fase 34 e continua pagando:** 277 ms
+  com, 1169 ms sem, em `/refining(200)`. São 892 ms, 76%. O número está no
+  próprio `ChainCache` para ninguém refazer a conta.
 - **A segunda otimização rendeu zero, e o registro disso vale tanto quanto o
   ganho.** Memoizar `profile_of` deu 1794 ms contra 1765 ms — ruído. As 43.900
   chamadas vinham de **dentro** da recursão, e a mudança 1 já as tinha
@@ -458,7 +517,7 @@ obrigatório. Nenhuma delas lê configuração.
   desde a fase 16 e só apareceu quando alguém informou uma especialização.
   É a regra 12 com outra roupa: lá era o encantamento que não mudava peso nem
   categoria; aqui é o spec zero que devolve um número redondo. Virou a **regra
-  14**, e o que deixou passar virou a **regra 15**.
+  14**, e o que deixou passar virou a **regra 16**.
 - **A pista estava na linha de baixo.** `base_focus_cost` — o focus **antes** da
   redução — já era `float | None`. O campo reduzido, que é o que de fato vira
   fracionário, ficou `int`. Os dois foram escritos no mesmo commit.
