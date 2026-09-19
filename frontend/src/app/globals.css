@@ -168,9 +168,26 @@ body {
    colunas de texto — as de material —, e abre um vão morto antes das colunas
    de decisão, que são as que importam. Com larguras fixas por tipo de coluna,
    o olho encontra "lucro" sempre no mesmo lugar, linha após linha. */
+/* Contêiner de rolagem da tabela (`components/sheet/SheetScroll.tsx`).
+
+   `--sheet-top` é a distância entre o topo da janela e o topo da tabela, medida
+   pelo próprio elemento. Sem altura aqui, o `sticky` do `thead` não tem
+   scrollport a que grudar: `overflow-x: auto` já torna este div o scrollport
+   dos dois eixos, mas com altura de conteúdo ele nunca rola na vertical, e o
+   cabeçalho sai da tela junto com a página.
+
+   O fallback de `--sheet-top` é conservador de propósito: antes de o JavaScript
+   medir, a tabela aparece um pouco mais baixa e completa, nunca cortada. */
+.sheet-scroll {
+  overflow: auto;
+  max-height: calc(100dvh - var(--sheet-top, 22rem));
+  overscroll-behavior: contain;
+}
+
 .sheet {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
@@ -193,9 +210,67 @@ body {
 
 .sheet tbody td {
   padding: 3px 6px;
+  /* `border-collapse: separate` é exigência do sticky: com `collapse` o
+     navegador atribui as bordas à tabela, não às células, e elas não viajam
+     com a célula presa — some a linha do cabeçalho ao rolar. */
   border-bottom: 1px solid color-mix(in srgb, var(--color-line) 60%, transparent);
   text-align: right;
   white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Colunas de identidade presas na rolagem horizontal.
+
+   Célula presa precisa de fundo opaco, senão o conteúdo que passa por baixo
+   aparece através dela. O fundo opaco, sozinho, apagaria duas informações: a
+   zebra e o tingimento de lucro, que é um gradiente aplicado na linha e cobre
+   justamente estas primeiras colunas.
+
+   Por isso o fundo é reconstruído em camadas: a tinta da linha (`--tinta`, que
+   a própria linha define) sobre a zebra, sobre o fundo da página. O resultado
+   é visualmente idêntico ao da linha não presa.
+   --------------------------------------------------------------------------- */
+.sheet-freeze tbody td:nth-child(1),
+.sheet-freeze tbody td:nth-child(2),
+.sheet-freeze thead th:nth-child(1),
+.sheet-freeze thead th:nth-child(2) {
+  position: sticky;
+  z-index: 6;
+}
+
+.sheet-freeze tbody td:nth-child(1),
+.sheet-freeze thead th:nth-child(1) {
+  left: var(--freeze-1, 0);
+}
+
+.sheet-freeze tbody td:nth-child(2),
+.sheet-freeze thead th:nth-child(2) {
+  left: var(--freeze-2, 0);
+  /* Fecha a coluna presa: sem isto o conteúdo rolando por baixo encosta nela
+     sem nenhuma separação e parece pertencer à célula. */
+  box-shadow: 1px 0 0 var(--color-line);
+}
+
+.sheet-freeze tbody td:nth-child(1),
+.sheet-freeze tbody td:nth-child(2) {
+  background-color: var(--color-ink);
+  background-image: linear-gradient(var(--tinta, transparent), var(--tinta, transparent));
+}
+
+.sheet-freeze tbody tr:nth-child(even) td:nth-child(1),
+.sheet-freeze tbody tr:nth-child(even) td:nth-child(2) {
+  background-color: color-mix(in srgb, #fff 1.8%, var(--color-ink));
+}
+
+.sheet-freeze tbody tr:hover td:nth-child(1),
+.sheet-freeze tbody tr:hover td:nth-child(2) {
+  background-color: color-mix(in srgb, #fff 5%, var(--color-ink));
+}
+
+/* O cabeçalho passa por cima das colunas presas no cruzamento das duas. */
+.sheet-freeze thead th:nth-child(1),
+.sheet-freeze thead th:nth-child(2) {
+  z-index: 14;
 }
 
 /* Zebra fraca de propósito: segura a horizontal numa linha de doze colunas sem

@@ -1,7 +1,6 @@
 import { PriceInput } from "@/components/calculator/PriceInput";
 import { PageShell } from "@/components/PageShell";
 import { CopyButton } from "@/components/sheet/CopyButton";
-import { materialColumnCount } from "@/components/sheet/MaterialCell";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { HoverTip } from "@/components/sheet/HoverTip";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
@@ -61,19 +60,48 @@ const GRUPOS = [
  * ensina é a da conta — material, taxas, custo, receita, lucro. Quem só quer o
  * resultado lê a última coluna; quem quer entender lê da esquerda.
  */
-function colunas(maxMateriais: number): SheetColumn[] {
+/**
+ * Os papéis de material, na ordem em que a cadeia os consome.
+ *
+ * A coluna é do **papel**, não da posição na receita: a ordem do dump não é
+ * estável (a variante com token lista o token antes do refinado, a sem token
+ * não o lista) e uma coluna que significa coisas diferentes em linhas
+ * diferentes não se lê na vertical. Com papel fixo, comparar o preço do pelego
+ * de T4 a T8 é correr o olho por uma coluna só.
+ *
+ * Na variante sem token a coluna do token fica **vazia**. Promover o refinado
+ * para ela economizaria uma coluna e destruiria exatamente a propriedade que
+ * justifica a mudança.
+ */
+const PAPEIS = [
+  { chave: "bruto", rotulo: "bruto", dica: "o recurso que vem da coleta" },
+  { chave: "refinado", rotulo: "refinado", dica: "o refinado do tier anterior" },
+  { chave: "token", rotulo: "token", dica: "coração de facção — não retorna" },
+  { chave: "outro", rotulo: "outro", dica: "material fora dos três papéis conhecidos" },
+] as const;
+
+function papeisPresentes(linhas: CalcRow[]): string[] {
+  const vistos = new Set(linhas.flatMap((l) => l.materials.map((m) => m.role)));
+  return PAPEIS.filter((p) => vistos.has(p.chave)).map((p) => p.chave);
+}
+
+function colunas(papeis: string[]): SheetColumn[] {
   return [
     { label: "tier", width: "focus", left: true },
     { label: "item", width: "item", left: true },
     { label: "você vende por", width: "num", title: "editável — o seu preço vence o coletado" },
-    // Uma coluna por material, como no resto do produto. Empilhá-los dentro da
-    // célula do item era o que fazia o terceiro sair do alinhamento e o preço
-    // encostar na borda: célula composta não tem largura própria.
-    ...Array.from({ length: maxMateriais }, (_, i) => ({
-      label: `mat. ${i + 1}`,
-      width: "calcMat" as const,
-      left: true,
-    })),
+    // Uma coluna por papel de material. Empilhá-los dentro da célula do item
+    // era o que fazia o terceiro sair do alinhamento e o preço encostar na
+    // borda: célula composta não tem largura própria.
+    ...papeis.map((chave) => {
+      const papel = PAPEIS.find((p) => p.chave === chave);
+      return {
+        label: papel?.rotulo ?? chave,
+        width: "calcMat" as const,
+        left: true,
+        title: papel?.dica,
+      };
+    }),
     { label: "material", width: "num", title: "já com o retorno descontado" },
     { label: "taxa da loja", width: "num", title: "item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
     { label: "taxa de venda", width: "num", title: "imposto + setup fee sobre a receita bruta" },
@@ -143,7 +171,7 @@ export default async function CalculadoraPage({
   } as Record<string, string>);
 
   const linhas = data?.rows ?? [];
-  const maxMateriais = materialColumnCount(linhas.map((l) => l.materials.length));
+  const papeis = papeisPresentes(linhas);
   const familia = FAMILIAS.find(([v]) => v === data?.family)?.[1] ?? "";
 
   return (
@@ -175,7 +203,7 @@ export default async function CalculadoraPage({
         <>
           <Parametros data={data} quantidade={Number(quantidade)} />
 
-          <SheetTable columns={colunas(maxMateriais)}>
+          <SheetTable columns={colunas(papeis)} freeze={2}>
             {linhas.map((linha) => (
               <Linha
                 key={linha.item}
@@ -183,7 +211,7 @@ export default async function CalculadoraPage({
                 server={data.server}
                 buyLocation={data.buy_location}
                 sellLocation={data.sell_location}
-                maxMateriais={maxMateriais}
+                papeis={papeis}
               />
             ))}
           </SheetTable>
@@ -301,13 +329,13 @@ function Linha({
   server,
   buyLocation,
   sellLocation,
-  maxMateriais,
+  papeis,
 }: {
   linha: CalcRow;
   server: string;
   buyLocation: string;
   sellLocation: string;
-  maxMateriais: number;
+  papeis: string[];
 }) {
   const positivo = linha.known ? (linha.profit ?? 0) > 0 : null;
   const tinta =
@@ -316,9 +344,18 @@ function Linha({
       : positivo === false
         ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
         : "";
+  // A mesma tinta, como variável, para as colunas presas poderem repintá-la
+  // sobre o fundo opaco que o `sticky` exige. Sem isto, prender a identidade
+  // apagaria o verde e o vermelho justamente onde eles são mais visíveis.
+  const corDaTinta =
+    positivo === true
+      ? "rgba(86,192,127,0.06)"
+      : positivo === false
+        ? "rgba(226,85,92,0.06)"
+        : "transparent";
 
   return (
-    <tr className={tinta}>
+    <tr className={tinta} style={{ "--tinta": corDaTinta } as React.CSSProperties}>
       <td className={`l ${tierBorderLeft(linha.tier)}`}>
         <TierBadge tier={linha.tier} enchantment={linha.enchantment} />
       </td>
@@ -354,12 +391,20 @@ function Linha({
         />
       </td>
 
-      {Array.from({ length: maxMateriais }, (_, i) => {
-        const m = linha.materials[i];
-        if (!m) return <td key={`vazio-${i}`} className="l text-dim">—</td>;
+      {papeis.map((papel) => {
+        const m = linha.materials.find((mat) => mat.role === papel);
+        if (!m) {
+          // Vazio de propósito: a variante sem token não tem token. Promover o
+          // refinado para cá quebraria a leitura vertical da coluna.
+          return (
+            <td key={papel} className="l text-dim" title={`esta variante não usa ${papel}`}>
+              —
+            </td>
+          );
+        }
         return (
           <Material
-            key={m.item}
+            key={papel}
             material={m}
             tier={linha.tier}
             server={server}

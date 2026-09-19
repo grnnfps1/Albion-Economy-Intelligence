@@ -77,6 +77,39 @@ DATA_SOURCE_NOTE = (
 )
 
 REFINED_SUBCATEGORY = "refinedresources"
+RAW_SUBCATEGORY = "resources"
+TOKEN_SUBCATEGORY = "cityresources"
+TOKEN_PREFIX = "T1_FACTION_"
+
+# Papel do material na receita, e a ordem em que os papéis aparecem na tela.
+#
+# A ordem do dump **não** é estável: `T8_LEATHER` sem token lista
+# `resources, refinedresources`; com token lista
+# `resources, cityresources, refinedresources`. Renderizar nessa ordem faria o
+# token cair na coluna 2 numa linha e o refinado na outra, e a coluna deixaria
+# de significar a mesma coisa em todas as linhas — que é justamente o que
+# permite comparar o preço do pelego de cima a baixo.
+ROLE_RAW = "bruto"
+ROLE_REFINED = "refinado"
+ROLE_TOKEN = "token"
+ROLE_OTHER = "outro"
+ROLE_ORDER = (ROLE_RAW, ROLE_REFINED, ROLE_TOKEN, ROLE_OTHER)
+
+
+def role_of(item) -> str:
+    """Papel do material, pela subcategoria do catálogo.
+
+    O token é reconhecido pelos **dois** sinais — subcategoria `cityresources`
+    e prefixo `T1_FACTION_` — porque só o prefixo já bastaria hoje e é o tipo
+    de coisa que muda de nome num patch.
+    """
+    if item.subcategory_code == TOKEN_SUBCATEGORY or item.unique_name.startswith(TOKEN_PREFIX):
+        return ROLE_TOKEN
+    if item.subcategory_code == RAW_SUBCATEGORY:
+        return ROLE_RAW
+    if item.subcategory_code == REFINED_SUBCATEGORY:
+        return ROLE_REFINED
+    return ROLE_OTHER
 
 # As cinco linhas de recurso. Pedra é a exceção que o dump impõe: ela **não tem
 # variante encantada**, então tem 7 linhas onde as outras têm 27. Confirmado no
@@ -97,8 +130,7 @@ def _age(value: datetime | None, now: datetime) -> int | None:
 
 def _rotulo_de_variante(receita, catalogo) -> str:
     tem_token = any(
-        not m.is_returnable
-        and "TOKEN" in (catalogo[m.item_id].unique_name if m.item_id in catalogo else "")
+        m.item_id in catalogo and role_of(catalogo[m.item_id]) == ROLE_TOKEN
         for m in receita.materials
     )
     return "com token de faccao" if tem_token else "sem token"
@@ -425,6 +457,7 @@ def _materiais_out(
     saida: list[CalcMaterialOut] = []
     for m, custo in zip(receita.materials, materiais, strict=False):
         material = catalogo[m.item_id]
+        papel = role_of(material)
         escolha = compras.choose(material.unique_name)
         cotacao = escolha.quote if escolha.known else None
 
@@ -439,6 +472,7 @@ def _materiais_out(
                 icon_url=item_icon_url(material.unique_name),
                 quantity=m.quantity,
                 is_returnable=m.is_returnable,
+                role=papel,
                 unit_price=custo.unit_price,
                 price_is_manual=bool(cotacao and getattr(cotacao, "is_manual", False)),
                 age_seconds=custo.age_seconds,
@@ -449,7 +483,9 @@ def _materiais_out(
                 saved_by_return=linha.saved,
             )
         )
-    return saida
+    # Ordena por papel, não pela ordem do dump. `sorted` é estável, então dois
+    # materiais do mesmo papel mantêm a ordem em que a receita os trouxe.
+    return sorted(saida, key=lambda mat: ROLE_ORDER.index(mat.role))
 
 
 def _vazio(server, familia, buy_location, sell_location, params, now) -> CalculatorResponse:

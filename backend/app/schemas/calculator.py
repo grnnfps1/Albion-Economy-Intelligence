@@ -14,6 +14,14 @@ class CalcMaterialOut(BaseModel):
     icon_url: str | None = None
     quantity: int
     is_returnable: bool
+    role: str = Field(
+        default="outro",
+        description=(
+            "Papel do material na receita: 'bruto', 'refinado', 'token' ou "
+            "'outro'. A tela usa isto para dar uma coluna fixa a cada papel, "
+            "de modo que 'bruto' signifique a mesma coisa em todas as linhas."
+        ),
+    )
 
     unit_price: int | None = None
     price_is_manual: bool = False

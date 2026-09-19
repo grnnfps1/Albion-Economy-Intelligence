@@ -672,6 +672,8 @@ export type CalcMaterial = {
   icon_url: string | null;
   quantity: number;
   is_returnable: boolean;
+  /** "bruto" | "refinado" | "token" | "outro" — define a coluna, não a ordem do dump. */
+  role: string;
   unit_price: number | null;
   price_is_manual: boolean;
   collected_price: number | null;

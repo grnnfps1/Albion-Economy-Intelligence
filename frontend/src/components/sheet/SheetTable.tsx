@@ -19,6 +19,8 @@
  * /crafting e em /refining.
  */
 
+import { SheetScroll } from "@/components/sheet/SheetScroll";
+
 /** Larguras por *tipo* de coluna, não por coluna. */
 export const SHEET_WIDTHS = {
   /** Identidade do item: ícone, badge, nome visual e id técnico. */
@@ -68,13 +70,39 @@ export type SheetColumn = {
 export function SheetTable({
   columns,
   children,
+  freeze = 0,
 }: {
   columns: SheetColumn[];
   children: React.ReactNode;
+  /**
+   * Quantas colunas da esquerda ficam presas na rolagem horizontal.
+   *
+   * Com doze colunas, rolar para a direita faz perder de vista **qual linha**
+   * se está lendo, e a tabela vira uma grade de números sem sujeito. Prender a
+   * identidade resolve, mas exige fundo opaco nas células presas — e o fundo
+   * opaco apagaria o tingimento de lucro e a zebra, que são informação. O CSS
+   * repinta os dois por cima (ver `.sheet-freeze` em `globals.css`), então o
+   * que se perde é nada.
+   */
+  freeze?: number;
 }) {
+  // `left` de cada coluna presa é a soma das larguras das anteriores. Sai daqui
+  // e não do CSS porque só aqui se sabe quais colunas a tela montou.
+  const offsets: string[] = [];
+  let acumulado = "0rem";
+  for (let i = 0; i < freeze && i < columns.length; i += 1) {
+    offsets.push(acumulado);
+    acumulado = `calc(${acumulado} + ${SHEET_WIDTHS[columns[i].width]})`;
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="sheet text-[11.5px]">
+    <SheetScroll>
+      <table
+        className={`sheet text-[11.5px] ${freeze > 0 ? "sheet-freeze" : ""}`}
+        style={Object.fromEntries(
+          offsets.map((left, i) => [`--freeze-${i + 1}`, left]),
+        ) as React.CSSProperties}
+      >
         <colgroup>
           {columns.map((c, i) => (
             <col key={`${c.label}-${i}`} style={{ width: SHEET_WIDTHS[c.width] }} />
@@ -91,6 +119,6 @@ export function SheetTable({
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </SheetScroll>
   );
 }
