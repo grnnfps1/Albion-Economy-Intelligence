@@ -83,6 +83,7 @@ async def find_refining_opportunities(
     use_focus: bool = False,
     daily_production_bonus: float = 0.0,
     spec_levels: dict[str, int] | None = None,
+    spec_item_levels: dict[str, int] | None = None,
 ) -> RefiningResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     # O bônus de refino segue o recurso, e dentro de uma cadeia o recurso é o
@@ -110,7 +111,9 @@ async def find_refining_opportunities(
 
     # Spec por família de recurso: couro, tecido, tábuas, barras, blocos. Sem
     # nada informado o custo sai igual ao do dump, e a resposta avisa.
-    spec = await load_specialization_policy(session, spec_levels)
+    spec = await load_specialization_policy(
+        session, spec_levels, item_levels=spec_item_levels
+    )
 
     params = CraftParamsUsed(
         return_rate=return_rate,

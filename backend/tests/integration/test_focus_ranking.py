@@ -20,7 +20,7 @@ AGORA = datetime.now(UTC)
 PADRAO = dict(
     server="west", buy_location="caerleon", sell_location="caerleon",
     focus_budget=10_000, horizon_days=7,
-    return_rate=0.15, station_fee_per_100_nutrition=1000, spec_levels=None,
+    return_rate=0.15, station_fee_per_100_nutrition=1000, spec_levels=None, spec_item_levels=None,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
     sourcing=Sourcing.CHEAPEST, strategy=Strategy.FAST,
     sort_by="realizable_profit", limit=30,

@@ -82,6 +82,7 @@ async def find_crafting_opportunities(
     use_focus: bool = False,
     daily_production_bonus: float = 0.0,
     spec_levels: dict[str, int] | None = None,
+    spec_item_levels: dict[str, int] | None = None,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     perfil_risco, resumo_risco = await resolve_risk(session, loss_pct_blue, loss_pct_red_black)
@@ -120,7 +121,9 @@ async def find_crafting_opportunities(
     # Spec ausente é zero, não UNKNOWN: o custo sai igual ao do dump e a
     # resposta diz que assumiu zero. É a regra do risco de rota, não a das
     # taxas.
-    spec = await load_specialization_policy(session, spec_levels)
+    spec = await load_specialization_policy(
+        session, spec_levels, item_levels=spec_item_levels
+    )
 
     params = CraftParamsUsed(
         return_rate=return_rate,

@@ -57,7 +57,22 @@ export type Preferences = {
   specPlanks: number;
   specMetalbar: number;
   specStoneblock: number;
+  /**
+   * Especialização por **item**, para craft de equipamento.
+   *
+   * Refino é por família — quem especializa couro especializa a linha. Craft
+   * não: quem especializou Capuz de Mercenário não especializou Capuz de
+   * Caçador, porque são nós diferentes do Destiny Board.
+   *
+   * É uma lista aberta e não um conjunto de campos fixos: quem crafta duas
+   * peças informa duas, quem crafta vinte informa vinte. Item que não estiver
+   * aqui fica em zero, com o aviso de sempre.
+   */
+  specItems: SpecItem[];
 };
+
+/** Um item especializado: a linha do item e o nível de 0 a 100. */
+export type SpecItem = { item: string; level: number };
 
 export const DEFAULTS: Preferences = {
   server: "west",
@@ -82,6 +97,7 @@ export const DEFAULTS: Preferences = {
   specPlanks: 0,
   specMetalbar: 0,
   specStoneblock: 0,
+  specItems: [],
 };
 
 export const COOKIE = "aei_prefs";
@@ -106,5 +122,11 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     spec_planks: String(prefs.specPlanks),
     spec_metalbar: String(prefs.specMetalbar),
     spec_stoneblock: String(prefs.specStoneblock),
+    // `id:nivel` separados por vírgula. Itens sem nível não são enviados: zero
+    // é o padrão do backend, e mandá-lo explicitamente só engorda a URL.
+    spec_items: (prefs.specItems ?? [])
+      .filter((s) => s.item.trim() && s.level > 0)
+      .map((s) => `${s.item.trim()}:${s.level}`)
+      .join(","),
   };
 }

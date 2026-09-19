@@ -3,7 +3,11 @@
 from fastapi import APIRouter, Query
 
 from app.api.deps import SessionDep, SettingsDep
-from app.api.v1.routes._spec_params import spec_levels_from
+from app.api.v1.routes._spec_params import (
+    SPEC_ITEMS_DESC,
+    item_levels_from,
+    spec_levels_from,
+)
 from app.schemas.dashboard import DashboardResponse
 from app.services.dashboard_service import build_dashboard
 
@@ -26,6 +30,7 @@ async def dashboard(
     spec_planks: int = Query(0, ge=0, le=100, description="Spec de tábuas."),
     spec_metalbar: int = Query(0, ge=0, le=100, description="Spec de barras."),
     spec_stoneblock: int = Query(0, ge=0, le=100, description="Spec de blocos."),
+    spec_items: str | None = Query(None, description=SPEC_ITEMS_DESC),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
     premium: bool | None = Query(None),
@@ -42,6 +47,7 @@ async def dashboard(
         spec_levels=spec_levels_from(
             spec_leather, spec_cloth, spec_planks, spec_metalbar, spec_stoneblock
         ),
+        spec_item_levels=item_levels_from(spec_items),
         setup_fee_pct=setup_fee_pct,
         sales_tax_pct=sales_tax_pct,
         premium=premium,

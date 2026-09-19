@@ -221,3 +221,43 @@ async def test_sem_spec_a_resposta_avisa_que_assumiu_zero(session, cadeia):
     )
     assert com.params.specialization.assumes_zero_spec is False
     assert com.params.specialization.levels["PLANKS"] == 40
+
+
+async def test_spec_por_item_vence_o_da_familia_ponta_a_ponta(session, cadeia):
+    """A fase 19 ponta a ponta: o nível do item sobrescreve o da família.
+
+    Não é redundante com os testes de unidade — o que se verifica aqui é a
+    fiação: o parâmetro atravessa rota, serviço e `RecipeSpec` até virar Focus
+    na resposta.
+    """
+    await cadeia["semear"](PRECOS)
+
+    familia = await find_refining_opportunities(
+        session,
+        **(PADRAO | {"sourcing": Sourcing.CRAFT, "spec_levels": {"PLANKS": 40}}),
+    )
+    item = await find_refining_opportunities(
+        session,
+        **(
+            PADRAO
+            | {
+                "sourcing": Sourcing.CRAFT,
+                "spec_levels": {"PLANKS": 40},
+                # Com tier: vale só para o T5, não vaza para o T4.
+                "spec_item_levels": {"T5_PLANKS": 100},
+            }
+        ),
+    )
+
+    t5_familia = next(o for o in familia.opportunities if o.item == "T5_PLANKS")
+    t5_item = next(o for o in item.opportunities if o.item == "T5_PLANKS")
+
+    assert t5_familia.known and t5_item.known
+    # Spec 100 gasta menos Focus que spec 40 — o nível do item venceu.
+    assert t5_item.focus_per_unit < t5_familia.focus_per_unit
+    assert item.params.specialization.item_levels["T5_PLANKS"] == 100
+
+    # E o irmão que não foi informado continua com o nível da família.
+    t4_familia = next(o for o in familia.opportunities if o.item == "T4_PLANKS")
+    t4_item = next(o for o in item.opportunities if o.item == "T4_PLANKS")
+    assert t4_item.focus_per_unit == pytest.approx(t4_familia.focus_per_unit)

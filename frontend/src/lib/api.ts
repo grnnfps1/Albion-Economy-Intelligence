@@ -425,7 +425,9 @@ export type CraftingResponse = {
     nutrition_per_item_value: number | null;
     specialization?: {
       informed: boolean; assumes_zero_spec: boolean;
-      levels: Record<string, number>; families: string[];
+      levels: Record<string, number>;
+      item_levels: Record<string, number>;
+      families: string[];
     };
     use_focus: boolean; daily_production_bonus: number; return_rate_source: string;
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;

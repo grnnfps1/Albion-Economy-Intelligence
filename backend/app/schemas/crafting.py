@@ -14,7 +14,16 @@ class SpecializationUsed(BaseModel):
 
     informed: bool = False
     assumes_zero_spec: bool = True
-    levels: dict[str, int] = Field(default_factory=dict)
+    levels: dict[str, int] = Field(
+        default_factory=dict, description="Por família de recurso — a unidade do refino."
+    )
+    item_levels: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Por linha de item — a unidade do craft de equipamento. Vence a "
+            "família, porque é mais específico."
+        ),
+    )
     families: list[str] = Field(default_factory=list)
     halving_points: float = 10_000.0
     per_mastery_level: float = 30.0

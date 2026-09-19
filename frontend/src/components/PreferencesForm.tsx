@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { COOKIE, type Preferences } from "@/lib/preferences-shared";
+import { COOKIE, type Preferences, type SpecItem } from "@/lib/preferences-shared";
 
 /**
  * As cinco linhas de recurso do refino.
@@ -46,6 +46,23 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
     }
     setPrefs(proximo);
     setSalvo(false);
+  }
+
+  // Cookie antigo não tem `specItems`; `?? []` evita quebrar quem já salvou.
+  const itens: SpecItem[] = prefs.specItems ?? [];
+
+  function trocarItem(indice: number, patch: Partial<SpecItem>) {
+    atualizar({
+      specItems: itens.map((linha, i) => (i === indice ? { ...linha, ...patch } : linha)),
+    });
+  }
+
+  function adicionarItem() {
+    atualizar({ specItems: [...itens, { item: "", level: 0 }] });
+  }
+
+  function removerItem(indice: number) {
+    atualizar({ specItems: itens.filter((_, i) => i !== indice) });
   }
 
   function salvar() {
@@ -179,6 +196,61 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         </label>
       ))}
 
+      {/* Especialização por item, para craft de equipamento.
+
+          Lista aberta em vez de campos fixos: a planilha de referência pede
+          centenas de níveis, um por item do Destiny Board, e isso não cabe num
+          formulário. Quem crafta duas peças informa duas. O resto fica em zero,
+          com o aviso de sempre. */}
+      <div className="col-span-full flex flex-col gap-1.5">
+        <span className={rotulo}>Spec por item · craft de equipamento</span>
+        {itens.length === 0 && (
+          <span className="text-[11px] text-dim">
+            Nenhum item informado — o craft de equipamento assume spec 0.
+          </span>
+        )}
+        {itens.map((linha, i) => (
+          <span key={i} className="flex flex-wrap items-center gap-1.5">
+            <input
+              className={`${campo} max-w-[22rem] flex-1`}
+              placeholder="id do item, ex.: T5_HEAD_LEATHER_SET1"
+              value={linha.item}
+              onChange={(e) => trocarItem(i, { item: e.target.value })}
+            />
+            <input
+              className={`${campo} w-20`}
+              aria-label="nível de especialização"
+              value={linha.level}
+              onChange={(e) =>
+                trocarItem(i, {
+                  level: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
+                })
+              }
+            />
+            <button
+              type="button"
+              onClick={() => removerItem(i)}
+              aria-label={`remover ${linha.item || "item"}`}
+              className="rounded-[3px] border border-line px-2 py-1 text-[11px] text-dim hover:border-down hover:text-down"
+            >
+              remover
+            </button>
+          </span>
+        ))}
+        <span>
+          <button
+            type="button"
+            onClick={adicionarItem}
+            className="rounded-[3px] border border-line-strong bg-raised px-2.5 py-1 text-[11px] text-body hover:border-warn"
+          >
+            + item
+          </button>
+          <span className="ml-2 text-[10.5px] text-dim">
+            O tier e o encantamento são ignorados: o nó do Destiny Board é da linha do item.
+          </span>
+        </span>
+      </div>
+
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}
           className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-[12px] text-body hover:border-warn disabled:opacity-50">
@@ -199,6 +271,14 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         250 pontos. Um refino T4 custa 54 de Focus sem spec e 3 com tudo maximizado — dezoito
         vezes mais refino no mesmo dia. <b className="font-semibold text-warn">Com zero, as
         telas calculam assumindo spec 0</b> e dizem isso na linha.
+      </p>
+
+      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+        <b className="font-semibold text-body">Refino é por família; craft é por item.</b>{" "}
+        Quem especializa couro especializa a linha inteira, então cinco campos bastam para o
+        refino. Craft de equipamento não funciona assim — quem especializou Capuz de Mercenário
+        não especializou Capuz de Caçador, porque são nós diferentes do Destiny Board. Informe
+        só os itens que você de fato produz; o resto continua em zero.
       </p>
 
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">

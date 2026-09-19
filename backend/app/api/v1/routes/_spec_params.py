@@ -3,7 +3,7 @@
 Quatro rotas pedem os mesmos cinco campos; repetir a lista em cada uma
 convidaria a divergirem.
 """
-from app.services.specialization_service import DEFAULT_FAMILIES
+from app.services.specialization_service import DEFAULT_FAMILIES, parse_item_levels
 
 # Uma linha por recurso em vez de item a item: a planilha faz item a item, mas
 # isso seriam centenas de campos no formulário. A lista vive no serviço, que é
@@ -28,3 +28,21 @@ def spec_levels_from(
             strict=True,
         )
     )
+
+
+# Formato do parâmetro de spec por item: `id:nivel` separados por vírgula.
+#
+# Uma string e não sete campos porque a lista é aberta — quem crafta espada e
+# elmo informa dois itens, quem crafta vinte informa vinte. Campos fixos
+# obrigariam a escolher um teto arbitrário, que é o erro que a fase 19 acabou
+# de corrigir nas colunas de material.
+SPEC_ITEMS_DESC = (
+    "Especialização por item, no formato `T4_MAIN_SWORD:80,HEAD_PLATE_SET1:40`. "
+    "O tier e o encantamento são ignorados: o nó do Destiny Board é da linha do "
+    "item. Vence o nível da família. Item não informado fica em zero."
+)
+
+
+def item_levels_from(spec_items: str | None) -> dict[str, int]:
+    """Níveis por linha de item. Entrada torta é ignorada, não derruba a rota."""
+    return parse_item_levels(spec_items)
