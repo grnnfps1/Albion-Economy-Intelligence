@@ -75,6 +75,10 @@ async def calculator(
     spec_stoneblock: int = Query(0, ge=0, le=100),
     spec_items: str | None = Query(None, description=SPEC_ITEMS_DESC),
     focus_per_day: float | None = Query(None, ge=0),
+    sort_by: str = Query(
+        "tier", description="Uma de: tier, profit, total_investment, production_cost."
+    ),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
     sourcing_mode: str = Query("CIDADE_UNICA"),
 ) -> CalculatorResponse:
     return await build_calculator(
@@ -97,6 +101,8 @@ async def calculator(
         ),
         spec_item_levels=item_levels_from(spec_items),
         focus_per_day=focus_per_day,
+        sort_by=sort_by,
+        sort_desc=sort_dir == "desc",
         user_id=user_id,
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),
     )

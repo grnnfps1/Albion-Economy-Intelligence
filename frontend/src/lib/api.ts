@@ -769,6 +769,8 @@ export type CalculatorResponse = {
   return_options: ReturnOption[];
   params: {
     quantity: number;
+    sort_by: string;
+    sort_dir: string;
     sourcing: string;
     strategy: string;
     station_fee_per_100_nutrition: number | null;

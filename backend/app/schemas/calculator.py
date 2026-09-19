@@ -165,6 +165,10 @@ class ReturnOptionOut(BaseModel):
 
 class CalcParamsUsed(BaseModel):
     quantity: int
+    sort_by: str = Field(
+        default="tier", description="Coluna que ordenou. `tier` é o padrão da tela."
+    )
+    sort_dir: str = Field(default="asc", description="`asc` ou `desc`.")
     sourcing: str
     strategy: str
     station_fee_per_100_nutrition: float | None = None

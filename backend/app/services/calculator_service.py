@@ -119,6 +119,51 @@ def role_of(item) -> str:
 # dump e no catálogo importado.
 FAMILIES = ("LEATHER", "CLOTH", "PLANKS", "METALBAR", "STONEBLOCK")
 
+# As colunas por onde a tabela pode ser ordenada.
+#
+# `tier` é o padrão e não é um estado à parte: é uma coluna como as outras, só
+# que a que a tela abre. Ela é o motivo de a tabela existir neste formato —
+# comparar T5.2 com T6.2 na vertical — e por isso o terceiro clique de qualquer
+# coluna volta para ela.
+SORTABLE = ("tier", "profit", "total_investment", "production_cost")
+DEFAULT_SORT = "tier"
+
+
+def _ordena(linhas: list[CalcRowOut], sort_by: str, desc: bool) -> list[CalcRowOut]:
+    """Ordena as linhas. Comparar lucro é aritmética de negócio, e mora aqui.
+
+    ## Linha sem cálculo vai para o fim — exceto por tier
+
+    Uma linha bloqueada por falta de cotação **não tem lucro**. Não é lucro
+    zero: é lucro desconhecido, e desconhecido não compete com número (regra 1).
+    Deixá-la participar da ordenação por valor a colocaria no meio do ranking
+    como se fosse a pior — ou, num `desc` com `None` tratado como zero, acima de
+    todas as que dão prejuízo.
+
+    **Por tier é o contrário, e a diferença importa.** Ali a posição é
+    intrínseca ao item, não ao resultado: jogar T8.4 para o fim por falta de
+    cotação quebraria justamente a sequência que essa ordenação existe para
+    mostrar.
+    """
+    if sort_by == "tier":
+        # Pelo par (tier, encantamento), nunca pelo rótulo: "T5.4" e "T6.0"
+        # comparados como texto já funcionam por coincidência, mas "T10.0"
+        # viria antes de "T2.0" no dia em que existir.
+        return sorted(
+            linhas,
+            key=lambda linha: (linha.tier or 0, linha.enchantment),
+            reverse=desc,
+        )
+
+    def chave(linha: CalcRowOut):
+        valor = getattr(linha, sort_by, None)
+        # O primeiro item da tupla separa conhecido de desconhecido **antes** do
+        # valor, e não é invertido pelo `reverse`: por isso o sinal entra no
+        # segundo, e as bloqueadas ficam no fim nas duas direções.
+        return (valor is None, -(valor or 0.0) if desc else (valor or 0.0))
+
+    return sorted(linhas, key=chave)
+
 _FAMILIA = re.compile(r"^T\d_([A-Z]+?)(?:_LEVEL\d+)?(?:@\d)?$")
 
 
@@ -161,7 +206,9 @@ async def build_calculator(
     # Focus limita o ranking de `/focus`, não a tabela de uma família — e por
     # isso o campo saiu do painel de preferências daqui.
     focus_per_day: float | None,
-    user_id: str | None,
+    sort_by: str = DEFAULT_SORT,
+    sort_desc: bool = False,
+    user_id: str | None = None,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
     max_age_seconds: int | None = None,
 ) -> CalculatorResponse:
@@ -197,8 +244,11 @@ async def build_calculator(
     )
     faltando.extend(taxa_estacao.missing())
 
+    ordenacao = sort_by if sort_by in SORTABLE else DEFAULT_SORT
     params = CalcParamsUsed(
         quantity=quantidade,
+        sort_by=ordenacao,
+        sort_dir="desc" if sort_desc else "asc",
         sourcing=str(sourcing_mode),
         strategy=str(Strategy.PATIENT),
         station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
@@ -317,6 +367,8 @@ async def build_calculator(
         )
         for item in itens
     ]
+
+    linhas_out = _ordena(linhas_out, ordenacao, sort_desc)
 
     return CalculatorResponse(
         server=server,

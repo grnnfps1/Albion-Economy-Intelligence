@@ -47,6 +47,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 27 | Retorno e intervalo de preço **antes** do cálculo | ✅ |
 | 28 | Uma barra de rolagem; ícone ancora a coluna | ✅ |
 | 29 | Pílula espelha a resposta; painel por tela; desvio de sessão em dev | ✅ |
+| 30 | Ordenação clicável no cabeçalho, resolvida no servidor | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -336,6 +337,47 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 30 — ordenação por coluna
+
+- **Tier é uma coluna ordenável, não um estado à parte.** Ela é o padrão da
+  tela e o destino do terceiro clique, porque é ela que dá sentido ao formato:
+  comparar T5.2 com T6.2 correndo o olho na vertical é o motivo de a tabela
+  existir assim. Um padrão que só se recupera recarregando a página deixa de
+  ser padrão.
+- **Ordena pelo par `(tier, encantamento)`, nunca pelo rótulo.** `"T5.4" <
+  "T6.0"` como texto funciona **por coincidência**, e quebra no dia em que
+  existir um T10 — que como string viria antes de T2. Há teste com o nome dizendo
+  isso.
+- **Decrescente por tier não é simetria gratuita:** quem só produz T7 e T8 não
+  quer rolar catorze linhas de tier baixo toda vez.
+- **Linha sem cálculo vai para o fim — exceto por tier.** Lucro desconhecido
+  não é lucro zero (regra 1) e não compete com número: num `desc` com `None`
+  valendo zero, a bloqueada apareceria **acima** de toda linha que dá prejuízo,
+  anunciada como melhor que um resultado real. Por tier é o contrário, e a
+  diferença é de natureza: ali a posição é intrínseca ao item, e empurrar T8.4
+  para o fim por falta de cotação quebraria a sequência que a ordenação existe
+  para mostrar.
+- **A separação conhecido/desconhecido entra antes do valor na chave, e o sinal
+  entra no valor.** Se o `reverse` do `sorted` fizesse a inversão, ele
+  inverteria também a separação e as bloqueadas subiriam ao topo no `asc`.
+- **Quem ordena é o servidor.** Comparar lucro é aritmética de negócio, e o CI
+  barra isso em `frontend/src`. O clique só reescreve a URL; não há `sort()`
+  nenhum na tela.
+- **A seta vem da resposta, não de estado local.** `data.params.sort_by` e
+  `sort_dir` dizem o que o motor usou — mesmo princípio que consertou a pílula
+  "sem focus" na fase 29: a tela não afirma o valor de um parâmetro cuja fonte
+  é outra.
+- **A seta só aparece na coluna ativa.** Uma seta cinza em toda coluna
+  ordenável viraria ruído de doze setas e esconderia qual manda.
+- **`SortHeader` nasce em `components/sheet/` mesmo tendo um só consumidor.**
+  As telas de ranking ordenam por **pílula** na barra de filtros — outro
+  mecanismo, outro lugar. Quando uma delas migrar, migra para cá, e as duas
+  ordenações não vão parecer coisas diferentes.
+- **Teste de contrato contra erro de digitação:** toda coluna de `SORTABLE`
+  precisa existir em `CalcRowOut`. `getattr(linha, sort_by, None)` devolveria
+  `None` em silêncio e a ordenação viraria "tudo desconhecido, mantém a ordem",
+  sem erro nenhum.
 
 ## Notas da fase 29 — a tela não pode afirmar o que não é dela
 

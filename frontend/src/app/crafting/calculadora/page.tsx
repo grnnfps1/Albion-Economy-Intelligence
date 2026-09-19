@@ -125,7 +125,8 @@ function papeisPresentes(linhas: CalcRow[]): string[] {
  */
 function colunas(papeis: string[]): SheetColumn[] {
   return [
-    { label: "tier", width: "focus", left: true },
+    { label: "tier", width: "focus", left: true, sortKey: "tier",
+      title: "ordena pelo par (tier, encantamento): T5.4 vem antes de T6.0" },
     { label: "item", width: "item", left: true },
     { label: "vende por", width: "num", title: "você vende por — editável, e o seu preço vence o coletado" },
     // Uma coluna por papel de material. Empilhá-los dentro da célula do item
@@ -151,12 +152,14 @@ function colunas(papeis: string[]): SheetColumn[] {
     },
     // Rótulo curto porque a coluna tem 6,8rem: "custo de produção" não cabia
     // e o navegador cortava no meio da palavra, que é pior que abreviar.
-    { label: "custo", width: "num", title: "custo de produção: material líquido + taxa da loja + taxa de venda" },
+    { label: "custo", width: "num", sortKey: "production_cost",
+      title: "custo de produção: material líquido + taxa da loja + taxa de venda" },
     { label: "receita", width: "num", title: "receita bruta, antes das taxas" },
-    { label: "lucro", width: "num" },
+    { label: "lucro", width: "num", sortKey: "profit" },
     // Investimento em coluna própria: com oito dígitos nos dois, ele brigava com
     // o lucro dentro da mesma célula.
-    { label: "investe", width: "num", title: "capital que sai do bolso antes de vender" },
+    { label: "investe", width: "num", sortKey: "total_investment",
+      title: "capital que sai do bolso antes de vender" },
     { label: "margem", width: "pct", title: "sobre a receita bruta; entre parênteses, sobre o custo" },
     { label: "escoa em", width: "mini", title: "quantos dias o giro leva para absorver a quantidade" },
   ];
@@ -179,6 +182,16 @@ function colunas(papeis: string[]): SheetColumn[] {
  * é genérico e um nível informado para `T8_LEATHER` **altera** o custo em Focus
  * desta tabela.
  */
+/**
+ * A ordenação de abertura, e para onde o terceiro clique volta.
+ *
+ * Tier crescente não é "nenhuma ordenação": é a coluna que dá sentido ao
+ * formato, porque é ela que permite comparar T5.2 com T6.2 correndo o olho na
+ * vertical. Por isso ela é uma coluna ordenável como as outras — e ainda assim
+ * o destino do terceiro clique.
+ */
+const ORDEM_PADRAO = { by: "tier", dir: "asc" };
+
 const CAMPOS_PREF: CampoPref[] = [
   "servidor",
   "comprarEm",
@@ -289,7 +302,12 @@ export default async function CalculadoraPage({
           />
           <Parametros data={data} quantidade={Number(quantidade)} />
 
-          <SheetTable columns={colunas(papeis)} freeze={2}>
+          <SheetTable
+            columns={colunas(papeis)}
+            freeze={2}
+            sort={{ by: data.params.sort_by, dir: data.params.sort_dir }}
+            sortDefault={ORDEM_PADRAO}
+          >
             {linhas.map((linha) => (
               <Linha
                 key={linha.item}

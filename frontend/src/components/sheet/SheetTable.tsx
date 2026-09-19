@@ -20,6 +20,7 @@
  */
 
 import { SheetScroll } from "@/components/sheet/SheetScroll";
+import { SortHeader, type SortState } from "@/components/sheet/SortHeader";
 
 /** Larguras por *tipo* de coluna, não por coluna. */
 export const SHEET_WIDTHS = {
@@ -65,15 +66,23 @@ export type SheetColumn = {
   /** Alinhamento do conteúdo. Número à direita; texto à esquerda. */
   left?: boolean;
   title?: string;
+  /** Presente = a coluna ordena, e este é o valor de `sort_by` que ela pede. */
+  sortKey?: string;
 };
 
 export function SheetTable({
   columns,
   children,
   freeze = 0,
+  sort,
+  sortDefault,
 }: {
   columns: SheetColumn[];
   children: React.ReactNode;
+  /** A ordenação que a **resposta** disse ter usado. */
+  sort?: SortState;
+  /** A ordenação de abertura, para onde o terceiro clique volta. */
+  sortDefault?: SortState;
   /**
    * Quantas colunas da esquerda ficam presas na rolagem horizontal.
    *
@@ -112,7 +121,17 @@ export function SheetTable({
           <tr>
             {columns.map((c, i) => (
               <th key={`${c.label}-${i}`} className={`lbl ${c.left ? "l" : ""}`} title={c.title}>
-                {c.label}
+                {c.sortKey && sort && sortDefault ? (
+                  <SortHeader
+                    label={c.label}
+                    sortKey={c.sortKey}
+                    ativo={sort}
+                    padrao={sortDefault}
+                    title={c.title}
+                  />
+                ) : (
+                  c.label
+                )}
               </th>
             ))}
           </tr>
