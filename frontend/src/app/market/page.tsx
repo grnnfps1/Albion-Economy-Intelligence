@@ -267,11 +267,16 @@ function MarketLine({ price }: { price: MarketPrice }) {
               <CityTag city={price.location} className="text-micro text-muted" />
             </span>
             <span className="flex min-w-0 items-center">
-              <span className="truncate">{price.item_name ?? price.item}</span>
+              {/* Nome visual manda, id técnico no tooltip — a regra do briefing do
+                  redesign. O id saiu da segunda linha: ele não decide nada, e
+                  ocupava uma linha inteira da célula mais estreita da tabela.
+                  Continua a um hover daqui, e no alt+clique do botão copiar. */}
+              <span className="truncate" title={price.item}>
+                {price.item_name ?? price.item}
+              </span>
               {/* Colado no nome, não na borda da célula, e visível sempre. */}
               <CopyButton name={price.item_name} id={price.item} />
             </span>
-            <span className="block truncate text-micro text-dim">{price.item}</span>
           </span>
         </span>
       </td>

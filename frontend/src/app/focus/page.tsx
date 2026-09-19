@@ -195,10 +195,15 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
               </span>
             </span>
             <span className="flex min-w-0 items-center">
-              <span className="truncate">{plano.item_name ?? plano.item}</span>
+              {/* Nome visual manda, id técnico no tooltip — a regra do briefing do
+                  redesign. O id saiu da segunda linha: ele não decide nada, e
+                  ocupava uma linha inteira da célula mais estreita da tabela.
+                  Continua a um hover daqui, e no alt+clique do botão copiar. */}
+              <span className="truncate" title={plano.item}>
+                {plano.item_name ?? plano.item}
+              </span>
               <CopyButton name={plano.item_name} id={plano.item} />
             </span>
-            <span className="block truncate text-micro text-dim">{plano.item}</span>
           </span>
         </span>
       </td>

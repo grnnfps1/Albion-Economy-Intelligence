@@ -410,14 +410,19 @@ function CraftLine({
               />
             </span>
             <span className="flex min-w-0 items-center">
-              <span className="truncate">{op.item_name ?? op.item}</span>
+              {/* Nome visual manda, id técnico no tooltip — a regra do briefing do
+                  redesign. O id saiu da segunda linha: ele não decide nada, e
+                  ocupava uma linha inteira da célula mais estreita da tabela.
+                  Continua a um hover daqui, e no alt+clique do botão copiar. */}
+              <span className="truncate" title={op.item}>
+                {op.item_name ?? op.item}
+              </span>
               <CopyButton name={op.item_name} id={op.item} />
               <MaterialOverflow
                 extras={excedentes.length}
                 names={excedentes.map((m) => m.item_name ?? m.item)}
               />
             </span>
-            <span className="block truncate text-micro text-dim">{op.item}</span>
           </span>
         </span>
       </td>

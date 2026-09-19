@@ -464,7 +464,10 @@ function Linha({
             size={SHEET_ICON.linha}
           />
           <span className="flex min-w-0 items-center">
-            <span className="truncate">{linha.item_name ?? linha.item}</span>
+            {/* O id vive no tooltip, nunca na linha. */}
+            <span className="truncate" title={linha.item}>
+              {linha.item_name ?? linha.item}
+            </span>
             <CopyButton name={linha.item_name} id={linha.item} />
           </span>
         </span>
