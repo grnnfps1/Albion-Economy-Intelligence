@@ -158,6 +158,20 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         <span className={rotulo}>Focus disponível</span>
         <input className={campo} value={prefs.focusBudget}
           onChange={(e) => atualizar({ focusBudget: parseFloat(e.target.value) || 0 })} />
+        <span className="text-[11px] text-zinc-500">
+          O estoque que você tem agora — acumula até 30.000.
+        </span>
+      </label>
+
+      {/* Taxa, não estoque: é o que limita quanto se produz num dia típico, e
+          o que torna craft e refino comparáveis com a fazenda. */}
+      <label className="flex flex-col gap-1">
+        <span className={rotulo}>Focus por dia</span>
+        <input className={campo} value={prefs.focusPerDay ?? 10000}
+          onChange={(e) => atualizar({ focusPerDay: parseFloat(e.target.value) || 0 })} />
+        <span className="text-[11px] text-zinc-500">
+          Quanto regenera por dia — 10.000 com Premium.
+        </span>
       </label>
 
       <label className="flex flex-col gap-1">

@@ -54,6 +54,10 @@ class RefiningOut(BaseModel):
     profit: float | None = None
     margin_pct: float | None = None
     profit_per_focus: float | None = None
+    profit_per_day: float | None = None
+    units_per_day: float | None = None
+    daily_limiter: str = "DESCONHECIDO"
+    daily_reason: str | None = None
 
 
 class RefiningResponse(BaseModel):

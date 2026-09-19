@@ -166,6 +166,16 @@ class CraftEconomicsOut(BaseModel):
     roi_pct: float | None = None
     profit_per_focus: float | None = None
 
+    # Lucro por dia: o que torna craft comparável com fazenda. Não sai do tempo
+    # de craft — craft não é limitado por tempo —, e sim do Focus do dia e do
+    # que o mercado absorve. Ver `calculations/daily.py`.
+    profit_per_day: float | None = None
+    units_per_day: float | None = None
+    daily_limiter: str = "DESCONHECIDO"
+    daily_reason: str | None = Field(
+        default=None, description="Por que o lucro por dia é desconhecido."
+    )
+
 
 class CraftOpportunityOut(BaseModel):
     item: str

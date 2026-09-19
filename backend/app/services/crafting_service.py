@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craft
+from app.calculations.daily import daily_yield
 from app.calculations.fees import FeeProfile, Strategy
 from app.calculations.returns import Activity
 from app.calculations.risk import adjust_for_risk
@@ -83,6 +84,7 @@ async def find_crafting_opportunities(
     daily_production_bonus: float = 0.0,
     spec_levels: dict[str, int] | None = None,
     spec_item_levels: dict[str, int] | None = None,
+    focus_per_day: float | None = None,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     perfil_risco, resumo_risco = await resolve_risk(session, loss_pct_blue, loss_pct_red_black)
@@ -277,6 +279,7 @@ async def find_crafting_opportunities(
                 risk=risk_out(risco),
                 material_return=return_out(retorno, melhor_cidade, nomes_de_cidade),
                 economics=CraftEconomicsOut(
+                    **_por_dia(economia, sinal, focus_per_day),
                     known=economia.known,
                     reason=economia.reason,
                     output_quantity=economia.output_quantity,
@@ -504,6 +507,30 @@ def _roteiro(
         profit_single_city=base.profit if mode is SourcingMode.COMPARE else None,
         profit_cheapest=economia.profit if mode is SourcingMode.COMPARE else None,
     )
+
+
+def _por_dia(economia, sinal, focus_per_day: float | None) -> dict:
+    """O bloco de lucro por dia, pronto para o schema.
+
+    O Focus por unidade é o total da execução dividido pelas unidades: é ele
+    que se compara com o Focus que regenera num dia.
+    """
+    unidades = max(1, economia.output_quantity)
+    lucro_unitario = None if economia.profit is None else economia.profit / unidades
+    focus_unitario = economia.focus_cost / unidades if economia.focus_cost else 0.0
+
+    dia = daily_yield(
+        unit_profit=lucro_unitario,
+        focus_per_unit=focus_unitario,
+        focus_per_day=focus_per_day,
+        market_units_per_day=sinal.units_per_day if sinal and sinal.known else None,
+    )
+    return {
+        "profit_per_day": dia.profit,
+        "units_per_day": dia.units,
+        "daily_limiter": str(dia.limiter),
+        "daily_reason": dia.reason,
+    }
 
 
 def _empty(

@@ -86,6 +86,7 @@ async def build_dashboard(
     station_fee_per_100_nutrition: float | None,
     spec_levels: dict[str, int] | None,
     spec_item_levels: dict[str, int] | None,
+    focus_per_day: float | None,
     setup_fee_pct: float | None,
     sales_tax_pct: float | None,
     premium: bool | None,
@@ -101,6 +102,7 @@ async def build_dashboard(
         station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         spec_levels=spec_levels,
         spec_item_levels=spec_item_levels,
+        focus_per_day=focus_per_day,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         strategy=Strategy.FAST,
     )
@@ -127,6 +129,7 @@ async def build_dashboard(
         station_fee_per_100_nutrition=station_fee_per_100_nutrition,
         spec_levels=spec_levels,
         spec_item_levels=spec_item_levels,
+        focus_per_day=focus_per_day,
         setup_fee_pct=setup_fee_pct, sales_tax_pct=sales_tax_pct, premium=premium,
         sourcing=Sourcing.CHEAPEST, strategy=Strategy.FAST,
         sort_by="realizable_profit", limit=10,

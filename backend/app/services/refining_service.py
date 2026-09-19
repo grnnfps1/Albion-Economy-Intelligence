@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.calculations.chain import ChainResult, RecipeSpec, Sourcing, resolve_unit_cost
+from app.calculations.daily import daily_yield
 from app.calculations.fees import Strategy, compute_trade
 from app.calculations.returns import Activity
 from app.calculations.station import NUTRITION_PER_ITEM_VALUE
@@ -84,6 +85,7 @@ async def find_refining_opportunities(
     daily_production_bonus: float = 0.0,
     spec_levels: dict[str, int] | None = None,
     spec_item_levels: dict[str, int] | None = None,
+    focus_per_day: float | None = None,
 ) -> RefiningResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     # O bônus de refino segue o recurso, e dentro de uma cadeia o recurso é o
@@ -287,6 +289,7 @@ async def find_refining_opportunities(
                 profit=round(lucro, 2) if lucro is not None else None,
                 margin_pct=round(margem, 2) if margem is not None else None,
                 profit_per_focus=round(por_focus, 2) if por_focus is not None else None,
+                **_por_dia(lucro, cadeia.focus_per_unit, sinal, focus_per_day),
             )
         )
 
@@ -303,6 +306,22 @@ async def find_refining_opportunities(
         generated_at=now.isoformat(), data_source_note=DATA_SOURCE_NOTE,
         families=familias, opportunities=resultados[:limit],
     )
+
+
+def _por_dia(lucro_unitario, focus_per_unit: float, sinal, focus_per_day) -> dict:
+    """Refino já calcula tudo por unidade, então o lucro unitário entra direto."""
+    dia = daily_yield(
+        unit_profit=lucro_unitario,
+        focus_per_unit=focus_per_unit,
+        focus_per_day=focus_per_day,
+        market_units_per_day=sinal.units_per_day if sinal and sinal.known else None,
+    )
+    return {
+        "profit_per_day": dia.profit,
+        "units_per_day": dia.units,
+        "daily_limiter": str(dia.limiter),
+        "daily_reason": dia.reason,
+    }
 
 
 def _resultado(cadeia: ChainResult, venda: int, fees, strategy: Strategy):

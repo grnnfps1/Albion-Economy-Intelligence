@@ -261,3 +261,39 @@ async def test_spec_por_item_vence_o_da_familia_ponta_a_ponta(session, cadeia):
     t4_familia = next(o for o in familia.opportunities if o.item == "T4_PLANKS")
     t4_item = next(o for o in item.opportunities if o.item == "T4_PLANKS")
     assert t4_item.focus_per_unit == pytest.approx(t4_familia.focus_per_unit)
+
+
+async def test_lucro_por_dia_sai_do_focus_do_dia_e_nao_do_tempo_de_craft(session, cadeia):
+    """Fase 19: o número que torna refino comparável com a fazenda.
+
+    Craft e refino não são limitados por tempo — não há fila de produção no
+    jogo. O que limita o dia é o Focus que regenera e o que o mercado absorve.
+    """
+    await cadeia["semear"](PRECOS)
+
+    resposta = await find_refining_opportunities(
+        session,
+        **(PADRAO | {"sourcing": Sourcing.CRAFT, "focus_per_day": 10_000}),
+    )
+    t5 = next(o for o in resposta.opportunities if o.item == "T5_PLANKS")
+
+    assert t5.known
+    assert t5.profit_per_day is not None
+    # Sem giro medido na fixture, o teto é só o Focus.
+    assert t5.daily_limiter == "FOCUS"
+    assert t5.units_per_day == pytest.approx(10_000 / t5.focus_per_unit, rel=1e-3)
+    assert t5.profit_per_day == pytest.approx(t5.profit * t5.units_per_day, rel=1e-3)
+
+
+async def test_sem_orcamento_diario_o_lucro_por_dia_e_unknown(session, cadeia):
+    """Não inventa um dia: sem a taxa de Focus, "por dia" não tem resposta."""
+    await cadeia["semear"](PRECOS)
+
+    resposta = await find_refining_opportunities(
+        session, **(PADRAO | {"sourcing": Sourcing.CRAFT, "focus_per_day": None})
+    )
+    t5 = next(o for o in resposta.opportunities if o.item == "T5_PLANKS")
+
+    assert t5.profit_per_day is None
+    assert t5.daily_limiter == "DESCONHECIDO"
+    assert "Focus" in (t5.daily_reason or "")

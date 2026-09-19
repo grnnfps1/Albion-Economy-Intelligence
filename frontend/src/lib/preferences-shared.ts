@@ -25,6 +25,18 @@ export type Preferences = {
    */
   stationFeePer100Nutrition: number;
   focusBudget: number;
+  /**
+   * Focus que **regenera por dia** — 10.000 numa conta Premium.
+   *
+   * Não é o mesmo que `focusBudget`, e misturar os dois erraria a conta:
+   * `focusBudget` é o **estoque** disponível agora (pode chegar a 30.000
+   * acumulados) e serve para "o que faço com o que tenho"; este é a **taxa**, e
+   * é o que limita quanto se produz num dia típico.
+   *
+   * É o que torna craft e refino comparáveis com a fazenda: os dois lados
+   * passam a responder "quanto rende um dia disto".
+   */
+  focusPerDay: number;
   quantity: number;
   /**
    * Probabilidade de perder a carga na rota, por zona.
@@ -87,6 +99,9 @@ export const DEFAULTS: Preferences = {
   // isso — mas tem procedência, ao contrário de um 100 redondo.
   stationFeePer100Nutrition: 1666,
   focusBudget: 10_000,
+  // Geração diária de uma conta Premium. Diferente dos outros padrões, este
+  // tem fonte: docs/05-custo-de-focus.md, "Orçamento de Focus".
+  focusPerDay: 10_000,
   quantity: 100,
   lossPctBlue: 0,
   lossPctRedBlack: 0,
@@ -124,6 +139,7 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     spec_stoneblock: String(prefs.specStoneblock),
     // `id:nivel` separados por vírgula. Itens sem nível não são enviados: zero
     // é o padrão do backend, e mandá-lo explicitamente só engorda a URL.
+    focus_per_day: String(prefs.focusPerDay ?? 10_000),
     spec_items: (prefs.specItems ?? [])
       .filter((s) => s.item.trim() && s.level > 0)
       .map((s) => `${s.item.trim()}:${s.level}`)

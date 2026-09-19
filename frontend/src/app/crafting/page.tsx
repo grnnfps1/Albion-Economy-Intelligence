@@ -54,6 +54,12 @@ function colunas(maxMateriais: number): SheetColumn[] {
     { label: "você recebe", width: "num", title: "já descontado o imposto de venda" },
     { label: "lucro ajustado", width: "num" },
     { label: "prata/focus", width: "num", title: "a ordenação principal: focus é o recurso escasso" },
+    {
+      label: "lucro/dia",
+      width: "num",
+      title:
+        "o que um dia desta operação rende, limitado pelo Focus do dia e pelo que o mercado absorve — é o número que compara com a fazenda",
+    },
     { label: "focus", width: "focus" },
     { label: "vender em", width: "cidade", left: true },
     { label: "idade", width: "mini" },
@@ -96,6 +102,9 @@ function exportacao(maxMateriais: number): ExportColumn<CraftOpportunity>[] {
     { header: "margem %", value: (o) => o.economics.margin_pct },
     { header: "ROI %", value: (o) => o.economics.roi_pct },
     { header: "prata/focus", value: (o) => o.economics.profit_per_focus },
+    { header: "lucro/dia", value: (o) => o.economics.profit_per_day },
+    { header: "unidades/dia", value: (o) => o.economics.units_per_day },
+    { header: "trava do dia", value: (o) => o.economics.daily_limiter },
     { header: "focus", value: (o) => o.economics.focus_cost },
     { header: "focus sem spec", value: (o) => o.economics.base_focus_cost },
     { header: "comprar em", value: (o) => o.buy_location },
@@ -253,6 +262,67 @@ function titulo(m: CraftOpportunity["materials"][number], base: string): string 
   return `${linha} · comprando em ${m.location} você economiza ${formatSilver(m.savings_vs_base)} contra ${base}.`;
 }
 
+
+/**
+ * O que trava o dia: o Focus ou o mercado.
+ *
+ * É informação de primeira classe, não enfeite — saber que a operação está
+ * limitada pelo mercado e não pelo Focus muda a decisão seguinte: adianta subir
+ * spec ou adianta procurar outro item? Mesma lição da fase 9.
+ */
+const TRAVA: Record<string, { texto: string; tom: string; dica: string }> = {
+  FOCUS: {
+    texto: "focus",
+    tom: "text-body",
+    dica: "o Focus do dia acaba antes de o mercado saturar — subir spec aumenta o ganho",
+  },
+  MERCADO: {
+    texto: "mercado",
+    tom: "text-warn",
+    dica: "o mercado satura antes de o Focus acabar — produzir mais não adianta",
+  },
+  DESCONHECIDO: {
+    texto: "—",
+    tom: "text-dim",
+    dica: "sem giro medido: não dá para saber quanto o mercado absorve num dia",
+  },
+};
+
+function LucroDia({
+  profit,
+  units,
+  limiter,
+  reason,
+}: {
+  profit: number | null;
+  units: number | null;
+  limiter: string;
+  reason: string | null;
+}) {
+  const trava = TRAVA[limiter] ?? TRAVA.DESCONHECIDO;
+  if (profit === null) {
+    return (
+      <td title={reason ?? undefined}>
+        <span className="text-[10.5px] text-dim">—</span>
+      </td>
+    );
+  }
+  const positivo = profit > 0;
+  return (
+    <td title={trava.dica}>
+      <span
+        className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
+      >
+        {positivo ? "+" : ""}
+        {formatSilver(profit)}
+      </span>
+      <span className={`lbl mt-px block ${trava.tom}`}>
+        {units === null ? trava.texto : `${formatSilver(units)} un · ${trava.texto}`}
+      </span>
+    </td>
+  );
+}
+
 function CraftLine({
   op,
   maxMateriais,
@@ -361,6 +431,13 @@ function CraftLine({
           {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
         </span>
       </td>
+
+      <LucroDia
+        profit={eco.profit_per_day}
+        units={eco.units_per_day}
+        limiter={eco.daily_limiter}
+        reason={eco.daily_reason}
+      />
 
       <td className="figure text-[10.5px] text-muted">
         {formatSilver(eco.focus_cost)}

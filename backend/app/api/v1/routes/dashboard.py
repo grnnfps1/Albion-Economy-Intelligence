@@ -31,6 +31,14 @@ async def dashboard(
     spec_metalbar: int = Query(0, ge=0, le=100, description="Spec de barras."),
     spec_stoneblock: int = Query(0, ge=0, le=100, description="Spec de blocos."),
     spec_items: str | None = Query(None, description=SPEC_ITEMS_DESC),
+    focus_per_day: float | None = Query(
+        None, ge=0,
+        description=(
+            "Focus que regenera por dia — 10.000 numa conta Premium. É o que "
+            "limita a produção diária de craft e refino; craft não é limitado "
+            "por tempo."
+        ),
+    ),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
     premium: bool | None = Query(None),
@@ -48,6 +56,7 @@ async def dashboard(
             spec_leather, spec_cloth, spec_planks, spec_metalbar, spec_stoneblock
         ),
         spec_item_levels=item_levels_from(spec_items),
+        focus_per_day=focus_per_day,
         setup_fee_pct=setup_fee_pct,
         sales_tax_pct=sales_tax_pct,
         premium=premium,
