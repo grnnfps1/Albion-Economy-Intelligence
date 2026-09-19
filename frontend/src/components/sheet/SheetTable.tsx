@@ -116,7 +116,7 @@ export function SheetTable({
   return (
     <SheetScroll>
       <table
-        className={`sheet text-[11.5px] ${freeze > 0 ? "sheet-freeze" : ""}`}
+        className={`sheet text-note ${freeze > 0 ? "sheet-freeze" : ""}`}
         style={Object.fromEntries(
           offsets.map((left, i) => [`--freeze-${i + 1}`, left]),
         ) as React.CSSProperties}

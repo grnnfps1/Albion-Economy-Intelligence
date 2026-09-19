@@ -118,7 +118,7 @@ export function PreferencesForm({
   }
 
   const campo =
-    "figure w-full rounded-[3px] border border-line bg-raised px-2 py-1.5 text-note text-body";
+    "figure w-full rounded-sm border border-line bg-raised px-2 py-1.5 text-note text-body";
   const rotulo = "text-aux text-dim uppercase tracking-[0.05em]";
 
   return (
@@ -343,7 +343,7 @@ export function PreferencesForm({
               type="button"
               onClick={() => removerItem(i)}
               aria-label={`remover ${linha.item || "item"}`}
-              className="rounded-[3px] border border-line px-2 py-1 text-note text-dim hover:border-down hover:text-down"
+              className="rounded-sm border border-line px-2 py-1 text-note text-dim hover:border-down hover:text-down"
             >
               remover
             </button>
@@ -353,7 +353,7 @@ export function PreferencesForm({
           <button
             type="button"
             onClick={adicionarItem}
-            className="rounded-[3px] border border-line-strong bg-raised px-2.5 py-1 text-note text-body hover:border-warn"
+            className="rounded-sm border border-line-strong bg-raised px-2.5 py-1 text-note text-body hover:border-warn"
           >
             + item
           </button>
@@ -366,7 +366,7 @@ export function PreferencesForm({
 
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}
-          className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-note text-body hover:border-warn disabled:opacity-50">
+          className="w-full rounded-sm border border-line-strong bg-raised px-3 py-1.5 text-note text-body hover:border-warn disabled:opacity-50">
           {pending ? "Aplicando…" : salvo ? "Salvo ✓" : "Salvar"}
         </button>
       </div>

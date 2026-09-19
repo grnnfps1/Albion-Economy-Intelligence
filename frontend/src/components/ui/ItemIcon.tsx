@@ -52,7 +52,7 @@ export function ItemIcon({
       )}
 
       {quantity !== undefined && (
-        <span className="figure absolute right-px bottom-0 rounded-tl bg-sunken/90 px-[3px] text-body text-micro">
+        <span className="figure absolute right-px bottom-0 rounded-tl bg-sunken/90 px-0.5 text-body text-micro">
           {quantity}
         </span>
       )}

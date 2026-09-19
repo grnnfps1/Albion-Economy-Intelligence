@@ -1,5 +1,6 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { Sub } from "@/components/sheet/Chrome";
 import { ComoLer } from "@/components/sheet/ComoLer";
 import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
@@ -173,8 +174,8 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
   const trava = LIMITADOR[plano.limiter] ?? LIMITADOR.DESCONHECIDO;
 
   const tinta = positivo
-    ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
-    : "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]";
+    ? "lucro"
+    : "prejuizo";
 
   return (
     <tr className={tinta}>
@@ -189,7 +190,7 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={plano.tier} enchantment={plano.enchantment} />
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
+              <span className="figure rounded-sm border border-line bg-raised px-1.5 py-px text-micro text-muted">
                 {plano.route.toLowerCase()}
               </span>
             </span>
@@ -224,21 +225,21 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
           {positivo ? "+" : ""}
           {formatSilver(plano.realizable_profit)}
         </span>
-        <span className="lbl mt-px block">
+        <Sub>
           em {dias} dia{dias > 1 ? "s" : ""}
-        </span>
+        </Sub>
       </td>
 
       <td>
         <span className="figure text-note">{formatSilverCompact(plano.units)}</span>
-        <span className="lbl mt-px block">
+        <Sub>
           {plano.days_to_sell === null ? "escoa ?" : `escoa em ${plano.days_to_sell}d`}
-        </span>
+        </Sub>
       </td>
 
       <td>
         <span
-          className={`figure inline-block rounded-[3px] border px-[6px] py-px text-aux ${trava.tom}`}
+          className={`figure inline-block rounded-sm border px-1.5 py-px text-aux ${trava.tom}`}
           title={trava.dica}
         >
           {trava.texto}

@@ -4,6 +4,7 @@ import type { CampoPref } from "@/components/PreferencesForm";
 import { RetornoPainel } from "@/components/calculator/RetornoPainel";
 import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
 import { Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
+import { CampoDeQuantidade } from "@/components/sheet/CampoDeQuantidade";
 import { ComoLer } from "@/components/sheet/ComoLer";
 import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
@@ -58,7 +59,6 @@ const FAMILIAS: [string, string][] = [
 function grupos(data: Awaited<ReturnType<typeof fetchCalculator>>) {
   const usouFoco = data?.material_return.use_focus ?? false;
   const naIlha = data?.material_return.is_island ?? false;
-  const qtd = String(data?.params.quantity ?? 1);
 
   return [
     {
@@ -85,11 +85,6 @@ function grupos(data: Awaited<ReturnType<typeof fetchCalculator>>) {
         { valor: "false", rotulo: "na cidade" },
         { valor: "true", rotulo: "na ilha" },
       ],
-    },
-    {
-      chave: "quantity",
-      padrao: qtd,
-      opcoes: [1, 10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
     },
   ];
 }
@@ -277,6 +272,7 @@ export default async function CalculadoraPage({
       contagem={data ? `${linhas.length} linhas de ${familia} · ${formatSilver(Number(quantidade))} un` : undefined}
       grupos={grupos(data)}
       camposPref={CAMPOS_PREF}
+      filtroExtra={<CampoDeQuantidade valor={data?.params.quantity ?? 1} />}
       busca={false}
       prefs={prefs}
       acoes={
@@ -383,7 +379,7 @@ function Parametros({
       {p.station_fee_per_100_nutrition === null ? (
         <span className="flex items-center gap-1.5">
           <span className="lbl">taxa da loja</span>
-          <span className="figure rounded-[2px] border border-warn px-1.5 py-px text-aux text-warn">
+          <span className="figure rounded-sm border border-warn px-1.5 py-px text-aux text-warn">
             desconhecida
           </span>
         </span>
@@ -436,9 +432,9 @@ function Linha({
   const positivo = linha.known ? (linha.profit ?? 0) > 0 : null;
   const tinta =
     positivo === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      ? "lucro"
       : positivo === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        ? "prejuizo"
         : "";
   // A mesma tinta, como variável, para as colunas presas poderem repintá-la
   // sobre o fundo opaco que o `sticky` exige. Sem isto, prender a identidade

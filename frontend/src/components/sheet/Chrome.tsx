@@ -145,3 +145,43 @@ export function ParamsDeTaxa({ fees }: { fees: Taxas | null | undefined }) {
     </>
   );
 }
+
+/**
+ * A segunda linha de uma célula.
+ *
+ * ## A regra, lida do Calculador
+ *
+ * O Calculador usa `lbl` — caixa alta com tracking — **só** sob valores de
+ * tamanho normal (a coluna de focus). Sob o número que decide, ele não usa
+ * nada: o lucro fica sozinho na célula, e a margem, que é o mesmo fato em
+ * razão, leva um sub-texto **minúsculo e apagado**.
+ *
+ * Refino e Focus colavam `lbl` embaixo do número grande e colorido —
+ * `+1.326.913,49` com `6,61 UN · FOCUS` logo abaixo. Duas ênfases empilhadas
+ * viram um bloco pesado, e o olho não sabe qual das duas ler primeiro.
+ *
+ * `Sub` é o sub-texto quieto: mesma cor apagada, mesma caixa baixa, mesmo
+ * respiro. Quem precisa de rótulo em caixa alta usa `lbl`, e só sob valor
+ * pequeno.
+ */
+export function Sub({ children, tom }: { children: React.ReactNode; tom?: "warn" }) {
+  return (
+    <span className={`mt-px block text-micro ${tom === "warn" ? "text-warn" : "text-dim"}`}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Um acento de cor por linha.
+ *
+ * O Calculador colore **o lucro e a margem** — o número que decide e o mesmo
+ * fato em razão, lado a lado — e deixa todo o resto neutro. Refino coloria
+ * também prata/focus, lucro/dia e a idade; arbitragem enchia a linha de
+ * pílulas (MODERADA, zona azul, RUIM). Com tudo colorido, nada se destaca, e a
+ * cor deixa de carregar informação para virar decoração — que é exatamente o
+ * que a linguagem visual do projeto proíbe.
+ *
+ * Use em qualquer número que **não** seja o lucro da linha.
+ */
+export const TOM_NEUTRO = "text-body";

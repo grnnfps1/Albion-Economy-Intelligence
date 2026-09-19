@@ -27,7 +27,7 @@ export function UserChip({ session }: { session: Session }) {
             className="size-7 rounded-full border border-line"
           />
         ) : (
-          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-raised font-medium text-[10px] text-muted">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-raised font-medium text-aux text-muted">
             {session.username.slice(0, 2).toUpperCase()}
           </span>
         )}

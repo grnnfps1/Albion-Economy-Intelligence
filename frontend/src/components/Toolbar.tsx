@@ -12,11 +12,20 @@ type Grupo = { chave: string; opcoes: { valor: string; rotulo: string }[]; padra
  * compartilhável — mas sem os campos de taxa, que agora vivem nas preferências.
  */
 export function Toolbar({
-  grupos, busca = true, onConfig,
+  grupos, busca = true, onConfig, extra,
 }: {
   grupos: Grupo[];
   busca?: boolean;
   onConfig?: () => void;
+  /**
+   * Controles que não são pílula — hoje, o campo de quantidade.
+   *
+   * Existe para uma tela que precisa de algo a mais **encaixar no esqueleto**
+   * em vez de montar o seu arranjo ao lado da barra. A pílula serve a escolha
+   * entre poucas opções conhecidas; quando o valor é do usuário e contínuo,
+   * pílula vira uma lista de chutes nossos.
+   */
+  extra?: React.ReactNode;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -41,7 +50,7 @@ export function Toolbar({
                 key={opcao.valor}
                 type="button"
                 onClick={() => aplicar(grupo.chave, opcao.valor)}
-                className={`whitespace-nowrap rounded-[3px] px-2.5 py-[5px] text-note ${
+                className={`whitespace-nowrap rounded-sm px-2.5 py-[5px] text-note ${
                   atual === opcao.valor ? "bg-line-strong text-body" : "text-muted hover:text-body"
                 }`}
               >
@@ -64,6 +73,8 @@ export function Toolbar({
           className="max-w-72 min-w-40 flex-1 rounded border border-line bg-raised px-2.5 py-1.5 text-note text-body"
         />
       )}
+
+      {extra}
 
       {onConfig && (
         <button

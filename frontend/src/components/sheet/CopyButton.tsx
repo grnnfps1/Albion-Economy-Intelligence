@@ -75,7 +75,7 @@ export function CopyButton({
       <span
         aria-disabled="true"
         title={`Sem nome visual para ${id}. A busca do mercado no jogo não encontra o id técnico, então não há o que copiar.`}
-        className={`shrink-0 cursor-not-allowed px-[2px] text-note leading-none text-line-strong ${className}`}
+        className={`shrink-0 cursor-not-allowed px-0.5 text-note leading-none text-line-strong ${className}`}
       >
         ⧉
       </span>
@@ -88,7 +88,7 @@ export function CopyButton({
       onClick={(e) => copiar(e.altKey ? id : name)}
       title={`copiar «${name}»\nalt+clique copia ${id}`}
       aria-label={`copiar ${name}`}
-      className={`shrink-0 cursor-pointer border-0 bg-transparent px-[2px] text-note leading-none transition-colors ${
+      className={`shrink-0 cursor-pointer border-0 bg-transparent px-0.5 text-note leading-none transition-colors ${
         estado === "ok" ? "text-up" : estado === "erro" ? "text-down" : "text-dim hover:text-body"
       } ${className}`}
     >

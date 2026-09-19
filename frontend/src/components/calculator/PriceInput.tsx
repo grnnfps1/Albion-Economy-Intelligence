@@ -112,7 +112,7 @@ export function PriceInput({
           }}
           disabled={pendente}
           aria-label={`preço de ${item}`}
-          className={`figure w-[5.6rem] rounded-[2px] border bg-sunken px-1 py-px text-right text-note focus:border-warn focus:outline-none disabled:opacity-50 ${tom}`}
+          className={`figure w-[5.6rem] rounded-sm border bg-sunken px-1 py-px text-right text-note focus:border-warn focus:outline-none disabled:opacity-50 ${tom}`}
         />
         {isManual && (
           <button
@@ -120,7 +120,7 @@ export function PriceInput({
             onClick={restaurar}
             title="voltar ao preço coletado"
             aria-label="restaurar preço coletado"
-            className="cursor-pointer border-0 bg-transparent px-[2px] text-note leading-none text-dim hover:text-body"
+            className="cursor-pointer border-0 bg-transparent px-0.5 text-note leading-none text-dim hover:text-body"
           >
             ↺
           </button>

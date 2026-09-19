@@ -155,7 +155,7 @@ body {
   border-radius: 3px;
   background: var(--color-sunken);
   color: var(--color-body);
-  font-size: 10.5px;
+  font-size: var(--text-aux);
   letter-spacing: 0;
   text-transform: none;
   pointer-events: none;
@@ -178,6 +178,22 @@ body {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
+}
+
+/* Dentro da tabela o balão abre para **baixo**.
+
+   O sintoma era "o balão da primeira linha fica atrás do cabeçalho", e a
+   hipótese natural é z-index. Não é: `.sheet-scroll` tem `overflow: auto`, e
+   contêiner com overflow **recorta** o que é posicionado fora dele. O balão
+   subia além da borda superior e era cortado ali — que por acaso é onde o
+   `thead` está. Aumentar z-index não muda recorte.
+
+   Abrir para baixo resolve sem rebaixar o cabeçalho, que precisa continuar
+   sobre as linhas. É a direção certa aqui por construção: o topo da tabela tem
+   sempre um cabeçalho grudado, o pé não tem nada. */
+.sheet .hover-tip::after {
+  top: calc(100% + 5px);
+  bottom: auto;
 }
 
 .hover-tip:hover::after,
@@ -325,6 +341,27 @@ body {
 .sheet-freeze thead th:nth-child(1),
 .sheet-freeze thead th:nth-child(2) {
   z-index: 14;
+}
+
+/* Tingimento da linha por lucro.
+
+   Era um `bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]`
+   literal, repetido em seis telas — e "zero valor de estilo escrito na tela"
+   não sobrevive a um literal desses. Vira classe, com a cor vindo do tema. */
+.sheet tbody tr.lucro {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-up) 12%, transparent),
+    transparent 32%
+  );
+}
+
+.sheet tbody tr.prejuizo {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-down) 12%, transparent),
+    transparent 32%
+  );
 }
 
 /* Zebra fraca de propósito: segura a horizontal numa linha de doze colunas sem

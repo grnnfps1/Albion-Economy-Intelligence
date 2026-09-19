@@ -64,7 +64,7 @@ export function ExportButton({
             ? "nada para exportar neste recorte"
             : `exporta as ${sheet.rows.length} linhas visíveis em CSV (separador ;, abre no Excel e no Sheets)`
         }
-        className="lbl cursor-pointer rounded-[3px] border border-line-strong bg-raised px-2.5 py-1 text-body transition-colors hover:border-warn disabled:cursor-not-allowed disabled:opacity-40"
+        className="lbl cursor-pointer rounded-sm border border-line-strong bg-raised px-2.5 py-1 text-body transition-colors hover:border-warn disabled:cursor-not-allowed disabled:opacity-40"
       >
         exportar csv
       </button>

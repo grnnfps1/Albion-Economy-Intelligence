@@ -41,7 +41,7 @@ export function OpportunityCard({
       >
         <p className="lbl">{TITULO[card.kind] ?? card.kind}</p>
         <p className="text-muted text-sm leading-snug">{card.reason}</p>
-        <p className="text-muted text-[11px]">abrir a tela →</p>
+        <p className="text-muted text-note">abrir a tela →</p>
       </Link>
     );
   }
@@ -66,7 +66,7 @@ export function OpportunityCard({
           <p className="truncate text-body text-sm leading-tight">
             {card.item_name ?? card.item}
           </p>
-          <p className="truncate text-muted text-[11px]">{card.detail}</p>
+          <p className="truncate text-muted text-note">{card.detail}</p>
         </div>
       </div>
 
@@ -74,10 +74,10 @@ export function OpportunityCard({
         <p className="figure text-up text-lg leading-tight">
           {formatSilver(card.headline)}
         </p>
-        <p className="text-muted text-[11px]">{card.headline_label}</p>
+        <p className="text-muted text-note">{card.headline_label}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-note">
         {card.age_seconds !== null && (
           <span className={`figure ${TOM[card.freshness]}`}>
             {formatDataAge(card.age_seconds)}

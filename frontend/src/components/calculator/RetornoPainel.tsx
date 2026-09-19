@@ -156,7 +156,7 @@ export function RetornoPainel({
                     ? `${opcao.name} tem o bônus de refino desta família`
                     : `${opcao.name} não tem bônus para esta família`
               }
-              className={`flex items-baseline gap-1.5 whitespace-nowrap rounded-[3px] border px-2 py-[5px] text-note ${
+              className={`flex items-baseline gap-1.5 whitespace-nowrap rounded-sm border px-2 py-[5px] text-note ${
                 ativo
                   ? "border-line-strong bg-line-strong text-body"
                   : "border-line bg-raised text-muted hover:text-body"

@@ -67,14 +67,14 @@ export function StationFeePrompt({ prefs }: { prefs: Preferences }) {
             disabled={pendente}
             placeholder="ex.: 184"
             aria-label="taxa da estação, em prata por 100 de nutrição"
-            className="figure w-[7rem] rounded-[2px] border border-warn bg-sunken px-1.5 py-px text-right text-note text-body focus:outline-none disabled:opacity-50"
+            className="figure w-[7rem] rounded-sm border border-warn bg-sunken px-1.5 py-px text-right text-note text-body focus:outline-none disabled:opacity-50"
           />
           <span className="text-aux text-muted">prata / 100 nutrição</span>
           <button
             type="button"
             onClick={salvar}
             disabled={pendente}
-            className="cursor-pointer rounded-[2px] border border-line-strong bg-raised px-2.5 py-px text-note text-body hover:border-warn disabled:opacity-50"
+            className="cursor-pointer rounded-sm border border-line-strong bg-raised px-2.5 py-px text-note text-body hover:border-warn disabled:opacity-50"
           >
             {pendente ? "Aplicando…" : "Calcular"}
           </button>

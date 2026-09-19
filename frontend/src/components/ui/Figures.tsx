@@ -48,7 +48,7 @@ export function ProfitFigure({
       {/* O maior número da linha. Hierarquia por tamanho: se custo, receita e
           lucro tivessem o mesmo peso, nenhum teria peso. */}
       <div
-        className={`figure font-semibold text-[15px] leading-none ${
+        className={`figure font-semibold text-val leading-none ${
           positivo ? "text-up" : "text-down"
         }`}
       >
@@ -57,7 +57,7 @@ export function ProfitFigure({
       </div>
       {marginPct !== null && (
         <span
-          className={`figure mt-[3px] inline-flex items-center gap-px rounded-[3px] px-[6px] py-px font-bold text-[10px] ${
+          className={`figure mt-[3px] inline-flex items-center gap-px rounded-sm px-1.5 py-px font-bold text-aux ${
             positivo ? "bg-up-dim text-up" : "bg-down-dim text-down"
           }`}
         >
@@ -90,7 +90,7 @@ export function AgeTag({ seconds, freshness }: { seconds: number | null; freshne
         : seconds <= 21600
           ? "text-warn"
           : "text-down";
-  return <span className={`figure text-[9.5px] ${tom}`}>{formatDataAge(seconds)}</span>;
+  return <span className={`figure text-micro ${tom}`}>{formatDataAge(seconds)}</span>;
 }
 
 /**
@@ -156,7 +156,7 @@ export function RiskProfitFigure({
       title={`Bruto ${formatSilver(grossProfit)}. Com ${(lossProbability * 100).toFixed(1)}% de chance de perder a carga, o esperado cai para ${formatSilver(ajustado)} — a perda leva junto o que foi investido, não só o lucro.`}
     >
       <div
-        className={`figure font-semibold text-[15px] leading-none ${
+        className={`figure font-semibold text-val leading-none ${
           positivo ? "text-up" : "text-down"
         }`}
       >
@@ -165,11 +165,11 @@ export function RiskProfitFigure({
       </div>
       <div className="mt-[3px] flex items-center justify-end gap-1">
         <span className="lbl text-dim">bruto</span>
-        <span className="figure text-[10px] text-muted line-through">
+        <span className="figure text-aux text-muted line-through">
           {formatSilver(grossProfit)}
         </span>
       </div>
-      <span className="figure mt-px block text-[9.5px] text-down">
+      <span className="figure mt-px block text-micro text-down">
         −{formatSilver(perdeu)} de risco
       </span>
     </div>

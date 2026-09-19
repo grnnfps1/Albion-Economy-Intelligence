@@ -1,5 +1,7 @@
 import { PageShell } from "@/components/PageShell";
-import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
+import { Aviso, Param, ParamStrip, ParamsDeTaxa ,
+  Sub,
+} from "@/components/sheet/Chrome";
 import { ComoLer } from "@/components/sheet/ComoLer";
 import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
@@ -285,9 +287,9 @@ function FarmLine({
 
   const tinta =
     positivo === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      ? "lucro"
       : positivo === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        ? "prejuizo"
         : "";
 
   return (
@@ -303,10 +305,10 @@ function FarmLine({
           <span className="min-w-0">
             <span className="flex items-center gap-1">
               <TierBadge tier={plano.tier} enchantment={0} />
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
+              <span className="figure rounded-sm border border-line bg-raised px-1.5 py-px text-micro text-muted">
                 {plano.station_label}
               </span>
-              <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
+              <span className="figure rounded-sm border border-line bg-raised px-1.5 py-px text-micro text-muted">
                 {TIPO_ROTULO[plano.kind] ?? plano.kind.toLowerCase()}
               </span>
             </span>
@@ -353,11 +355,11 @@ function FarmLine({
         }
       >
         <span className="figure">{formatSilverCompact(eco.input_cost)}</span>
-        <span className="lbl mt-px block">
+        <Sub>
           {plano.npc_silver_cost === null
             ? "insumo + ração"
             : `npc ${formatSilver(plano.npc_silver_cost)}`}
-        </span>
+        </Sub>
         <span className="flex justify-end">
           <SpreadWarning
             cities={plano.material_sourcing.cities_involved}
@@ -400,9 +402,7 @@ function FarmLine({
         >
           {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
         </span>
-        <span className="lbl mt-px block">
-          {eco.focus_cost > 0 ? `${formatSilver(eco.focus_cost)} focus` : "sem focus"}
-        </span>
+        <Sub>{eco.focus_cost > 0 ? `${formatSilver(eco.focus_cost)} focus` : "sem focus"}</Sub>
       </td>
 
       <td className="l">

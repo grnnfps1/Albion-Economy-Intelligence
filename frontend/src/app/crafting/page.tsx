@@ -6,8 +6,9 @@ import {
   ParamStrip,
   ParamsDeTaxa,
   pctOuTraco,
+  Sub,
+  SHEET_ICON,
 } from "@/components/sheet/Chrome";
-import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import {
   EmptyMaterialCell,
@@ -360,9 +361,9 @@ function LucroDia({
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
-      <span className={`lbl mt-px block ${trava.tom}`}>
+      <Sub tom={trava.tom === "text-warn" ? "warn" : undefined}>
         {units === null ? trava.texto : `${formatSilver(units)} un · ${trava.texto}`}
-      </span>
+      </Sub>
     </td>
   );
 }
@@ -385,9 +386,9 @@ function CraftLine({
   // apoio para o olho segurar a horizontal.
   const tinta =
     positivo === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      ? "lucro"
       : positivo === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        ? "prejuizo"
         : "";
 
   return (
@@ -466,12 +467,9 @@ function CraftLine({
         />
       </td>
 
+      {/* Neutro: um acento por linha, e o acento é o lucro. */}
       <td>
-        <span
-          className={`figure font-semibold text-val ${
-            positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
-          }`}
-        >
+        <span className="figure text-val">
           {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
         </span>
       </td>
@@ -479,6 +477,8 @@ function CraftLine({
       {/* ROI: lucro sobre o capital imobilizado. Era uma das três ordenações e
           não aparecia na tabela — ordenar por um número que não se vê é pedir
           confiança sem dar como conferir. */}
+      {/* Colorido porque é o lucro em razão — o mesmo par que o Calculador
+          faz com lucro e margem. Duas expressões do mesmo fato, um acento. */}
       <td
         className={`figure ${
           positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"

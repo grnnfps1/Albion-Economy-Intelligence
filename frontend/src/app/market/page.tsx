@@ -209,7 +209,7 @@ function Preco({ campo }: { campo: PriceField }) {
       <span className="flex items-baseline justify-end gap-1">
         {campo.is_manual && (
           <span
-            className="rounded-[2px] border border-warn px-1 text-micro leading-[1.35] text-warn"
+            className="rounded-sm border border-warn px-1 text-micro leading-tight text-warn"
             title="preço que você informou — vence o coletado enquanto for fresco"
           >
             SEU

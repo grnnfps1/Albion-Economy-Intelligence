@@ -147,7 +147,7 @@ export function MaterialOverflow({ extras, names }: { extras: number; names: str
   if (extras <= 0) return null;
   return (
     <span
-      className="figure ml-1 rounded-[2px] border border-warn px-1 text-micro text-warn"
+      className="figure ml-1 rounded-sm border border-warn px-1 text-micro text-warn"
       title={`Esta receita tem mais ${extras} ingrediente(s) que não cabem na tabela: ${names.join(", ")}. O custo já os inclui.`}
     >
       +{extras}

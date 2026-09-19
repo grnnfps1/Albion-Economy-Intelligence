@@ -1,5 +1,6 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { Sub } from "@/components/sheet/Chrome";
 import { ComoLer } from "@/components/sheet/ComoLer";
 import {
   Aviso,
@@ -316,9 +317,9 @@ function LucroDia({
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
-      <span className={`lbl mt-px block ${trava.tom}`}>
+      <Sub tom={trava.tom === "text-warn" ? "warn" : undefined}>
         {units === null ? trava.texto : `${formatSilver(units)} un · ${trava.texto}`}
-      </span>
+      </Sub>
     </td>
   );
 }
@@ -329,9 +330,9 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
 
   const tinta =
     positivo === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      ? "lucro"
       : positivo === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        ? "prejuizo"
         : "";
 
   return (
@@ -343,7 +344,7 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
             <span className="flex items-center gap-1">
               <TierBadge tier={op.tier} enchantment={op.enchantment} />
               {op.family && (
-                <span className="figure rounded-[3px] border border-line bg-raised px-[5px] py-px text-micro text-muted">
+                <span className="figure rounded-sm border border-line bg-raised px-1.5 py-px text-micro text-muted">
                   {op.family.toLowerCase()}
                 </span>
               )}
@@ -368,9 +369,12 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
           balão. Preço de seis horas atrás não é preço. */}
       <td title={`cotação de venda ${formatDataAge(op.sell_age_seconds)}`}>
         <span className="figure text-val">{formatSilverCompact(op.cost_from_market)}</span>
-        <span className={`lbl mt-px block ${tomDeIdade(op.sell_age_seconds)}`}>
+        {/* A idade era colorida e disputava a atenção com o lucro. Ela
+            continua na linha, quieta — o âmbar fica para o que passou do
+            limite de frescor, que é decisão, não leitura. */}
+        <Sub tom={tomDeIdade(op.sell_age_seconds) === "text-down" ? "warn" : undefined}>
           {formatDataAge(op.sell_age_seconds)}
-        </span>
+        </Sub>
       </td>
       <td title={resumoDaCadeia(op, base)}>
         <Figure value={op.cost_from_crafting} label="a cadeia toda" />
@@ -383,12 +387,9 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
         />
       </td>
 
+      {/* Neutro: um acento por linha, e o acento é o lucro. */}
       <td>
-        <span
-          className={`figure font-semibold text-val ${
-            positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
-          }`}
-        >
+        <span className="figure text-val">
           {op.profit_per_focus === null ? "—" : formatSilver(op.profit_per_focus)}
         </span>
       </td>

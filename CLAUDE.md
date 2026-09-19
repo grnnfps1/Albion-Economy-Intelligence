@@ -54,6 +54,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 34 | Receitas por fecho: /focus 89% e calculador 96% | ✅ |
 | 35 | Agricultura: rodapé recolhível e o que falta em cima | ✅ |
 | 36 | Esqueleto único nas seis telas densas | ✅ |
+| 37 | Calculador vira a norma: tokens, cor e sub-texto | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -394,6 +395,44 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 37 — o Calculador virou a norma
+
+- **O balão cortado não era z-index.** `.sheet-scroll` tem `overflow: auto`, e
+  contêiner com overflow **recorta** o que é posicionado fora dele: o balão
+  subia além da borda superior e era cortado ali — que por acaso é onde o
+  `thead` está. Aumentar z-index não muda recorte. Dentro da tabela o balão
+  passa a abrir **para baixo**, o que resolve sem rebaixar o cabeçalho e é a
+  direção certa por construção: o topo tem sempre um cabeçalho grudado, o pé
+  não tem nada.
+- **O peso vinha de empilhar duas ênfases.** O Calculador usa `lbl` — caixa
+  alta com tracking — **só** sob valor de tamanho normal; sob o número que
+  decide, ele não usa nada. Refino e Focus colavam `lbl` embaixo do número
+  grande e colorido (`+1.326.913,49` / `6,61 UN · FOCUS`), e duas ênfases
+  empilhadas viram bloco. Virou `Sub`: caixa baixa, apagado, mesmo respiro.
+- **Um acento de cor por linha.** O Calculador colore o lucro e a margem — o
+  mesmo fato em número e em razão — e deixa o resto neutro. Refino coloria
+  também prata/focus, lucro/dia e a idade; arbitragem tinha quatro cores de
+  banda mais a pílula de zona. Com tudo colorido nada se destaca, e a cor
+  deixa de carregar informação para virar decoração, que é o que a linguagem
+  visual do projeto proíbe. **A informação não saiu** — a banda continua
+  escrita por extenso, a idade continua na linha; o que saiu foi a competição.
+- **Zero valor de estilo escrito na tela.** As sete telas densas não têm mais
+  nenhum `text-[Npx]`, `rounded-[Npx]`, `px-[Npx]` nem `bg-[linear-gradient…]`.
+  O tingimento da linha, que era um literal de 60 caracteres repetido em seis
+  telas, virou `.sheet tbody tr.lucro` / `.prejuizo`, com a cor vindo do tema.
+- **Pílula é para escolha entre poucas opções conhecidas.** A quantidade tinha
+  cinco valores escolhidos por nós para uma pergunta que é do usuário: quem
+  produz 320 não tinha como dizê-lo. Virou campo, no Calculador e em
+  `/arbitrage`.
+- **O foco é o problema difícil de um campo que recalcula.** `router.push` a
+  cada tecla recria o componente de servidor, o `input` se perde e "1000" vira
+  "1". O campo guarda o próprio texto e escreve na URL depois de uma pausa; o
+  `useEffect` que sincroniza com a resposta **não** roda enquanto se digita,
+  senão sobrescreveria o que está sendo escrito.
+- **O esqueleto ganhou um slot em vez de um arranjo.** O campo não cabia como
+  pílula, e a regra era não inventar arranjo próprio: `Toolbar` e `PageShell`
+  passaram a aceitar `extra` / `filtroExtra`.
 
 ## Notas da fase 36 — uniformidade é requisito, não consequência
 

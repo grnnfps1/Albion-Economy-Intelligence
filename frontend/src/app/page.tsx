@@ -138,7 +138,7 @@ export default async function Home({
                     <span className="block truncate text-body text-sm">
                       {card.item_name ?? card.item}
                     </span>
-                    <span className="block truncate text-muted text-[11px]">
+                    <span className="block truncate text-muted text-note">
                       {card.detail}
                     </span>
                   </span>
@@ -146,7 +146,7 @@ export default async function Home({
                     {formatSilver(card.headline)}
                   </span>
                   <span
-                    className={`figure w-16 shrink-0 text-right text-[11px] ${
+                    className={`figure w-16 shrink-0 text-right text-note ${
                       TOM[card.freshness]
                     }`}
                   >

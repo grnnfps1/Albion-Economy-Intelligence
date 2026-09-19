@@ -1,5 +1,7 @@
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { PageShell } from "@/components/PageShell";
+import { Sub } from "@/components/sheet/Chrome";
+import { CampoDeQuantidade } from "@/components/sheet/CampoDeQuantidade";
 import { ComoLer } from "@/components/sheet/ComoLer";
 import { Aviso, Param, ParamStrip, ParamsDeTaxa } from "@/components/sheet/Chrome";
 import { CopyButton } from "@/components/sheet/CopyButton";
@@ -104,6 +106,7 @@ export default async function ArbitragePage({
       descricao={`Comprar numa cidade e vender em outra, com ${formatSilver(prefs.quantity)} unidades. O spread bruto engana: setup fee e imposto comem boa parte, e a estratégia paciente paga o setup duas vezes mesmo se a ordem não executar.`}
       contagem={data ? `${data.opportunities.length} de ${data.total} rotas` : undefined}
       grupos={GRUPOS}
+      filtroExtra={<CampoDeQuantidade valor={data?.quantity ?? prefs.quantity} />}
       busca={false}
       prefs={prefs}
       acoes={
@@ -188,12 +191,20 @@ export default async function ArbitragePage({
   );
 }
 
+/**
+ * A banda do score deixou de ser colorida.
+ *
+ * Eram quatro cores numa linha que já tinha o lucro colorido — mais a pílula
+ * de zona. Com tudo colorido nada se destaca, e a cor vira decoração. A banda
+ * continua escrita por extenso ao lado do número, que é onde a informação
+ * estava; o que saiu foi a competição pela atenção.
+ */
 const BANDA: Record<string, string> = {
-  excelente: "border-up/50 text-up",
-  muito_boa: "border-up/30 text-up",
+  excelente: "border-line-strong text-body",
+  muito_boa: "border-line-strong text-body",
   boa: "border-line-strong text-body",
-  moderada: "border-warn/40 text-warn",
-  ruim: "border-down/40 text-down",
+  moderada: "border-line text-muted",
+  ruim: "border-line text-muted",
   desconhecida: "border-line text-dim",
 };
 
@@ -204,9 +215,9 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
   // O tingimento de lucro vence o zebrado: ele é informação, o zebrado é apoio.
   const tinta =
     positivo === true
-      ? "bg-[linear-gradient(90deg,rgba(86,192,127,0.08),transparent_32%)]"
+      ? "lucro"
       : positivo === false
-        ? "bg-[linear-gradient(90deg,rgba(226,85,92,0.08),transparent_32%)]"
+        ? "prejuizo"
         : "";
 
   return (
@@ -260,7 +271,7 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
 
       <td>
         <span
-          className={`figure inline-block rounded border px-[6px] py-[2px] text-note ${
+          className={`figure inline-block rounded border px-1.5 py-px text-note ${
             BANDA[op.score.band] ?? BANDA.desconhecida
           }`}
           title={
@@ -271,7 +282,7 @@ function ArbitrageLine({ op }: { op: Opportunity }) {
         >
           {op.score.value ?? "—"}
         </span>
-        <span className="lbl block">{op.score.band.replace("_", " ")}</span>
+        <Sub>{op.score.band.replace("_", " ")}</Sub>
       </td>
 
       <td>

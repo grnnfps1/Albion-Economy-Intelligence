@@ -17,7 +17,7 @@ type Grupo = { chave: string; opcoes: { valor: string; rotulo: string }[]; padra
  */
 export function PageShell({
   titulo, descricao, contagem, grupos, busca = true, prefs, acoes, children,
-  camposPref,
+  camposPref, filtroExtra,
 }: {
   titulo: string;
   descricao: string;
@@ -35,6 +35,8 @@ export function PageShell({
    * inteiro — e a partir daí o que importa também passa despercebido.
    */
   camposPref?: CampoPref[];
+  /** Controle de filtro que não é pílula — ver `Toolbar.extra`. */
+  filtroExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -48,7 +50,12 @@ export function PageShell({
         <p className="w-full max-w-prose text-muted text-note leading-relaxed">{descricao}</p>
       </div>
 
-      <Toolbar grupos={grupos} busca={busca} onConfig={() => setAberto((v) => !v)} />
+      <Toolbar
+        grupos={grupos}
+        busca={busca}
+        extra={filtroExtra}
+        onConfig={() => setAberto((v) => !v)}
+      />
       {aberto && <PreferencesForm initial={prefs} campos={camposPref} />}
 
       {children}
