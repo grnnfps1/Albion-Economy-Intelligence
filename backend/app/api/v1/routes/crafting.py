@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Query
 
 from app.api.deps import SessionDep
+from app.api.v1.routes._spec_params import spec_levels_from
 from app.calculations.fees import Strategy
 from app.schemas.crafting import CraftingResponse
 from app.services.crafting_service import find_crafting_opportunities
@@ -46,6 +47,13 @@ async def crafting_opportunities(
             "nutrição = item value × 0,1125."
         ),
     ),
+    # Especialização por família de recurso (0-100). Sem informar, a conta
+    # assume spec 0 e a resposta avisa.
+    spec_leather: int = Query(0, ge=0, le=100, description="Spec de couro."),
+    spec_cloth: int = Query(0, ge=0, le=100, description="Spec de tecido."),
+    spec_planks: int = Query(0, ge=0, le=100, description="Spec de tábuas."),
+    spec_metalbar: int = Query(0, ge=0, le=100, description="Spec de barras."),
+    spec_stoneblock: int = Query(0, ge=0, le=100, description="Spec de blocos."),
     setup_fee_pct: float | None = Query(None, ge=0, le=1),
     sales_tax_pct: float | None = Query(None, ge=0, le=1),
     premium: bool | None = Query(None),
@@ -84,6 +92,9 @@ async def crafting_opportunities(
         sell_location=sell_location or buy_location,
         return_rate=return_rate,
         station_fee_per_100_nutrition=station_fee_per_100_nutrition,
+        spec_levels=spec_levels_from(
+            spec_leather, spec_cloth, spec_planks, spec_metalbar, spec_stoneblock
+        ),
         setup_fee_pct=setup_fee_pct,
         sales_tax_pct=sales_tax_pct,
         premium=premium,

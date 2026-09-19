@@ -4,6 +4,23 @@ from app.schemas.arbitrage import FeesUsed
 from app.schemas.risk import RiskOut, RiskUsed
 
 
+class SpecializationUsed(BaseModel):
+    """A especialização em uso, e o aviso quando não há nenhuma.
+
+    `assumes_zero_spec` não é detalhe: o custo em Focus do dump é o de quem
+    nunca especializou nada, e mostrá-lo sem a ressalva faz um número de
+    ninguém parecer o número do usuário.
+    """
+
+    informed: bool = False
+    assumes_zero_spec: bool = True
+    levels: dict[str, int] = Field(default_factory=dict)
+    families: list[str] = Field(default_factory=list)
+    halving_points: float = 10_000.0
+    per_mastery_level: float = 30.0
+    per_spec_level: dict[str, float] = Field(default_factory=dict)
+
+
 class CraftParamsUsed(BaseModel):
     """Os parâmetros que produziram estes números.
 
@@ -27,6 +44,7 @@ class CraftParamsUsed(BaseModel):
     use_focus: bool = False
     daily_production_bonus: float = 0.0
     return_rate_source: str = "UNKNOWN"
+    specialization: SpecializationUsed = Field(default_factory=SpecializationUsed)
     fees: FeesUsed = Field(default_factory=FeesUsed)
     complete: bool = False
     missing: list[str] = Field(default_factory=list)
@@ -113,6 +131,13 @@ class CraftEconomicsOut(BaseModel):
     reason: str | None = None
     output_quantity: int
     focus_cost: int
+    base_focus_cost: float | None = Field(
+        default=None,
+        description="Focus antes da especialização — o `@craftingfocus` do dump.",
+    )
+    focus_multiplier: float | None = Field(
+        default=None, description="`0,5 ^ (eficiência ÷ 10.000)`. 1,0 sem especialização."
+    )
     material_cost_gross: float | None = None
     material_cost_net: float | None = None
     returned_value: float | None = None

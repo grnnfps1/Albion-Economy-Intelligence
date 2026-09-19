@@ -42,6 +42,21 @@ export type Preferences = {
    */
   useFocus: boolean;
   dailyProductionBonus: number;
+  /**
+   * Nível de especialização (0–100) por família de recurso.
+   *
+   * Por família e não item a item: a planilha do Albion VIP faz item a item,
+   * mas isso seriam centenas de campos para uma decisão que quase ninguém toma
+   * item a item — quem especializa couro especializa a linha inteira.
+   *
+   * Zero **não** é "não informado": é "não especializado", e o custo em Focus
+   * sai igual ao do dump. A tela diz que a conta assumiu spec 0.
+   */
+  specLeather: number;
+  specCloth: number;
+  specPlanks: number;
+  specMetalbar: number;
+  specStoneblock: number;
 };
 
 export const DEFAULTS: Preferences = {
@@ -62,6 +77,11 @@ export const DEFAULTS: Preferences = {
   lossPctRedBlack: 0,
   useFocus: false,
   dailyProductionBonus: 0,
+  specLeather: 0,
+  specCloth: 0,
+  specPlanks: 0,
+  specMetalbar: 0,
+  specStoneblock: 0,
 };
 
 export const COOKIE = "aei_prefs";
@@ -81,5 +101,10 @@ export function feeParams(prefs: Preferences): Record<string, string> {
     daily_production_bonus: String(prefs.dailyProductionBonus),
     loss_pct_blue: String(prefs.lossPctBlue),
     loss_pct_red_black: String(prefs.lossPctRedBlack),
+    spec_leather: String(prefs.specLeather),
+    spec_cloth: String(prefs.specCloth),
+    spec_planks: String(prefs.specPlanks),
+    spec_metalbar: String(prefs.specMetalbar),
+    spec_stoneblock: String(prefs.specStoneblock),
   };
 }

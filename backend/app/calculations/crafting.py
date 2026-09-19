@@ -7,6 +7,8 @@ Três parâmetros que o usuário precisa informar e que **não** são fatos fixo
 
 - **taxa de retorno de material**: muda com Focus, com a especialização da
   estação e com o bônus da cidade;
+- **especialização**: o `@craftingfocus` do dump é o custo de quem nunca
+  especializou nada (`calculations/specialization.py`);
 - **taxa da estação**: o dono define a prata por 100 de nutrição, e a nutrição
   consumida sai do valor do item — por isso a taxa escala com tier e
   encantamento (`calculations/station.py`);
@@ -18,6 +20,7 @@ Uma calculadora que fixa esses três está errada para quase todo mundo.
 from dataclasses import dataclass, field
 
 from app.calculations.fees import FeeProfile, Strategy, compute_trade
+from app.calculations.specialization import FocusCost, SpecProfile, focus_cost_with_spec
 from app.calculations.station import StationFee
 
 
@@ -45,7 +48,9 @@ class CraftEconomics:
     known: bool
     reason: str | None = None
     output_quantity: int = 1
-    focus_cost: int = 0
+    focus_cost: float = 0.0
+    base_focus_cost: float | None = None
+    focus_multiplier: float | None = None
     material_cost_gross: float | None = None
     material_cost_net: float | None = None
     returned_value: float | None = None
@@ -61,9 +66,11 @@ class CraftEconomics:
     missing: list[str] = field(default_factory=list)
 
 
-def _unknown(reason: str, missing: list[str], focus: int, output: int) -> CraftEconomics:
+def _unknown(reason: str, missing: list[str], focus: FocusCost, output: int) -> CraftEconomics:
     return CraftEconomics(
-        known=False, reason=reason, missing=missing, focus_cost=focus, output_quantity=output
+        known=False, reason=reason, missing=missing,
+        focus_cost=focus.focus, base_focus_cost=focus.base_focus,
+        focus_multiplier=focus.multiplier, output_quantity=output,
     )
 
 
@@ -74,7 +81,7 @@ def compute_craft(
     return_rate: float | None,
     station_fee: StationFee,
     output_quantity: int = 1,
-    focus_cost: int = 0,
+    focus_cost: FocusCost | float = 0.0,
     crafts: int = 1,
     strategy: Strategy = Strategy.FAST,
 ) -> CraftEconomics:
@@ -86,6 +93,10 @@ def compute_craft(
     conta — tratar todos igual infla o lucro.
     """
     faltando: list[str] = []
+    # Aceita o número cru para quem não modela especialização; internamente
+    # sempre é um `FocusCost`, para que base e multiplicador cheguem à resposta.
+    if not isinstance(focus_cost, FocusCost):
+        focus_cost = focus_cost_with_spec(float(focus_cost), SpecProfile())
 
     if not materials:
         return _unknown("receita sem materiais", faltando, focus_cost, output_quantity)
@@ -139,12 +150,14 @@ def compute_craft(
     lucro = receita_liquida - custo_liquido - taxa_estacao
     investimento = custo_bruto + taxa_estacao
     receita_bruta = float(sell_price) * unidades
-    focus_total = focus_cost * crafts
+    focus_total = focus_cost.focus * crafts
 
     return CraftEconomics(
         known=True,
         output_quantity=unidades,
-        focus_cost=focus_total,
+        focus_cost=round(focus_total, 4),
+        base_focus_cost=round(focus_cost.base_focus * crafts, 4),
+        focus_multiplier=focus_cost.multiplier,
         material_cost_gross=round(custo_bruto, 2),
         material_cost_net=round(custo_liquido, 2),
         returned_value=round(valor_retornado, 2),

@@ -18,11 +18,11 @@ AGORA = datetime.now(UTC)
 SETTINGS = Settings(freshness_fresh_seconds=900, freshness_stale_seconds=21600)
 
 COM_TAXAS = dict(
-    return_rate=0.15, station_fee_per_100_nutrition=1000,
+    return_rate=0.15, station_fee_per_100_nutrition=1000, spec_levels=None,
     setup_fee_pct=0.025, sales_tax_pct=0.04, premium=True,
 )
 SEM_TAXAS = dict(
-    return_rate=None, station_fee_per_100_nutrition=None,
+    return_rate=None, station_fee_per_100_nutrition=None, spec_levels=None,
     setup_fee_pct=None, sales_tax_pct=None, premium=None,
 )
 BASE = dict(

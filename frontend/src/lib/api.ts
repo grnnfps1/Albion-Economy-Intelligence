@@ -331,6 +331,10 @@ export type CraftingResponse = {
   params: {
     return_rate: number | null; station_fee_per_100_nutrition: number | null;
     nutrition_per_item_value: number | null;
+    specialization?: {
+      informed: boolean; assumes_zero_spec: boolean;
+      levels: Record<string, number>; families: string[];
+    };
     use_focus: boolean; daily_production_bonus: number; return_rate_source: string;
     fees: { setup_fee_pct: number | null; sales_tax_pct: number | null;
             premium: boolean | null; source: string; complete: boolean; missing: string[] };

@@ -128,3 +128,116 @@ tem consumidor no produto atual: não há tela de farming, e o catálogo não mo
 plantio. Fica registrado aqui que o dado existe e onde buscar, mas colocá-lo no
 repositório agora seria carregar tabela grande para uma funcionalidade que não
 existe. Se farming virar fase, este é o ponto de partida.
+
+---
+
+## Implementado na fase 16 — o que mudou em relação a este documento
+
+> 19/09/2026. O que estava aqui como pesquisa virou código. Três pontos deste
+> documento foram **conferidos contra o dump** e dois deles precisaram de
+> correção.
+
+### A fórmula ficou como estava escrita
+
+```
+eficiencia = nivel_spec × fce_por_nivel + (mastery + mastery2) × 30
+focus      = focus_base × 0,5 ^ (eficiencia ÷ 10.000)
+```
+
+Vive em `calculations/specialization.py`, pura. Os pontos por nível de spec e o
+`30` da maestria estão em `config_parameters` com procedência
+(migration `0009_especializacao`).
+
+O que este documento não tinha: **quantos pontos vale um nível de spec**. São
+250 "únicos" para o próprio item mais 30 "mútuos" para os irmãos do mesmo nó —
+e é isso que explica a tabela por tipo de peça da planilha do Albion VIP, que
+parecia arbitrária:
+
+| Tipo | Pontos por nível | Leitura |
+|---|---|---|
+| MAIN, 2H, GATHERER, FOOD, Refino | 250 | só os únicos |
+| OFF (primário) | 250 | só os únicos |
+| OFF (secundário) | 90 | três irmãos × 30, sem os únicos |
+| BAG | 310 | 250 + dois irmãos × 30 |
+| CAPE | 370 | 250 + quatro irmãos × 30 |
+
+Ou seja: a coluna que o briefing chamou de "custo base de Focus por tipo de
+peça" **não é custo base**. É pontos de eficiência por nível de spec. O custo
+base vem do dump.
+
+### Correção 1 — a tabela de custo base não precisa virar código
+
+Este documento traz a tabela de custo base por tier e encantamento e sugere
+transcrevê-la. **Não é necessário:** o dump já a traz item a item, em
+`craftingrequirements.@craftingfocus`, e os números batem exatamente.
+
+Conferido em 19/09/2026 contra `ao-data/ao-bin-dumps`:
+
+```
+T4_PLANKS  → 54    T4_PLANKS_LEVEL1 → 94    _LEVEL2 → 164   _LEVEL3 → 287   _LEVEL4 → 503
+T8_LEATHER → 503   T8_LEATHER_LEVEL1 → 880  _LEVEL2 → 1539  _LEVEL3 → 2694  _LEVEL4 → 4714
+```
+
+São as duas linhas da tabela deste documento, valor por valor, incluindo a
+diagonal `T5.0 = T4.1 = 94`. Transcrever a tabela criaria uma segunda cópia para
+manter em sincronia com o dump a cada patch.
+
+### Correção 2 — "pedra é exceção" não tem consumidor
+
+Este documento avisa que a pedra tem tabela própria, com o encantamento
+dobrando em vez de seguir a razão 1,75, e que tratá-la pela tabela geral erraria
+por até 17%.
+
+**A armadilha não existe no refino.** Conferido no dump: `STONEBLOCK` tem
+**zero** variantes encantadas, contra 20 em cada uma das outras quatro famílias.
+
+```
+PLANKS      20 variantes encantadas com receita
+CLOTH       20
+LEATHER     20
+METALBAR    20
+STONEBLOCK   0
+```
+
+`T4_STONEBLOCK_LEVEL1` simplesmente não está no dump. Bloco de pedra não é
+encantado — o que é encantado é a pedra bruta (`T4_ROCK_LEVEL1` existe). Como o
+custo de Focus vem do dump por item, e o item não existe, não há caminho para
+errar. O aviso fica registrado para o caso de a Sandbox acrescentar a linha.
+
+### Divergência deliberada — spec ausente é zero, não UNKNOWN
+
+O item 3 de "O que isto muda no produto" dizia que a precedência seria a das
+taxas (requisição → `config_parameters` → UNKNOWN) e que assumir spec zero em
+silêncio era o problema a resolver.
+
+A fase 16 resolveu de outro jeito, seguindo o precedente do **risco de rota**
+(fase 13) e não o das taxas:
+
+- **spec ausente vale zero**, e o custo em Focus sai idêntico ao do dump;
+- a resposta carrega `specialization.assumes_zero_spec = true` e a tela diz
+  isso.
+
+O que estava errado antes não era o zero — era o **silêncio**. Travar todas as
+telas em UNKNOWN por um número que só o usuário tem esconderia o produto de
+quem ainda não configurou nada, exatamente como travar por risco de rota
+esconderia. Taxa ausente continua UNKNOWN, porque calcular sem imposto inventa
+lucro; spec ausente não inventa nada, apenas superestima o Focus gasto, que é o
+lado conservador.
+
+### Granularidade: por família, não por item
+
+A planilha faz item a item. A interface pede **cinco números** — couro, tecido,
+tábuas, barras, blocos —, que é a linha de recurso inteira. Quem especializa
+couro especializa a linha; centenas de campos no formulário para a exceção não
+se pagam.
+
+Craft de equipamento continua calculando com spec 0: a tabela de pontos por tipo
+de peça está gravada com procedência, mas nenhuma preferência a alimenta ainda.
+Errar para mais no Focus é o lado conservador.
+
+### O que continua faltando
+
+- A medição 9 de `docs/04a-medicao-guiada.md` segue valendo: dois níveis de
+  spec no mesmo item, comparando o Focus por craft. Duas medições bastam.
+- A FCE real do usuário continua sem API: o Destiny Board não é exposto. Entrada
+  manual é o caminho, e é o que a fase 16 fez.

@@ -178,3 +178,46 @@ async def test_filtro_por_familia(session, cadeia):
     assert resposta.total == 4
     vazio = await find_refining_opportunities(session, **(PADRAO | {"family": "LEATHER"}))
     assert vazio.total == 0
+
+
+async def test_spec_reduz_o_focus_e_sobe_a_prata_por_focus(session, cadeia):
+    """A fase 16 ponta a ponta: o mesmo refino, com e sem especialização.
+
+    O lucro em prata não muda — spec não mexe em preço nem em taxa —, mas o
+    Focus gasto cai e prata/Focus sobe na mesma proporção. Como prata/Focus é a
+    ordenação principal, é isso que muda a decisão.
+    """
+    await cadeia["semear"](PRECOS)
+
+    sem = await find_refining_opportunities(
+        session, **(PADRAO | {"sourcing": Sourcing.CRAFT})
+    )
+    com = await find_refining_opportunities(
+        session,
+        **(PADRAO | {"sourcing": Sourcing.CRAFT, "spec_levels": {"PLANKS": 100}}),
+    )
+
+    t5_sem = next(o for o in sem.opportunities if o.item == "T5_PLANKS")
+    t5_com = next(o for o in com.opportunities if o.item == "T5_PLANKS")
+
+    assert t5_sem.known and t5_com.known
+    # 100 níveis × 250 pontos = 25.000 → 0,5^2,5 ≈ 17,68% do Focus original.
+    assert t5_com.focus_per_unit < t5_sem.focus_per_unit * 0.2
+    assert t5_com.profit == pytest.approx(t5_sem.profit)
+    assert t5_com.profit_per_focus > t5_sem.profit_per_focus * 5
+
+
+async def test_sem_spec_a_resposta_avisa_que_assumiu_zero(session, cadeia):
+    """Custo do dump apresentado sem ressalva parece custo do usuário."""
+    await cadeia["semear"](PRECOS)
+
+    sem = await find_refining_opportunities(session, **PADRAO)
+    assert sem.params.specialization.assumes_zero_spec is True
+    assert sem.params.specialization.informed is False
+    assert "PLANKS" in sem.params.specialization.families
+
+    com = await find_refining_opportunities(
+        session, **(PADRAO | {"spec_levels": {"PLANKS": 40}})
+    )
+    assert com.params.specialization.assumes_zero_spec is False
+    assert com.params.specialization.levels["PLANKS"] == 40

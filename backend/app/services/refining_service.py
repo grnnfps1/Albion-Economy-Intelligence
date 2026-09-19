@@ -30,11 +30,12 @@ from app.repositories import market as market_repo
 from app.repositories import recipes_repo
 from app.repositories.liquidity import liquidity_by_item_location
 from app.repositories.reference import list_locations
-from app.schemas.crafting import CraftParamsUsed, SourcingOut
+from app.schemas.crafting import CraftParamsUsed, SourcingOut, SpecializationUsed
 from app.schemas.refining import ChainStepOut, RefiningOut, RefiningResponse
 from app.services.arbitrage_service import resolve_fees
 from app.services.return_service import load_return_policy, return_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
+from app.services.specialization_service import load_specialization_policy, spec_out
 from app.services.station_service import (
     StationFeePolicy,
     item_value_lookup,
@@ -81,6 +82,7 @@ async def find_refining_opportunities(
     max_age_seconds: int | None = None,
     use_focus: bool = False,
     daily_production_bonus: float = 0.0,
+    spec_levels: dict[str, int] | None = None,
 ) -> RefiningResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     # O bônus de refino segue o recurso, e dentro de uma cadeia o recurso é o
@@ -106,12 +108,17 @@ async def find_refining_opportunities(
     )
     faltando.extend(taxa_estacao.missing())
 
+    # Spec por família de recurso: couro, tecido, tábuas, barras, blocos. Sem
+    # nada informado o custo sai igual ao do dump, e a resposta avisa.
+    spec = await load_specialization_policy(session, spec_levels)
+
     params = CraftParamsUsed(
         return_rate=return_rate,
         station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
         nutrition_per_item_value=NUTRITION_PER_ITEM_VALUE,
         use_focus=use_focus, daily_production_bonus=daily_production_bonus,
         return_rate_source="preferencia" if return_rate is not None else "matriz",
+        specialization=SpecializationUsed(**spec_out(spec)),
         fees=resumo_taxas, complete=not faltando, missing=faltando,
     )
 
@@ -198,7 +205,11 @@ async def find_refining_opportunities(
             for m in receita.materials
             if m.item_id in catalogo
         )
-        return RecipeSpec(receita.output_quantity, receita.focus_cost, materiais)
+        # A redução entra aqui, no `RecipeSpec`: cada elo da cadeia tem o Focus
+        # da sua própria família, e `chain.py` segue sem saber que
+        # especialização existe.
+        focus = spec.focus_cost_of(unique_name, receita.focus_cost)
+        return RecipeSpec(receita.output_quantity, focus.focus, materiais)
 
     def resolver(nome: str, modo: Sourcing, preco, taxa_retorno) -> ChainResult:
         return resolve_unit_cost(

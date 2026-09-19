@@ -17,6 +17,7 @@ from app.calculations.crafting import CraftEconomics, MaterialCost, compute_craf
 from app.calculations.fees import FeeProfile, Strategy
 from app.calculations.returns import Activity
 from app.calculations.risk import adjust_for_risk
+from app.calculations.specialization import FocusCost
 from app.calculations.station import NUTRITION_PER_ITEM_VALUE, StationFee
 from app.catalog.icons import item_icon_url
 from app.core.config import get_settings
@@ -32,11 +33,13 @@ from app.schemas.crafting import (
     CraftParamsUsed,
     MaterialOut,
     SourcingOut,
+    SpecializationUsed,
 )
 from app.services.arbitrage_service import resolve_fees
 from app.services.return_service import load_return_policy, return_out
 from app.services.risk_service import load_route_zones, resolve_risk, risk_out
 from app.services.sourcing import MaterialSourcing, SourcingMode, load_material_sourcing
+from app.services.specialization_service import load_specialization_policy, spec_out
 from app.services.station_service import (
     StationFeePolicy,
     item_value_lookup,
@@ -78,6 +81,7 @@ async def find_crafting_opportunities(
     loss_pct_red_black: float | None = None,
     use_focus: bool = False,
     daily_production_bonus: float = 0.0,
+    spec_levels: dict[str, int] | None = None,
 ) -> CraftingResponse:
     fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
     perfil_risco, resumo_risco = await resolve_risk(session, loss_pct_blue, loss_pct_red_black)
@@ -113,6 +117,11 @@ async def find_crafting_opportunities(
     )
     faltando.extend(taxa_estacao.missing())
 
+    # Spec ausente é zero, não UNKNOWN: o custo sai igual ao do dump e a
+    # resposta diz que assumiu zero. É a regra do risco de rota, não a das
+    # taxas.
+    spec = await load_specialization_policy(session, spec_levels)
+
     params = CraftParamsUsed(
         return_rate=return_rate,
         station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
@@ -120,6 +129,7 @@ async def find_crafting_opportunities(
         use_focus=use_focus,
         daily_production_bonus=daily_production_bonus,
         return_rate_source="preferencia" if return_rate is not None else "matriz",
+        specialization=SpecializationUsed(**spec_out(spec)),
         fees=resumo_taxas,
         complete=not faltando,
         missing=faltando,
@@ -217,6 +227,7 @@ async def find_crafting_opportunities(
             # A taxa é do item que está sendo produzido, não um valor único da
             # resposta: ela dobra a cada tier junto com o `item_value`.
             station_fee=taxa_estacao.fee_of(saida.unique_name),
+            focus_cost=spec.focus_cost_of(saida.unique_name, receita.focus_cost),
             crafts=crafts,
             strategy=strategy,
         )
@@ -267,6 +278,8 @@ async def find_crafting_opportunities(
                     reason=economia.reason,
                     output_quantity=economia.output_quantity,
                     focus_cost=economia.focus_cost,
+                    base_focus_cost=economia.base_focus_cost,
+                    focus_multiplier=economia.focus_multiplier,
                     material_cost_gross=economia.material_cost_gross,
                     material_cost_net=economia.material_cost_net,
                     returned_value=economia.returned_value,
@@ -335,6 +348,7 @@ class _Contexto:
         fees: FeeProfile,
         return_rate: float | None,
         station_fee: StationFee,
+        focus_cost: FocusCost,
         crafts: int,
         strategy: Strategy,
     ) -> None:
@@ -342,6 +356,7 @@ class _Contexto:
         self.fees = fees
         self.return_rate = return_rate
         self.station_fee = station_fee
+        self.focus_cost = focus_cost
         self.crafts = crafts
         self.strategy = strategy
 
@@ -353,7 +368,7 @@ class _Contexto:
             return_rate=self.return_rate,
             station_fee=self.station_fee,
             output_quantity=receita.output_quantity,
-            focus_cost=receita.focus_cost,
+            focus_cost=self.focus_cost,
             crafts=self.crafts,
             strategy=self.strategy,
         )

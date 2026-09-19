@@ -33,6 +33,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 13 | Black Market validado + risco de rota | ✅ |
 | 14 | Matriz de retorno por cidade, atividade e Focus | ✅ |
 | 15 | Taxa de estação derivada do valor do item | ✅ |
+| 16 | Especialização: redução do custo de Focus | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -266,6 +267,34 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 16 — especialização
+
+- **O custo em Focus do dump é o custo de quem nunca especializou nada.** A
+  fórmula é `focus_base × 0,5 ^ (eficiência ÷ 10.000)`, com eficiência vindo de
+  `nível_spec × 250 + (mastery + mastery2) × 30`. Um refino T4 custa 54 sem spec
+  e 3 com tudo maximizado.
+- **A tabela por tipo de peça não é custo base, é pontos por nível.** MAIN 250,
+  BAG 310, CAPE 370, OFF secundário 90 — o padrão é `250 + irmãos do nó × 30`.
+  O custo base vem do dump, item a item.
+- **A tabela de custo base não virou código, de propósito.** O dump já a traz em
+  `@craftingfocus` e os números batem valor por valor com a pesquisa de
+  `docs/05-custo-de-focus.md`, diagonal inclusive (`T5.0 = T4.1 = 94`).
+  Transcrever criaria uma segunda cópia para sincronizar a cada patch.
+- **"Pedra é exceção" não tem consumidor.** `STONEBLOCK` tem zero variantes
+  encantadas no dump, contra 20 em cada uma das outras quatro famílias. Bloco de
+  pedra não é encantado; pedra bruta é. O aviso do doc ficou registrado, sem
+  código.
+- **Spec ausente é zero, e isso diverge das taxas de propósito.** É o precedente
+  do risco de rota, não o das taxas: zero significa "não estou modelando
+  especialização", o custo sai idêntico ao do dump e a resposta carrega
+  `assumes_zero_spec`. O problema nunca foi o zero — foi o silêncio.
+- **Por família, não por item.** Cinco números (couro, tecido, tábuas, barras,
+  blocos) em vez das centenas que a planilha pede. Craft de equipamento ainda
+  calcula com spec 0, que superestima o Focus — o lado conservador.
+- **A redução entra no `RecipeSpec`, não em `chain.py`.** A recursão segue sem
+  saber que especialização existe; quem aplica é o serviço, porque é preferência
+  do usuário.
 
 ## Notas da fase 15 — taxa de estação
 

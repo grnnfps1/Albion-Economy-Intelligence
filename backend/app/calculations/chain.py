@@ -37,7 +37,12 @@ class RecipeSpec:
     """Receita reduzida ao que o cálculo de cadeia precisa."""
 
     output_quantity: int
-    focus_cost: int
+    focus_cost: float
+    """Focus por lote, **já reduzido pela especialização** do usuário.
+
+    A redução é política e mora em `services/specialization_service.py`; a
+    cadeia recebe o número pronto e segue sem saber que spec existe.
+    """
     materials: tuple[tuple[str, int, bool], ...]
     """(unique_name, quantidade, elegível ao retorno)"""
 

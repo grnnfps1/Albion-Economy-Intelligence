@@ -5,6 +5,20 @@ import { useState, useTransition } from "react";
 
 import { COOKIE, type Preferences } from "@/lib/preferences-shared";
 
+/**
+ * As cinco linhas de recurso do refino.
+ *
+ * Por família e não item a item: a planilha faz item a item, mas isso seriam
+ * centenas de campos para uma decisão que quase ninguém toma por item.
+ */
+const FAMILIAS: [keyof Preferences, string][] = [
+  ["specLeather", "Couro"],
+  ["specCloth", "Tecido"],
+  ["specPlanks", "Tábuas"],
+  ["specMetalbar", "Barras"],
+  ["specStoneblock", "Blocos"],
+];
+
 const CIDADES = [
   ["caerleon", "Caerleon"], ["bridgewatch", "Bridgewatch"], ["lymhurst", "Lymhurst"],
   ["fort-sterling", "Fort Sterling"], ["martlock", "Martlock"],
@@ -151,6 +165,20 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
           } />
       </label>
 
+      {/* Especialização por família. Zero não é "não informado": é "não
+          especializado", e o custo em Focus sai igual ao do dump. */}
+      {FAMILIAS.map(([chave, nome]) => (
+        <label key={chave} className="flex flex-col gap-1">
+          <span className={rotulo}>Spec · {nome}</span>
+          <input className={campo} value={prefs[chave] as number}
+            onChange={(e) =>
+              atualizar({
+                [chave]: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
+              } as Partial<Preferences>)
+            } />
+        </label>
+      ))}
+
       <div className="flex items-end">
         <button type="button" onClick={salvar} disabled={pending}
           className="w-full rounded-[3px] border border-line-strong bg-raised px-3 py-1.5 text-[12px] text-body hover:border-warn disabled:opacity-50">
@@ -163,6 +191,14 @@ export function PreferencesForm({ initial }: { initial: Preferences }) {
         São o que a comunidade reporta. O imposto muda com Premium; o retorno muda com Focus e
         especialização; a taxa da estação é definida pelo dono e varia por cidade. Ajuste uma
         vez — vale para todas as telas.
+      </p>
+
+      <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
+        <b className="font-semibold text-body">Especialização corta o Focus, não o custo.</b>{" "}
+        Cada 10.000 pontos de eficiência cortam o custo pela metade, e cada nível de spec vale
+        250 pontos. Um refino T4 custa 54 de Focus sem spec e 3 com tudo maximizado — dezoito
+        vezes mais refino no mesmo dia. <b className="font-semibold text-warn">Com zero, as
+        telas calculam assumindo spec 0</b> e dizem isso na linha.
       </p>
 
       <p className="col-span-full m-0 text-[11px] text-muted leading-relaxed sm:col-span-3 lg:col-span-6">
