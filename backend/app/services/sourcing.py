@@ -17,6 +17,10 @@ Quatro regras que este módulo materializa:
   de fato; empate com viagem é prejuízo.
 - **Black Market fora.** Como *destino de venda* ele foi validado (fase 13), mas
   comprar material lá não foi medido — e é de compra que este módulo trata.
+- **Preço manual vence o coletado.** Quem está com o jogo aberto sabe melhor
+  que a coleta comunitária — mas o preço manual entra com a idade de quando foi
+  informado e envelhece igual, então ele também perde a disputa quando fica
+  velho (fase 17).
 """
 
 from collections.abc import Mapping, Sequence
@@ -27,8 +31,10 @@ from enum import StrEnum
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.freshness import data_age_seconds
+from app.models.manual_price import KIND_BUY
 from app.repositories import market as market_repo
 from app.repositories.reference import list_locations
+from app.services.manual_price_service import ManualPriceOverlay
 
 BLACK_MARKET = "black_market"
 
@@ -62,6 +68,12 @@ class Quote:
     location_name: str
     unit_price: int | None
     age_seconds: int | None
+    is_manual: bool = False
+    """True quando o preço veio do usuário e não da coleta.
+
+    A idade continua sendo a idade: de quando ele informou. Preço manual velho
+    é tão perigoso quanto cotação velha, e cai fora da escolha pela mesma regra.
+    """
 
     @property
     def usable(self) -> bool:
@@ -185,6 +197,7 @@ async def load_material_sourcing(
     mode: SourcingMode,
     max_age_seconds: int,
     now: datetime,
+    manual: "ManualPriceOverlay | None" = None,
 ) -> MaterialSourcing:
     """Carrega as cotações das cidades candidatas e monta a política.
 
@@ -206,8 +219,27 @@ async def load_material_sourcing(
         session, server_code, list(item_unique_names), cidades
     )
 
+    nomes_de_cidade = {slug: display for _n, slug, display, _p, _d in linhas}
+
     quotes: dict[str, list[Quote]] = {}
     for nome, slug, display, preco, data in linhas:
+        # Preço manual de COMPRA sobrescreve a ordem de venda mais barata: é
+        # literalmente o mesmo número — o que você paga.
+        manual_quote = (
+            None if manual is None else manual.quote(nome, slug, 1, KIND_BUY)
+        )
+        if manual_quote is not None:
+            quotes.setdefault(nome, []).append(
+                Quote(
+                    location_slug=slug,
+                    location_name=display,
+                    unit_price=manual_quote.price,
+                    age_seconds=manual_quote.age_seconds,
+                    is_manual=True,
+                )
+            )
+            continue
+
         quotes.setdefault(nome, []).append(
             Quote(
                 location_slug=slug,
@@ -216,5 +248,29 @@ async def load_material_sourcing(
                 age_seconds=data_age_seconds(data, now),
             )
         )
+
+    # Preço manual numa cidade onde a coleta não tem nada é o caso que mais
+    # justifica a funcionalidade: mercado pouco visitado, sem cotação nenhuma.
+    # Sem este bloco ele seria ignorado justamente ali.
+    if manual is not None:
+        existentes = {
+            (nome, q.location_slug) for nome, lista in quotes.items() for q in lista
+        }
+        for (nome, slug, quality, kind), cotacao in manual.quotes.items():
+            if kind != KIND_BUY or quality != 1:
+                continue
+            if nome not in set(item_unique_names) or slug not in cidades:
+                continue
+            if (nome, slug) in existentes:
+                continue
+            quotes.setdefault(nome, []).append(
+                Quote(
+                    location_slug=slug,
+                    location_name=nomes_de_cidade.get(slug, slug),
+                    unit_price=cotacao.price,
+                    age_seconds=cotacao.age_seconds,
+                    is_manual=True,
+                )
+            )
 
     return MaterialSourcing(mode, base_slug, quotes, max_age_seconds)

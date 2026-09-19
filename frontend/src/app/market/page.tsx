@@ -90,20 +90,58 @@ export default async function MarketPage({
   );
 }
 
+/**
+ * Um preço da linha.
+ *
+ * Três estados, e os três precisam ser distinguíveis de relance:
+ *
+ * - **coletado**: o normal;
+ * - **manual**: o usuário informou e ele venceu. Marcado, com o coletado
+ *   riscado ao lado — ver os dois é o que permite perceber um zero a mais;
+ * - **manual expirado**: existe preço manual, mas passou do frescor e o
+ *   coletado voltou. Dito em âmbar, porque ignorar em silêncio faria o usuário
+ *   achar que o dele ainda vale.
+ */
 function Preco({ campo }: { campo: PriceField }) {
   if (campo.value === null) {
     return (
       <div className="pr-3 text-right">
         <span className="text-[11px] text-dim">sem dado</span>
+        {campo.manual_expired && (
+          <span className="mt-px block text-[9px] text-warn" title="seu preço manual expirou">
+            manual expirado
+          </span>
+        )}
       </div>
     );
   }
   return (
     <div className="pr-3 text-right">
-      <span className="figure text-[12.5px]">{formatSilver(campo.value)}</span>
+      <span className="flex items-baseline justify-end gap-1">
+        {campo.is_manual && (
+          <span
+            className="rounded-[2px] border border-warn px-1 text-[8.5px] leading-[1.35] text-warn"
+            title="preço que você informou — vence o coletado enquanto for fresco"
+          >
+            SEU
+          </span>
+        )}
+        <span className="figure text-[12.5px]">{formatSilver(campo.value)}</span>
+      </span>
+      {campo.is_manual && campo.collected_value !== null && (
+        <span className="figure mt-px block text-[9px] text-dim line-through"
+              title="o que a coleta dizia">
+          {formatSilver(campo.collected_value)}
+        </span>
+      )}
       <span className="mt-px block">
         <AgeTag seconds={campo.age_seconds} freshness={campo.freshness} />
       </span>
+      {campo.manual_expired && (
+        <span className="mt-px block text-[9px] text-warn" title="seu preço manual expirou">
+          manual expirado
+        </span>
+      )}
     </div>
   );
 }

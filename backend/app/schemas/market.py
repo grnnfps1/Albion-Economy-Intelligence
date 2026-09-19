@@ -16,6 +16,26 @@ class PriceField(BaseModel):
     age_seconds: int | None = None
     freshness: Freshness = Freshness.UNKNOWN
 
+    is_manual: bool = Field(
+        default=False,
+        description="True quando o valor exibido veio do usuário e não da coleta.",
+    )
+    collected_value: int | None = Field(
+        default=None,
+        description=(
+            "O que a coleta dizia, quando o preço manual venceu. Mostrar os dois "
+            "é o que permite ao usuário perceber que informou errado."
+        ),
+    )
+    manual_expired: bool = Field(
+        default=False,
+        description=(
+            "Existe preço manual para esta ponta, mas ele passou do limite de "
+            "frescor e não vale mais. A tela precisa dizer isso em vez de "
+            "ignorar em silêncio."
+        ),
+    )
+
 
 class LiquidityOut(BaseModel):
     """Sinal de giro, derivado do histórico.

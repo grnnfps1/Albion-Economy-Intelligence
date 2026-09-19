@@ -8,6 +8,7 @@ from app.api.v1.routes import (
     focus,
     history,
     items,
+    manual_prices,
     market,
     meta,
     refining,
@@ -19,6 +20,7 @@ api_router.include_router(dashboard.router)
 api_router.include_router(meta.router)
 api_router.include_router(items.router)
 api_router.include_router(market.router)
+api_router.include_router(manual_prices.router)
 api_router.include_router(history.router)
 api_router.include_router(arbitrage.router)
 api_router.include_router(crafting.router)

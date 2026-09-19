@@ -5,6 +5,7 @@ Importar tudo aqui garante que o autogenerate do Alembic enxergue as tabelas.
 
 from app.models.catalog import Item
 from app.models.farming import Farmable, FarmableOutput
+from app.models.manual_price import ManualPrice
 from app.models.market import GoldPrice, MarketHistory, MarketPrice
 from app.models.observability import CollectorRun, RawResponse
 from app.models.recipes import Recipe, RecipeMaterial
@@ -22,6 +23,7 @@ __all__ = [
     "Item",
     "ItemCategory",
     "Location",
+    "ManualPrice",
     "MarketHistory",
     "MarketPrice",
     "RawResponse",

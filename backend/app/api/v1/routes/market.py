@@ -4,10 +4,11 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import SessionDep, SettingsDep
+from app.api.deps import SessionDep, SettingsDep, UserDep
 from app.repositories import market as market_repo
 from app.repositories.liquidity import liquidity_by_item_location
 from app.schemas.market import MarketPricePage
+from app.services.manual_price_service import load_manual_overlay
 from app.services.market_service import DATA_SOURCE_NOTE, to_price_out
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -20,6 +21,7 @@ SORTABLE = ("item", "tier", "sell_price_min", "sell_price_max", "buy_price_min",
 async def prices(
     session: SessionDep,
     settings: SettingsDep,
+    user_id: UserDep,
     server: str = Query("west", description="west | east | europe"),
     locations: str | None = Query(None, description="slugs separados por vírgula"),
     search: str | None = Query(None, description="id técnico ou nome visual"),
@@ -53,6 +55,10 @@ async def prices(
     )
 
     now = datetime.now(UTC)
+    # Uma consulta para a página inteira. Sem usuário o overlay fica vazio e a
+    # resposta é idêntica à de antes da fase 17.
+    manual = await load_manual_overlay(session, user_id, server, now=now)
+
     return MarketPricePage(
         server=server,
         total=total,
@@ -66,6 +72,7 @@ async def prices(
             to_price_out(
                 price, item, location, now, settings,
                 sinais.get((item.id, location.id, price.quality)),
+                manual,
             )
             for price, item, location in rows
         ],

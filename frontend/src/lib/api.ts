@@ -44,10 +44,26 @@ export type PlatformStatus = {
   error: string | null;
 };
 
+/**
+ * Quem está pedindo, para o backend.
+ *
+ * O FastAPI não valida sessão — quem valida é o `middleware.ts`, e o backend
+ * não é exposto ao browser. O cabeçalho só pode ter sido posto aqui, depois de
+ * o cookie assinado ser verificado.
+ *
+ * `null` é o modo de desenvolvimento local, sem login: o backend responde como
+ * sempre respondeu, sem sobrescritas.
+ */
+async function userHeader(): Promise<Record<string, string>> {
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  return session ? { "X-User-Id": session.id } : {};
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     cache: "no-store",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...(await userHeader()) },
     signal: AbortSignal.timeout(10_000),
   });
   // 503 é resposta legítima do health check degradado: tem corpo útil.
@@ -78,6 +94,13 @@ export type PriceField = {
   value: number | null;
   age_seconds: number | null;
   freshness: Freshness;
+  /** O valor exibido veio do usuário, não da coleta. */
+  is_manual: boolean;
+  /** O que a coleta dizia, quando o manual venceu. Ver os dois lado a lado é
+   *  o que permite perceber um zero a mais. */
+  collected_value: number | null;
+  /** Existe preço manual aqui, mas expirou. Dizer é melhor que ignorar. */
+  manual_expired: boolean;
 };
 
 export type Liquidity = {
@@ -131,6 +154,72 @@ export type MarketQuery = {
   limit?: string;
   offset?: string;
 };
+
+export type ManualPrice = {
+  server: string;
+  location: string;
+  location_name: string;
+  item: string;
+  item_name: string | null;
+  icon_url: string | null;
+  quality: number;
+  price: number;
+  kind: "COMPRA" | "VENDA";
+  informed_at: string;
+  age_seconds: number;
+  is_stale: boolean;
+};
+
+export type ManualPriceList = {
+  server: string;
+  total: number;
+  max_age_seconds: number;
+  prices: ManualPrice[];
+};
+
+export async function fetchManualPrices(server: string): Promise<ManualPriceList | null> {
+  try {
+    return await getJson<ManualPriceList>(`/api/v1/manual-prices?server=${server}`);
+  } catch {
+    // 401 sem sessão é resposta legítima: preço manual é por usuário.
+    return null;
+  }
+}
+
+/** Grava ou atualiza. Reinformar renova a idade — é o ponto. */
+export async function saveManualPrice(body: {
+  server: string; location: string; item: string;
+  quality: number; price: number; kind: "COMPRA" | "VENDA";
+}): Promise<ManualPrice | null> {
+  const response = await fetch(`${BASE_URL}/api/v1/manual-prices`, {
+    method: "PUT",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(await userHeader()),
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+  });
+  return response.ok ? ((await response.json()) as ManualPrice) : null;
+}
+
+/** Apagar é como se diz "volte a usar o preço coletado". */
+export async function deleteManualPrice(query: {
+  server: string; location: string; item: string; quality: number; kind: string;
+}): Promise<boolean> {
+  const params = new URLSearchParams(
+    Object.entries(query).map(([k, v]) => [k, String(v)]),
+  );
+  const response = await fetch(`${BASE_URL}/api/v1/manual-prices?${params}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: { Accept: "application/json", ...(await userHeader()) },
+    signal: AbortSignal.timeout(10_000),
+  });
+  return response.ok;
+}
 
 export async function fetchMarketPrices(query: MarketQuery): Promise<MarketPricePage | null> {
   const params = new URLSearchParams();

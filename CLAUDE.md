@@ -34,6 +34,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 14 | Matriz de retorno por cidade, atividade e Focus | ✅ |
 | 15 | Taxa de estação derivada do valor do item | ✅ |
 | 16 | Especialização: redução do custo de Focus | ✅ |
+| 17 | Preço manual sobrescrevendo a cotação coletada | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -267,6 +268,39 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 17 — preço manual
+
+- **Quem está com o jogo aberto sabe mais que a coleta.** `manual_prices` deixa
+  o usuário informar o preço, e onde houver preço manual ele vence o coletado.
+- **Preço manual também envelhece, e é isso que o separa de uma sobrescrita
+  permanente.** Passado o limite de frescor ele deixa de valer e o coletado
+  volta. Um número digitado há três dias é pior que uma cotação de três dias:
+  parece autoridade.
+- **Expirado é dito, não ignorado.** A linha carrega `manual_expired` e a tela
+  mostra em âmbar. Ignorar em silêncio faria o usuário achar que o preço dele
+  continua valendo.
+- **`kind` é nomeado pela consequência.** `COMPRA` sobrescreve
+  `sell_price_min` (o que você paga) e `VENDA` sobrescreve `buy_price_max` (o
+  que você recebe). É a regra 7 no lugar em que ela mais morde: chamar os dois
+  de "preço" inverteria o sinal do lucro na metade dos casos.
+- **A idade exibida é a de quando foi informado**, não a da cotação que ele
+  substituiu. Herdar a idade do coletado faria um preço fresco parecer velho.
+- **Reinformar renova a idade**, de propósito: quem reinforma acabou de olhar o
+  mercado.
+- **O coletado aparece riscado ao lado do manual.** Ver os dois é o que permite
+  perceber um zero a mais — sem isso, um erro de digitação vira "oportunidade".
+- **`user_id` é o `discord_id` da sessão.** Não há tabela de contas; a fonte da
+  verdade do acesso já é o Discord. Quando contas existirem, vira FK sem mudar
+  a semântica.
+- **O backend não valida sessão: o Next manda `X-User-Id`.** É decisão de
+  confiança, não esquecimento — o FastAPI não é exposto ao browser (regra 4).
+  Está escrito em `api/deps.py` para o dia em que deixar de ser verdade.
+- **Sem sessão, tudo se comporta como antes.** O overlay fica vazio; é o modo
+  de desenvolvimento local, onde não há login.
+- **Bug pego em teste:** `returning()` num UPSERT devolve o objeto do identity
+  map, não o do banco. Reinformar devolvia o preço **antigo** com o banco já
+  atualizado. `populate_existing=True` resolve.
 
 ## Notas da fase 16 — especialização
 
