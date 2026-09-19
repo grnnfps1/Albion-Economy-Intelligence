@@ -152,6 +152,38 @@ decisão errada do usuário.
     a taxa em **duas** colunas próprias, que confirmam a fórmula em 49 linhas.
     O relato está em `docs/04-taxas.md` §11, "O que eu errei".
 
+14. **Campo que pode virar fracionário por construção nunca é `int`.**
+
+    `focus_cost` era `int` e recebia `54 × 0,5^(FCE/10000) = 17,6908`. O
+    Pydantic aceita `54.0` — float **sem** parte fracionária — num campo `int`,
+    e recusa `17,6908`. Resultado: `/crafting` e `/focus` respondendo 500
+    inteiras, com o frontend dizendo "a API não respondeu".
+
+    **O que esconde é o caso padrão devolver valor redondo.** Sem
+    especialização o multiplicador é `1,0` e o resultado sai inteiro; o tipo
+    errado atravessou da fase 16 à 32 sem nenhum sintoma.
+
+    Vale para tudo que passa por **multiplicador, taxa ou divisão**: custo com
+    desconto, quantidade com retorno, focus com spec, qualquer média. A
+    pergunta antes de escrever `int` é *existe entrada que torne isto
+    fracionário?* — não *o valor que eu tenho na mão agora é inteiro?*
+
+    O irmão do campo já dizia a verdade: `base_focus_cost`, o focus **antes**
+    da redução, era `float | None` no mesmo `class`. Quando dois campos
+    descrevem a mesma grandeza em momentos diferentes, o que passou pelo
+    multiplicador é o que precisa de mais casas, não menos.
+
+15. **Teste de serialização exercita o parâmetro opcional PREENCHIDO, não só
+    ausente.**
+
+    Todos os testes de API passavam `spec_levels=None`, e `None` percorre o
+    caminho em que o multiplicador é `1,0`. A regra 14 esteve quebrada por
+    dezesseis fases com a suíte inteira verde.
+
+    Parâmetro opcional tem **dois** caminhos, e o interessante é quase sempre o
+    preenchido: é ele que aciona a redução, o desvio de cidade, a sobrescrita.
+    Testar só a ausência testa o caminho que já funcionava.
+
 ## Arquitetura em uma tela
 
 ```
@@ -351,7 +383,8 @@ obrigatório. Nenhuma delas lê configuração.
   num `int`. Todos os testes de API passavam `spec_levels=None`. O bug estava lá
   desde a fase 16 e só apareceu quando alguém informou uma especialização.
   É a regra 12 com outra roupa: lá era o encantamento que não mudava peso nem
-  categoria; aqui é o spec zero que devolve um número redondo.
+  categoria; aqui é o spec zero que devolve um número redondo. Virou a **regra
+  14**, e o que deixou passar virou a **regra 15**.
 - **A pista estava na linha de baixo.** `base_focus_cost` — o focus **antes** da
   redução — já era `float | None`. O campo reduzido, que é o que de fato vira
   fracionário, ficou `int`. Os dois foram escritos no mesmo commit.

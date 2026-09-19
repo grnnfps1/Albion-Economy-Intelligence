@@ -127,6 +127,74 @@ O que cresceu foi o corpo da resposta, de 46 KB para 108 KB, por causa da lista
 de cidades por material. Vale o preço: é a informação que responde "vale a
 viagem?", e 108 KB não é tempo de render perceptível.
 
+## Adendo de 19/09/2026 — `/focus` estoura o tempo limite, e o gargalo mudou de lugar
+
+> Medição a pedido, **antes** de qualquer mudança. Nada foi otimizado.
+
+### O erro intermitente é real, e foi reproduzido
+
+A tela `/focus` chama a rota com `limit=40` e o conjunto completo de parâmetros
+de preferência. Oito execuções dessa chamada exata:
+
+```
+4596  4772  4998  5058  5078  5321  6150  10547   ms
+mediana 5068 · máximo 10547
+```
+
+**Uma em oito passou dos 10.000 ms** e seria cancelada pelo
+`AbortSignal.timeout` do frontend — aparecendo como "a API não respondeu", sem
+nada anormal no log do backend.
+
+Isso corrige uma medição anterior minha, feita com `limit=3` e sem parâmetros,
+que deu 2,8–3,3 s e subestimou o risco. **O `limit` real é 40, e os parâmetros
+de preferência mudam o tempo**: com a taxa da estação preenchida mais linhas
+ficam calculáveis, e mais trabalho acontece depois.
+
+### Onde está o tempo
+
+`/focus` chama duas rotas pesadas em sequência:
+
+| ms | Etapa |
+|---:|---|
+| 463 | `find_crafting_opportunities(limit=200)` |
+| **3739** | **`find_refining_opportunities(limit=200)`** |
+| 4202 | soma |
+
+**O refino é 89% do tempo.** Perfilando dentro dele (cProfile, tempo cumulativo
+— o profiler infla o absoluto, o que vale é a proporção):
+
+| Chamadas | cumulativo | Função |
+|---:|---:|---|
+| **51.407** | 3,39 s | `chain.resolve_unit_cost` |
+| 42.514 | 3,36 s | `chain._avaliar` |
+| **51.292** | 2,23 s | `refining_service.receitas_de` |
+| **43.900** | 1,47 s | `specialization_service.focus_cost_of` |
+| 43.900 | 0,96 s | └ `specialization_service.profile_of` |
+| 59 | 2,30 s | `recipes_repo.list_recipes` |
+
+### O que isso muda em relação ao diagnóstico anterior
+
+Este documento dizia que o gargalo era `list_recipes` lendo 12.917 receitas. Isso
+continua verdade **para o calculador**. Para `/focus` não é a mesma história:
+
+- A recursão da cadeia resolve **51 mil vezes** para 200 oportunidades — cerca
+  de 250 resoluções por oportunidade. A cadeia T2→T8 compartilha subárvores (o
+  T6 é insumo do T7 e do T8), e aparentemente cada caminho as recalcula.
+- `profile_of` é reconstruído **43.900 vezes**. É trabalho de CPU puro,
+  determinístico, sobre os mesmos níveis de especialização.
+- `list_recipes` aparece com 59 chamadas, e a diferença entre os dois modos é
+  grande: `tracked_only=False` custa **1131 ms** para 12.917 receitas;
+  `tracked_only=True` custa **30 ms** para 435. Trinta e oito vezes.
+
+Nenhuma dessas três é conserto de uma linha, e nenhuma foi feita. A medição
+existe para a decisão ser tomada com os números na mesa.
+
+### O paliativo que **não** foi aplicado
+
+Subir o `AbortSignal.timeout(10_000)` faria o erro intermitente sumir sem
+consertar nada — e trocaria "às vezes falha" por "sempre lento", que é pior de
+diagnosticar. Fica registrado como opção consciente, não como esquecimento.
+
 ## Conclusão
 
 A escolha de calcular no servidor **não** é o gargalo e não precisa ser
