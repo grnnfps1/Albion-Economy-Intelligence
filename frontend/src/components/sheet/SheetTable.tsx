@@ -34,6 +34,14 @@ export const SHEET_WIDTHS = {
    * o balão de hover. Preferir isto a esconder um ingrediente.
    */
   matNarrow: "6.4rem",
+  /**
+   * Material no calculador: precisa de mais que os outros.
+   *
+   * A célula carrega ícone de 30px, um campo de preço editável e a linha
+   * "comprar N" — que pode ter seis dígitos. A 9,5rem do ranking o "comprar N"
+   * truncava e o preço encostava na borda.
+   */
+  calcMat: "11.5rem",
   /** Prata. Cabe `1.683.277` sem quebrar. */
   num: "6.8rem",
   /** Percentual. */

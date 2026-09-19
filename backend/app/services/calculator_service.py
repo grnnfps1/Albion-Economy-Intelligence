@@ -302,15 +302,39 @@ def _linha(
     # Custeia cada variante e fica com a mais barata — mesma regra do motor de
     # refino. A descartada vai na linha, porque com token o custo muda muito.
     avaliadas = []
+    incompletas = []
     for receita in variantes:
         materiais = _materiais(receita, catalogo, compras, manual)
         if materiais is None:
             continue
-        custo = sum((m.gross_cost or 0) for m in materiais)
-        avaliadas.append((custo, receita, materiais))
+        # Material sem cotação **não** custa zero. Tratá-lo como zero fazia a
+        # variante incompleta parecer a mais barata e vencer a comparação —
+        # custo parcial não é custo menor, é custo desconhecido (regra 1).
+        if any(not m.known for m in materiais):
+            incompletas.append((receita, materiais))
+            continue
+        avaliadas.append((sum(m.gross_cost or 0 for m in materiais), receita, materiais))
 
     if not avaliadas:
-        base.reason = "sem cotação para os materiais"
+        # Nenhuma variante tem todos os preços. A resposta usa a primeira
+        # incompleta para que `compute_craft` nomeie **qual** material falta,
+        # em vez de dizer só "sem cotação".
+        if incompletas:
+            receita, materiais = incompletas[0]
+            economia = compute_craft(
+                materials=materiais, sell_price=venda, fees=fees,
+                return_rate=taxa_retorno,
+                station_fee=taxa_estacao.fee_of(item.unique_name),
+                output_quantity=receita.output_quantity,
+                focus_cost=spec.focus_cost_of(item.unique_name, receita.focus_cost),
+                crafts=quantidade, strategy=Strategy.PATIENT,
+            )
+            base.materials = _materiais_out(
+                receita, catalogo, compras, manual, materiais, quantidade, taxa_retorno
+            )
+            base.reason = economia.reason
+        else:
+            base.reason = "sem cotação para os materiais"
         return base
 
     avaliadas.sort(key=lambda a: a[0])

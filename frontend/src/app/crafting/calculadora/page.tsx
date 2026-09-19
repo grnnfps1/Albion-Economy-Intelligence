@@ -1,6 +1,7 @@
 import { PriceInput } from "@/components/calculator/PriceInput";
 import { PageShell } from "@/components/PageShell";
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { materialColumnCount } from "@/components/sheet/MaterialCell";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { HoverTip } from "@/components/sheet/HoverTip";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
@@ -60,25 +61,38 @@ const GRUPOS = [
  * ensina é a da conta — material, taxas, custo, receita, lucro. Quem só quer o
  * resultado lê a última coluna; quem quer entender lê da esquerda.
  */
-const COLUNAS: SheetColumn[] = [
-  { label: "tier", width: "focus", left: true },
-  { label: "item", width: "item", left: true },
-  { label: "você vende por", width: "num", title: "editável — o seu preço vence o coletado" },
-  { label: "material", width: "num", title: "já com o retorno descontado" },
-  { label: "taxa da loja", width: "num", title: "item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
-  { label: "taxa de venda", width: "num", title: "imposto + setup fee sobre a receita bruta" },
-  {
-    label: "focus",
-    width: "num",
-    title:
-      "custo em Focus das unidades pedidas, já reduzido pela sua especialização. Fica entre as colunas de custo porque é custo — só não é em prata.",
-  },
-  { label: "custo de produção", width: "num" },
-  { label: "receita bruta", width: "num" },
-  { label: "lucro", width: "num" },
-  { label: "margem", width: "pct", title: "sobre a receita bruta; entre parênteses, sobre o custo" },
-  { label: "escoa em", width: "mini", title: "quantos dias o giro leva para absorver a quantidade" },
-];
+function colunas(maxMateriais: number): SheetColumn[] {
+  return [
+    { label: "tier", width: "focus", left: true },
+    { label: "item", width: "item", left: true },
+    { label: "você vende por", width: "num", title: "editável — o seu preço vence o coletado" },
+    // Uma coluna por material, como no resto do produto. Empilhá-los dentro da
+    // célula do item era o que fazia o terceiro sair do alinhamento e o preço
+    // encostar na borda: célula composta não tem largura própria.
+    ...Array.from({ length: maxMateriais }, (_, i) => ({
+      label: `mat. ${i + 1}`,
+      width: "calcMat" as const,
+      left: true,
+    })),
+    { label: "material", width: "num", title: "já com o retorno descontado" },
+    { label: "taxa da loja", width: "num", title: "item value × 0,1125 × prata por 100 de nutrição ÷ 100" },
+    { label: "taxa de venda", width: "num", title: "imposto + setup fee sobre a receita bruta" },
+    {
+      label: "focus",
+      width: "num",
+      title:
+        "custo em Focus das unidades pedidas, já reduzido pela sua especialização. Fica entre as colunas de custo porque é custo — só não é em prata.",
+    },
+    { label: "custo de produção", width: "num" },
+    { label: "receita bruta", width: "num" },
+    { label: "lucro", width: "num" },
+    // Investimento em coluna própria: com oito dígitos nos dois, ele brigava com
+    // o lucro dentro da mesma célula.
+    { label: "investe", width: "num", title: "capital que sai do bolso antes de vender" },
+    { label: "margem", width: "pct", title: "sobre a receita bruta; entre parênteses, sobre o custo" },
+    { label: "escoa em", width: "mini", title: "quantos dias o giro leva para absorver a quantidade" },
+  ];
+}
 
 const EXPORTACAO: ExportColumn<CalcRow>[] = [
   { header: "imagem", value: (r) => r.icon_url, image: true },
@@ -129,6 +143,7 @@ export default async function CalculadoraPage({
   } as Record<string, string>);
 
   const linhas = data?.rows ?? [];
+  const maxMateriais = materialColumnCount(linhas.map((l) => l.materials.length));
   const familia = FAMILIAS.find(([v]) => v === data?.family)?.[1] ?? "";
 
   return (
@@ -160,7 +175,7 @@ export default async function CalculadoraPage({
         <>
           <Parametros data={data} quantidade={Number(quantidade)} />
 
-          <SheetTable columns={COLUNAS}>
+          <SheetTable columns={colunas(maxMateriais)}>
             {linhas.map((linha) => (
               <Linha
                 key={linha.item}
@@ -168,14 +183,15 @@ export default async function CalculadoraPage({
                 server={data.server}
                 buyLocation={data.buy_location}
                 sellLocation={data.sell_location}
+                maxMateriais={maxMateriais}
               />
             ))}
           </SheetTable>
 
           <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-            <b>Como ler:</b> o badge no ícone de cada material é <i>quanto comprar</i> para as{" "}
-            {formatSilver(Number(quantidade))} unidades — já descontado o retorno e arredondado
-            para cima, porque não se compra meio pelego. {data.return_note} A{" "}
+            <b>Como ler:</b> o <i>comprar N</i> sob o preço de cada material é quanto comprar
+            para as {formatSilver(Number(quantidade))} unidades — já descontado o retorno e
+            arredondado para cima, porque não se compra meio pelego. {data.return_note} A{" "}
             <i>taxa de venda</i> é imposto mais setup fee: uma ordem de venda paga os dois, e o
             setup mesmo se a ordem não executar. A margem aparece sobre a receita bruta e, entre
             parênteses, sobre o custo de produção — a segunda é a definição que a planilha usa.
@@ -230,6 +246,23 @@ function Parametros({
           valor={`${formatSilver(p.station_fee_per_100_nutrition)} / 100 nutr.`}
         />
       )}
+      {/* Ao lado da taxa da estação porque é o outro número que só existe na
+          tela do jogo: varia por cidade e por dia, e o sistema não tem como
+          sabê-lo. Vazio não é "o bônus é zero" — é "não estou modelando", e a
+          tira diz isso em vez de calar. */}
+      {data.material_return.assumes_no_daily_bonus ? (
+        <span className="flex items-center gap-1.5">
+          <span className="lbl">bônus do dia</span>
+          <span className="text-[10.5px] text-muted">
+            assumido zero — informe nas preferências se a cidade tiver bônus hoje
+          </span>
+        </span>
+      ) : (
+        <Param
+          rotulo="bônus do dia"
+          valor={`+${(data.material_return.daily_bonus * 100).toFixed(0)}% em B`}
+        />
+      )}
       <Param
         rotulo="imposto"
         valor={p.fees.sales_tax_pct === null ? "—" : `${(p.fees.sales_tax_pct * 100).toFixed(1)}%`}
@@ -261,11 +294,13 @@ function Linha({
   server,
   buyLocation,
   sellLocation,
+  maxMateriais,
 }: {
   linha: CalcRow;
   server: string;
   buyLocation: string;
   sellLocation: string;
+  maxMateriais: number;
 }) {
   const positivo = linha.known ? (linha.profit ?? 0) > 0 : null;
   const tinta =
@@ -292,25 +327,9 @@ function Linha({
             tier={linha.tier}
             size={38}
           />
-          <span className="min-w-0">
-            <span className="flex min-w-0 items-center">
-              <span className="truncate">{linha.item_name ?? linha.item}</span>
-              <CopyButton name={linha.item_name} id={linha.item} />
-            </span>
-            {/* Os materiais ficam aqui, com o badge dizendo quanto comprar.
-                Não repetimos a receita em texto: as colunas de material já
-                são a receita, e repetir gasta a largura das de decisão. */}
-            <span className="mt-1 flex items-center gap-2.5">
-              {linha.materials.map((m) => (
-                <Material
-                  key={m.item}
-                  material={m}
-                  tier={linha.tier}
-                  server={server}
-                  buyLocation={buyLocation}
-                />
-              ))}
-            </span>
+          <span className="flex min-w-0 items-center">
+            <span className="truncate">{linha.item_name ?? linha.item}</span>
+            <CopyButton name={linha.item_name} id={linha.item} />
           </span>
         </span>
       </td>
@@ -327,6 +346,20 @@ function Linha({
           ageSeconds={linha.sell_age_seconds}
         />
       </td>
+
+      {Array.from({ length: maxMateriais }, (_, i) => {
+        const m = linha.materials[i];
+        if (!m) return <td key={`vazio-${i}`} className="l text-dim">—</td>;
+        return (
+          <Material
+            key={m.item}
+            material={m}
+            tier={linha.tier}
+            server={server}
+            buyLocation={buyLocation}
+          />
+        );
+      })}
 
       <Numero valor={linha.material_cost} dica={
         linha.returned_value === null
@@ -361,21 +394,16 @@ function Linha({
         {linha.profit === null ? (
           <span className="text-[10.5px] text-dim">—</span>
         ) : (
-          <>
-            <span
-              className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
-            >
-              {positivo ? "+" : ""}
-              {formatSilver(linha.profit)}
-            </span>
-            {linha.total_investment !== null && (
-              <span className="lbl mt-px block">
-                investe {formatSilver(linha.total_investment)}
-              </span>
-            )}
-          </>
+          <span
+            className={`figure font-semibold text-[13px] ${positivo ? "text-up" : "text-down"}`}
+          >
+            {positivo ? "+" : ""}
+            {formatSilver(linha.profit)}
+          </span>
         )}
       </td>
+
+      <Numero valor={linha.total_investment} dica="material bruto mais a taxa da estação" />
 
       <td
         className={`figure ${
@@ -443,33 +471,37 @@ function Material({
     .join(" · ");
 
   return (
-    <HoverTip dica={dica} className="flex items-center gap-1">
-      <ItemIcon
-        url={material.icon_url}
-        alt={material.item_name ?? material.item}
-        tier={tier}
-        quantity={material.buy_units}
-        size={30}
-      />
-      <span className="flex flex-col items-end">
-        <PriceInput
-          server={server}
-          location={material.location ?? buyLocation}
-          item={material.item}
-          kind="COMPRA"
-          value={material.unit_price}
-          collected={material.collected_price}
-          isManual={material.price_is_manual}
-          ageSeconds={material.age_seconds}
+    <td className="l align-top">
+      <HoverTip dica={dica} className="flex w-full items-start gap-1.5">
+        <ItemIcon
+          url={material.icon_url}
+          alt={material.item_name ?? material.item}
+          tier={tier}
+          size={30}
         />
-        {/* Copiar o nome em português, como nas outras telas: é o que a busca
-            do mercado no jogo entende. Aqui ele importa mais que em qualquer
-            outra tela, porque esta lista é literalmente a lista de compras. */}
-        <span className="flex items-center gap-px text-[9px] text-dim">
-          <span>comprar {formatSilver(material.buy_units)}</span>
-          <CopyButton name={material.item_name} id={material.item} />
+        <span className="flex min-w-0 flex-1 flex-col items-end gap-px">
+          <PriceInput
+            server={server}
+            location={material.location ?? buyLocation}
+            item={material.item}
+            kind="COMPRA"
+            value={material.unit_price}
+            collected={material.collected_price}
+            isManual={material.price_is_manual}
+            ageSeconds={material.age_seconds}
+          />
+          {/* "comprar N" ganhou linha própria: espremido ao lado do preço ele
+              truncava. A quantidade saiu do badge do ícone pelo mesmo motivo —
+              seis dígitos não cabem num selo de 30px. */}
+          <span className="flex w-full items-center justify-end gap-px whitespace-nowrap text-[9.5px]">
+            <span className="text-muted">comprar {formatSilver(material.buy_units)}</span>
+            {/* Nome em português: é o que a busca do mercado no jogo entende,
+                e aqui importa mais que em qualquer tela — esta é a lista de
+                compras. */}
+            <CopyButton name={material.item_name} id={material.item} />
+          </span>
         </span>
-      </span>
-    </HoverTip>
+      </HoverTip>
+    </td>
   );
 }

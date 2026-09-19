@@ -1,0 +1,3 @@
+
+# Cache incremental do tsc: artefato de build, regerado a cada typecheck.
+tsconfig.tsbuildinfo
