@@ -1,5 +1,6 @@
 import { PriceInput } from "@/components/calculator/PriceInput";
 import { PageShell } from "@/components/PageShell";
+import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { HoverTip } from "@/components/sheet/HoverTip";
@@ -175,6 +176,10 @@ export default async function CalculadoraPage({
 
   const linhas = data?.rows ?? [];
   const papeis = papeisPresentes(linhas);
+  // O único parâmetro que, sozinho, deixa a tabela inteira sem número.
+  const faltaTaxaDaEstacao = (data?.params.missing ?? []).includes(
+    "crafting.station_fee_per_100_nutrition",
+  );
   const familia = FAMILIAS.find(([v]) => v === data?.family)?.[1] ?? "";
 
   return (
@@ -204,6 +209,7 @@ export default async function CalculadoraPage({
 
       {data && linhas.length > 0 && (
         <>
+          {faltaTaxaDaEstacao && <StationFeePrompt prefs={prefs} />}
           <Parametros data={data} quantidade={Number(quantidade)} />
 
           <SheetTable columns={colunas(papeis)} freeze={2}>
@@ -269,17 +275,14 @@ function Parametros({
           mappingKnown={data.material_return.mapping_known}
         />
       </span>
-      {/* Único parâmetro sem padrão. Vazio é estado legítimo aqui, e a tela
-          orienta onde ler o número em vez de inventar um. */}
+      {/* Único parâmetro sem padrão. Vazio é estado legítimo aqui — quem
+          explica é o painel acima da tabela (`StationFeePrompt`), e repetir a
+          frase inteira aqui seria a mesma informação duas vezes na mesma tela. */}
       {p.station_fee_per_100_nutrition === null ? (
         <span className="flex items-center gap-1.5">
           <span className="lbl">taxa da loja</span>
           <span className="figure rounded-[2px] border border-warn px-1.5 py-px text-[10.5px] text-warn">
             desconhecida
-          </span>
-          <span className="text-[10.5px] text-muted">
-            abra a estação no jogo e leia a taxa de uso — costuma ficar na casa das
-            centenas (a planilha de referência usava 184). Informe nas preferências.
           </span>
         </span>
       ) : (
@@ -490,6 +493,11 @@ function Linha({
       >
         {linha.days_to_sell === null ? (
           <span className="text-[9.5px]">sem dado</span>
+        ) : linha.days_to_sell < 0.1 ? (
+          // Arredondado, o giro alto vira "0,0 d", que se lê como ausência. O
+          // que ele quer dizer é que o mercado absorve a quantidade no mesmo
+          // dia — e isso é informação boa, não um zero.
+          "< 1 d"
         ) : (
           `${linha.days_to_sell} d`
         )}
@@ -562,15 +570,14 @@ function Impedimento({ linha }: { linha: CalcRow }) {
     );
   }
 
-  if (linha.blocker === "parametro") {
-    return (
-      <span className="text-[9.5px] text-warn" title={linha.reason ?? undefined}>
-        falta parâmetro ↑
-      </span>
-    );
-  }
-
-  return <span className="text-[10.5px] text-dim">—</span>;
+  // Falta de parâmetro é global e o painel no topo já a explica por extenso.
+  // Repeti-la em vinte e três linhas seria a mesma frase vinte e três vezes —
+  // a regra "nada duplicado". O traço aqui tem quem o explique logo acima.
+  return (
+    <span className="text-[10.5px] text-dim" title={linha.reason ?? undefined}>
+      —
+    </span>
+  );
 }
 
 function Material({

@@ -43,6 +43,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 23 | Calculador escala pela quantidade; razões invariantes | ✅ |
 | 24 | Linha sem número diz **por quê**; base unitária | ✅ |
 | 25 | Abreviação de valor grande, com fronteira explícita | ✅ |
+| 26 | Histórico coletado; estado vazio da taxa da estação | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -332,6 +333,41 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 26 — o vazio precisa se explicar
+
+- **`market_history` estava com zero linhas.** O coletor de histórico nunca
+  havia rodado, e por isso `liquidity_status` era UNKNOWN em tudo. Uma passada
+  (`python -m app.cli.collect_history --server west --days 30`) trouxe **59.394
+  buckets** de 455 itens em 10 requisições, com 2.429 marcados como outlier e
+  zero rejeitados. "escoa em" passou a responder em 27 de 27 linhas.
+- **A decisão de a taxa da estação nascer UNKNOWN continua certa, e mesmo assim
+  a tela estava errada.** A regra 2 diz para não inventar número; ela não diz
+  para deixar o usuário adivinhando. Sem a taxa, as 27 linhas ficavam com traço
+  em oito colunas, e **traço repetido não se lê como "falta um dado" — se lê
+  como "quebrou"**.
+- **A tira do topo não bastava, e a razão é de hierarquia.** Ela dizia "taxa da
+  loja: desconhecida" em âmbar, correto e invisível: um rótulo de 10px entre
+  outros cinco parâmetros compete com eles, enquanto o vazio da tabela ocupa a
+  tela inteira. Quando o sintoma é grande e a explicação é pequena, o usuário
+  acredita no sintoma.
+- **O campo veio junto do aviso.** Mandar "informe nas preferências" cria um
+  segundo passo — abrir o painel, achar o campo entre quinze, voltar. Para o
+  único parâmetro que bloqueia a tela inteira, o input fica no próprio aviso.
+  Grava a mesma preferência, no mesmo cookie: atalho para o mesmo lugar, não uma
+  segunda fonte de verdade.
+- **Com o painel no topo, o ponteiro por linha virou ruído.** "falta parâmetro"
+  em vinte e três linhas é a mesma frase vinte e três vezes. O traço voltou
+  nessas linhas — mas agora ele tem quem o explique logo acima. As linhas com
+  falta de **cotação** mantêm o texto próprio, porque o painel não fala delas.
+- **Bug que o histórico revelou: `days_to_sell` morava dentro do ramo
+  `known`.** Escoamento sai do giro medido e da quantidade pedida — não depende
+  do lucro, e portanto não depende da taxa da estação. Sumia justamente nas
+  linhas em que o usuário mais queria alguma informação na tela. Há teste de
+  integração exigindo `known is False` **e** `days_to_sell` preenchido.
+- **"0,0 d" se lê como ausência.** Giro alto arredondado a uma casa vira zero, e
+  zero numa coluna que também tem "sem dado" confunde duas coisas opostas. Passa
+  a ser **"< 1 d"**: o mercado absorve no mesmo dia, o que é informação boa.
 
 ## Notas da fase 25 — a abreviação voltou, e só até onde deve
 

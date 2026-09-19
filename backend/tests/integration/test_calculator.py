@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 
 from app.collectors.aodp.normalization import MarketPriceRecord
 from app.models.catalog import Item
@@ -219,3 +220,68 @@ class TestPrecoManual:
         linha = next(x for x in resposta.rows if x.tier_label == "T4.0")
         assert linha.sell_price == 1000
         assert linha.sell_price_is_manual is False
+
+
+class TestEscoaEm:
+    """O giro não depende do lucro, e a linha bloqueada também tem direito a ele."""
+
+    async def _com_historico(self, session, familia, unidades_por_dia: int):
+        """Trinta dias de histórico para o couro T4, com volume conhecido."""
+        from app.collectors.aodp.normalization import MarketHistoryRecord
+        from app.repositories import history as history_repo
+        from app.repositories.reference import list_locations
+
+        servidor = (await session.scalars(select(Server).where(Server.code == "west"))).one()
+        local = next(x for x in await list_locations(session, only_active=False))
+        fonte = (await session.scalars(select(DataSource))).first()
+        await history_repo.upsert_history(session, [
+            MarketHistoryRecord(
+                server_id=servidor.id, location_id=local.id,
+                item_id=familia["T4_LEATHER"].id, quality=1, timescale=24,
+                bucket_ts=AGORA - timedelta(days=dia),
+                item_count=unidades_por_dia, avg_price=1000,
+                source_id=fonte.id, ingested_at=AGORA,
+            )
+            for dia in range(1, 31)
+        ])
+        await session.flush()
+
+    async def test_sem_historico_o_giro_e_desconhecido_e_nao_zero(self, session, familia):
+        """Ausência de histórico não é giro zero — é ausência (regra 1)."""
+        resposta = await build_calculator(session, **PADRAO)
+        linha = next(x for x in resposta.rows if x.tier_label == "T4.0")
+        assert linha.days_to_sell is None
+        assert linha.liquidity_units_per_day is None
+
+    async def test_com_historico_o_giro_chega(self, session, familia):
+        await self._com_historico(session, familia, unidades_por_dia=200)
+        resposta = await build_calculator(session, **PADRAO)
+        linha = next(x for x in resposta.rows if x.tier_label == "T4.0")
+        assert linha.liquidity_units_per_day == pytest.approx(200, rel=0.01)
+        # 100 unidades a 200/dia escoam em meio dia.
+        assert linha.days_to_sell == pytest.approx(0.5, abs=0.05)
+
+    async def test_escoa_em_sobrevive_a_falta_da_taxa_da_estacao(self, session, familia):
+        """Era o bug: a coluna ficava dentro do ramo `known`.
+
+        Sem a taxa da estação a linha não tem lucro — e mesmo assim tem giro
+        medido e quantidade pedida, que é tudo de que o escoamento precisa.
+        Some justamente quando o usuário mais queria alguma informação na tela.
+        """
+        await self._com_historico(session, familia, unidades_por_dia=200)
+        resposta = await build_calculator(
+            session, **(PADRAO | {"station_fee_per_100_nutrition": None})
+        )
+        linha = next(x for x in resposta.rows if x.tier_label == "T4.0")
+        assert linha.known is False
+        assert linha.profit is None
+        assert linha.days_to_sell == pytest.approx(0.5, abs=0.05)
+
+    async def test_escoar_escala_com_a_quantidade(self, session, familia):
+        """Diferente das razões: este é extensivo, e tem de dobrar."""
+        await self._com_historico(session, familia, unidades_por_dia=200)
+        uma = await build_calculator(session, **(PADRAO | {"quantity": 100}))
+        duas = await build_calculator(session, **(PADRAO | {"quantity": 200}))
+        de = next(x for x in uma.rows if x.tier_label == "T4.0").days_to_sell
+        para = next(x for x in duas.rows if x.tier_label == "T4.0").days_to_sell
+        assert para == pytest.approx(de * 2, rel=0.05)

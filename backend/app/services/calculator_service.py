@@ -326,6 +326,13 @@ def _linha(
     sinal = next((v for (i, _l, _q), v in sinais.items() if i == item.id and v.known), None)
     base.liquidity_units_per_day = sinal.units_per_day if sinal else None
 
+    # Quantos dias a quantidade leva para escoar **não depende do lucro**: sai
+    # do giro medido e da quantidade pedida, e os dois existem mesmo quando a
+    # taxa da estação falta. Ficava dentro do ramo `known` e por isso sumia
+    # justamente nas linhas em que o usuário mais queria alguma informação.
+    if sinal and sinal.known and sinal.units_per_day:
+        base.days_to_sell = round(quantidade / sinal.units_per_day, 1)
+
     variantes = receitas.get(item.id) or []
     if not variantes:
         base.reason = "sem receita no dump"
@@ -425,8 +432,6 @@ def _linha(
     base.total_investment = round(
         (economia.material_cost_gross or 0) + (economia.station_fee or 0), 2
     )
-    if sinal and sinal.known and sinal.units_per_day:
-        base.days_to_sell = round(quantidade / sinal.units_per_day, 1)
 
     return base
 
