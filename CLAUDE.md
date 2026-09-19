@@ -410,13 +410,24 @@ obrigatório. Nenhuma delas lê configuração.
   decide, ele não usa nada. Refino e Focus colavam `lbl` embaixo do número
   grande e colorido (`+1.326.913,49` / `6,61 UN · FOCUS`), e duas ênfases
   empilhadas viram bloco. Virou `Sub`: caixa baixa, apagado, mesmo respiro.
-- **Um acento de cor por linha.** O Calculador colore o lucro e a margem — o
-  mesmo fato em número e em razão — e deixa o resto neutro. Refino coloria
+- **Um acento de cor por linha, e a regra se aplica ao segundo número
+  grande também.** O Calculador colore o lucro e a margem — o mesmo fato em
+  número e em razão, **colados** — e deixa o resto neutro. Eu tinha deixado
+  passar três casos que quebravam isso e alegavam a mesma justificativa: o ROI
+  em `/crafting`, o `lucro/dia` em `/crafting` e `/refining`, e o `por ciclo`
+  que eu mesmo acrescentei em `/agricultura`. Todos são o lucro dito de outro
+  jeito — mas **longe** dele, em outra coluna, e aí viram um segundo acento
+  disputando a linha em vez de um par que se lê junto. A diferença é a
+  proximidade, não o parentesco do número. Refino coloria
   também prata/focus, lucro/dia e a idade; arbitragem tinha quatro cores de
   banda mais a pílula de zona. Com tudo colorido nada se destaca, e a cor
   deixa de carregar informação para virar decoração, que é o que a linguagem
   visual do projeto proíbe. **A informação não saiu** — a banda continua
   escrita por extenso, a idade continua na linha; o que saiu foi a competição.
+- **Nome de classe usado como enum some sem avisar.** `tomDeIdade` devolvia
+  `"text-up"` / `"text-down"`; quando a idade deixou de ser colorida, o valor
+  sobrou sendo comparado como sentinela (`=== "text-down"`) para decidir o
+  âmbar. Passou a devolver `fresco`/`morno`/`velho`.
 - **Zero valor de estilo escrito na tela.** As sete telas densas não têm mais
   nenhum `text-[Npx]`, `rounded-[Npx]`, `px-[Npx]` nem `bg-[linear-gradient…]`.
   O tingimento da linha, que era um literal de 60 caracteres repetido em seis

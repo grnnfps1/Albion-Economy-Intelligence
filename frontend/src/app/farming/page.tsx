@@ -386,11 +386,9 @@ function FarmLine({
         {eco.profit_per_cycle === null ? (
           <span className="text-aux text-dim">—</span>
         ) : (
-          <span
-            className={`figure ${eco.profit_per_cycle > 0 ? "text-up" : "text-down"}`}
-          >
-            {formatSilverCompact(eco.profit_per_cycle)}
-          </span>
+          // Neutro pelo mesmo motivo: o acento da linha é o lucro por dia, e
+          // este é o mesmo lucro sem dividir pelo tempo.
+          <span className="figure">{formatSilverCompact(eco.profit_per_cycle)}</span>
         )}
       </td>
 

@@ -260,11 +260,19 @@ function resumoDaCadeia(op: RefiningOpportunity, base: string): string {
  * Existe aqui porque a idade deixou de ter coluna própria: ela precisa viver
  * como cor de um rótulo que já existe, sem gastar largura.
  */
+/**
+ * A faixa de frescor da cotação — **não** uma classe de cor.
+ *
+ * Ela devolvia `"text-up"` / `"text-down"`, e depois que a idade deixou de ser
+ * colorida o valor sobrou sendo comparado como sentinela: `=== "text-down"`
+ * para decidir o âmbar. Nome de classe usado como enum é o tipo de coisa que
+ * some no dia em que alguém renomeia a classe e nada acusa.
+ */
 function tomDeIdade(segundos: number | null): string {
-  if (segundos === null) return "text-dim";
-  if (segundos <= 900) return "text-up";
-  if (segundos <= 21600) return "text-warn";
-  return "text-down";
+  if (segundos === null) return "sem dado";
+  if (segundos <= 900) return "fresco";
+  if (segundos <= 21600) return "morno";
+  return "velho";
 }
 
 /**
@@ -313,7 +321,10 @@ function LucroDia({
   const positivo = profit > 0;
   return (
     <td title={trava.dica}>
-      <span className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}>
+      {/* Neutro: a linha já tem um acento — o lucro — e este é o mesmo lucro
+          dividido pelo tempo. Dois números grandes e coloridos disputam a
+          leitura e nenhum vence. */}
+      <span className="figure font-semibold text-val">
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
@@ -372,7 +383,7 @@ function RefiningLine({ op, base }: { op: RefiningOpportunity; base: string }) {
         {/* A idade era colorida e disputava a atenção com o lucro. Ela
             continua na linha, quieta — o âmbar fica para o que passou do
             limite de frescor, que é decisão, não leitura. */}
-        <Sub tom={tomDeIdade(op.sell_age_seconds) === "text-down" ? "warn" : undefined}>
+        <Sub tom={tomDeIdade(op.sell_age_seconds) === "velho" ? "warn" : undefined}>
           {formatDataAge(op.sell_age_seconds)}
         </Sub>
       </td>

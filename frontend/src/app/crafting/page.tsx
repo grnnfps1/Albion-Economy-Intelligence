@@ -355,9 +355,10 @@ function LucroDia({
   const positivo = profit > 0;
   return (
     <td title={trava.dica}>
-      <span
-        className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}
-      >
+      {/* Neutro: a linha já tem um acento — o lucro — e este é o mesmo lucro
+          dividido pelo tempo. Dois números grandes e coloridos disputam a
+          leitura e nenhum vence. */}
+      <span className="figure font-semibold text-val">
         {positivo ? "+" : ""}
         {formatSilver(profit)}
       </span>
@@ -477,12 +478,14 @@ function CraftLine({
       {/* ROI: lucro sobre o capital imobilizado. Era uma das três ordenações e
           não aparecia na tabela — ordenar por um número que não se vê é pedir
           confiança sem dar como conferir. */}
-      {/* Colorido porque é o lucro em razão — o mesmo par que o Calculador
-          faz com lucro e margem. Duas expressões do mesmo fato, um acento. */}
+      {/* Neutro. Eu tinha colorido isto alegando ser "o lucro em razão", como
+          a margem do Calculador — mas lá a margem fica **colada** no lucro, e
+          as duas lidas juntas são um acento só. Aqui o ROI é outra coluna,
+          longe do lucro, e vira um segundo acento disputando a linha. É o
+          mesmo raciocínio que já tinha neutralizado prata/focus duas colunas
+          antes; aplicá-lo a um e não ao outro era inconsistência minha. */}
       <td
-        className={`figure ${
-          positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
-        }`}
+        className="figure"
         title="lucro sobre o capital imobilizado — margem alta com ROI baixo é armadilha de capital parado"
       >
         {eco.roi_pct === null ? "—" : `${eco.roi_pct.toFixed(1)}%`}
