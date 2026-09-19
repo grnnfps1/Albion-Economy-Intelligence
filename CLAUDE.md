@@ -36,6 +36,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 16 | Especialização: redução do custo de Focus | ✅ |
 | 17 | Preço manual sobrescrevendo a cotação coletada | ✅ |
 | 18 | Layout de planilha + exportação CSV | ✅ |
+| 19 | Calculador de crafting, spec por item, lucro/dia | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -311,6 +312,48 @@ motivo dizendo o que preencher. **Nunca calcular com taxa zero.**
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 19 — calculador, spec por item, lucro por dia
+
+- **O calculador é outra rota, não uma reforma do ranking.** `/crafting`
+  responde *onde gasto meu Focus hoje*; `/crafting/calculadora` responde *quanto
+  rende esta família se eu mexer nos preços*. Fundir as duas daria uma tela que
+  responde mal as duas.
+- **27 linhas por família — menos pedra, que tem 7.** Confirmado no dump: T2 e
+  T3 não têm variante encantada em nenhuma família, e `STONEBLOCK` não tem
+  nenhuma variante encantada.
+- **Recalcular "na hora" é ida e volta ao servidor, por causa da regra 3.**
+  Editar grava um preço manual (fase 17) e `router.refresh()` devolve a linha
+  recalculada. Um `useMemo` local seria mais rápido e colocaria aritmética de
+  lucro no frontend, que o CI barra.
+- **A taxa de retorno não é campo livre.** Vem da matriz da fase 14; o usuário
+  escolhe cidade e Focus. Campo aberto convidaria a digitar errado um número
+  que o sistema já sabe.
+- **Uma coluna por material, com a cidade visível.** A planilha tem oito pares
+  de coluna por cidade porque não tem política de sourcing; nós temos desde a
+  fase 11. Oito cidades × sete materiais × 27 linhas seriam 1.512 células.
+- **A receita não é repetida em texto.** As colunas de material já são a
+  receita, e o badge do ícone é **quanto comprar** — não a quantidade da
+  receita. É a diferença entre "a receita pede 5" e "compre 317".
+- **Bug achado e corrigido: setup fee fantasma.** `compute_craft` passava
+  `buy_price=1` como sentinela e `compute_trade` cobra setup das duas pontas
+  (ele foi escrito para arbitragem). Isso somava 2,5 de prata em 100 unidades e
+  fazia a taxa de venda não ser exatamente o percentual anunciado. Não mudava o
+  lucro — só o número exibido —, mas num calculador isso corrói confiança.
+  Agora dá **6,5000%** exato.
+- **Lista de compras não é quantidade × receita.** O retorno volta para o
+  inventário e reduz o consumo: `qtd × receita × (1 − retorno)`, arredondado
+  **para cima**. E o retorno é promessa, não fato — só se realiza para quem
+  refina em sequência. A tela diz isso em uma linha.
+- **A lista segue a variante escolhida.** Não adianta o motor escolher a receita
+  com token e a lista mandar comprar pela outra.
+- **Duas margens, rotuladas.** A "Margem de Lucro" da planilha é lucro ÷ custo
+  de produção — que é ROI. A nossa é sobre receita bruta. As duas aparecem,
+  porque margem alta com ROI baixo é armadilha de capital parado.
+- **`/refining` perdeu as colunas "cadeia" e "idade".** A cadeia virou o balão
+  da coluna "produzir" — qualifica o número de que faz parte — e a idade virou
+  a cor do rótulo. A idade **não saiu do produto**: isso desfaria a decisão da
+  fase 4.
 
 ## Notas da fase 18 — layout de planilha e exportação
 

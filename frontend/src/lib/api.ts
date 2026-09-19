@@ -659,3 +659,95 @@ export async function fetchFarming(
     return null;
   }
 }
+
+// --------------------------------------------------------------------------- //
+// Calculador de crafting (fase 19)
+// --------------------------------------------------------------------------- //
+
+export type CalcMaterial = {
+  item: string;
+  item_name: string | null;
+  icon_url: string | null;
+  quantity: number;
+  is_returnable: boolean;
+  unit_price: number | null;
+  price_is_manual: boolean;
+  collected_price: number | null;
+  age_seconds: number | null;
+  location: string | null;
+  is_alternate_city: boolean;
+  buy_units: number;
+  gross_units: number;
+  saved_by_return: number;
+};
+
+export type CalcRow = {
+  item: string;
+  item_name: string | null;
+  icon_url: string | null;
+  tier: number | null;
+  enchantment: number;
+  tier_label: string;
+  sell_price: number | null;
+  sell_price_is_manual: boolean;
+  sell_collected_price: number | null;
+  sell_age_seconds: number | null;
+  liquidity_units_per_day: number | null;
+  materials: CalcMaterial[];
+  variant_label: string | null;
+  alternative_label: string | null;
+  alternative_cost: number | null;
+  material_cost: number | null;
+  material_cost_gross: number | null;
+  returned_value: number | null;
+  station_fee: number | null;
+  sale_fee: number | null;
+  production_cost: number | null;
+  gross_revenue: number | null;
+  profit: number | null;
+  margin_pct: number | null;
+  margin_on_cost_pct: number | null;
+  focus_cost: number;
+  profit_per_focus: number | null;
+  total_profit: number | null;
+  total_investment: number | null;
+  days_to_sell: number | null;
+  known: boolean;
+  reason: string | null;
+};
+
+export type CalculatorResponse = {
+  server: string;
+  family: string;
+  families: string[];
+  buy_location: string;
+  sell_location: string;
+  rows: CalcRow[];
+  material_return: MaterialReturn;
+  params: {
+    quantity: number;
+    sourcing: string;
+    strategy: string;
+    station_fee_per_100_nutrition: number | null;
+    nutrition_per_item_value: number | null;
+    focus_per_day: number | null;
+    fees: { setup_fee_pct: number | null; sales_tax_pct: number | null; premium: boolean | null };
+    specialization?: { informed: boolean; assumes_zero_spec: boolean };
+    complete: boolean;
+    missing: string[];
+  };
+  return_note: string;
+  generated_at: string;
+  data_source_note: string;
+};
+
+export async function fetchCalculator(
+  query: Record<string, string>,
+): Promise<CalculatorResponse | null> {
+  const params = new URLSearchParams(query);
+  try {
+    return await getJson<CalculatorResponse>(`/api/v1/crafting/calculator?${params}`);
+  } catch {
+    return null;
+  }
+}

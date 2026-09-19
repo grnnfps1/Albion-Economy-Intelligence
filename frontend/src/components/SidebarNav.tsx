@@ -34,6 +34,9 @@ const GRUPOS: Grupo[] = [
     titulo: "Operações",
     itens: [
       { label: "Crafting", href: "/crafting", icon: "crafting" },
+      // Rota separada de propósito: o ranking responde "onde gasto o focus
+      // de hoje" e o calculador responde "quanto rende esta família".
+      { label: "Calculador", href: "/crafting/calculadora", icon: "crafting" },
       { label: "Refinamento", href: "/refining", icon: "refino" },
       { label: "Agricultura", href: "/farming", icon: "agricultura" },
       { label: "Focus", href: "/focus", icon: "focus" },

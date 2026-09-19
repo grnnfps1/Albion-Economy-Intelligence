@@ -145,7 +145,14 @@ def compute_craft(
         quantity=unidades,
     )
     receita_liquida = (venda.unit_revenue or 0.0) * unidades
-    taxas_mercado = (venda.fees or 0.0)
+    # `compute_trade` cobra setup fee **das duas pontas**, porque foi escrito
+    # para arbitragem: lá se cria ordem de compra e ordem de venda. Em craft não
+    # há ordem de compra do item produzido — ele sai da estação —, então o setup
+    # do lado da compra é fantasma. Com o `buy_price=1` sentinela ele é pequeno
+    # (2,5 de prata em 100 unidades), mas faz a taxa de venda deixar de ser
+    # exatamente o percentual anunciado, e num calculador isso corrói confiança.
+    setup_fantasma = (fees.setup_fee_pct or 0.0) * unidades if strategy is Strategy.PATIENT else 0.0
+    taxas_mercado = max(0.0, (venda.fees or 0.0) - setup_fantasma)
 
     lucro = receita_liquida - custo_liquido - taxa_estacao
     investimento = custo_bruto + taxa_estacao

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.routes import (
     arbitrage,
+    calculator,
     crafting,
     dashboard,
     farming,
@@ -24,6 +25,7 @@ api_router.include_router(manual_prices.router)
 api_router.include_router(history.router)
 api_router.include_router(arbitrage.router)
 api_router.include_router(crafting.router)
+api_router.include_router(calculator.router)
 api_router.include_router(refining.router)
 api_router.include_router(focus.router)
 api_router.include_router(farming.router)

@@ -1,0 +1,443 @@
+"""Calculador de crafting: uma família por vez, todas as combinações.
+
+`/crafting` responde *onde gasto meu Focus hoje* — é um ranking, ordenado, que
+mistura famílias e mostra só o topo.
+
+Este serviço responde outra coisa: *quanto rende esta família se eu mexer nos
+preços*. São as 27 linhas de uma linha de recurso (T2.0, T3.0 e T4.0–T8.4), na
+ordem do jogo, com preço editável e recálculo imediato. As duas perguntas
+convivem porque são de fato diferentes — quem monta produção quer a tabela
+inteira; quem tem 10 mil de Focus sobrando quer o topo do ranking.
+
+## O que é herdado e o que é novo
+
+A aritmética é a de sempre: `compute_craft` com estratégia **PACIENTE**, que é
+o que corresponde a criar ordem de venda — paga imposto **e** setup fee, e paga
+o setup mesmo se a ordem não executar. No padrão isso dá 6,5% sobre a receita
+bruta, que é exatamente o que a planilha de referência cobra na coluna "Taxa de
+Venda" (conferido: 6,5000% em todas as linhas).
+
+O que é novo é a **lista de compras** — quanto comprar de cada material para
+uma quantidade alvo, com o retorno reduzindo o consumo — e a **previsão**:
+lucro total, capital imobilizado e em quantos dias a quantidade escoa.
+
+## Duas diferenças conscientes em relação à planilha
+
+**O retorno só desconta material elegível.** A planilha aplica a taxa sobre
+tudo; nós excluímos o que não volta, como token de facção (regra da fase 7).
+Errar para menos retorno é o lado conservador.
+
+**A margem sai nas duas definições.** A "Margem de Lucro" da planilha é lucro ÷
+custo de produção — que é ROI, não margem. A nossa é sobre receita bruta. As
+duas vão na resposta, rotuladas, porque margem alta com ROI baixo é armadilha
+de capital parado.
+"""
+
+import re
+from datetime import UTC, datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.calculations.crafting import MaterialCost, compute_craft
+from app.calculations.fees import Strategy
+from app.calculations.returns import Activity
+from app.calculations.shopping import RESSALVA_DO_RETORNO, shopping_line
+from app.calculations.station import NUTRITION_PER_ITEM_VALUE
+from app.catalog.icons import item_icon_url
+from app.core.config import get_settings
+from app.models.catalog import Item
+from app.models.manual_price import KIND_SELL
+from app.repositories import market as market_repo
+from app.repositories import recipes_repo
+from app.repositories.liquidity import liquidity_by_item_location
+from app.repositories.reference import list_locations
+from app.schemas.calculator import (
+    CalcMaterialOut,
+    CalcParamsUsed,
+    CalcRowOut,
+    CalculatorResponse,
+)
+from app.schemas.crafting import SpecializationUsed
+from app.services.arbitrage_service import resolve_fees
+from app.services.manual_price_service import load_manual_overlay
+from app.services.return_service import load_return_policy, return_out
+from app.services.sourcing import SourcingMode, load_material_sourcing
+from app.services.specialization_service import load_specialization_policy, spec_out
+from app.services.station_service import (
+    StationFeePolicy,
+    item_value_lookup,
+    load_station_fee_policy,
+)
+
+DATA_SOURCE_NOTE = (
+    "Os preços vêm da coleta comunitária do AODP e podem estar velhos. Onde você "
+    "editar, o seu preço vence e fica marcado — é a mesma sobrescrita da fase 17, "
+    "e ela envelhece junto."
+)
+
+REFINED_SUBCATEGORY = "refinedresources"
+
+# As cinco linhas de recurso. Pedra é a exceção que o dump impõe: ela **não tem
+# variante encantada**, então tem 7 linhas onde as outras têm 27. Confirmado no
+# dump e no catálogo importado.
+FAMILIES = ("LEATHER", "CLOTH", "PLANKS", "METALBAR", "STONEBLOCK")
+
+_FAMILIA = re.compile(r"^T\d_([A-Z]+?)(?:_LEVEL\d+)?(?:@\d)?$")
+
+
+def family_of(unique_name: str) -> str | None:
+    match = _FAMILIA.match(unique_name)
+    return match.group(1) if match else None
+
+
+def _age(value: datetime | None, now: datetime) -> int | None:
+    return None if value is None else max(0, int((now - value).total_seconds()))
+
+
+def _rotulo_de_variante(receita, catalogo) -> str:
+    tem_token = any(
+        not m.is_returnable
+        and "TOKEN" in (catalogo[m.item_id].unique_name if m.item_id in catalogo else "")
+        for m in receita.materials
+    )
+    return "com token de faccao" if tem_token else "sem token"
+
+
+async def build_calculator(
+    session: AsyncSession,
+    *,
+    server: str,
+    family: str,
+    buy_location: str,
+    sell_location: str,
+    quantity: int,
+    station_fee_per_100_nutrition: float | None,
+    setup_fee_pct: float | None,
+    sales_tax_pct: float | None,
+    premium: bool | None,
+    return_rate: float | None,
+    use_focus: bool,
+    daily_production_bonus: float,
+    spec_levels: dict[str, int] | None,
+    spec_item_levels: dict[str, int] | None,
+    focus_per_day: float | None,
+    user_id: str | None,
+    sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
+    max_age_seconds: int | None = None,
+) -> CalculatorResponse:
+    familia = (family or FAMILIES[0]).upper()
+    if familia not in FAMILIES:
+        familia = FAMILIES[0]
+
+    now = datetime.now(UTC)
+    quantidade = max(1, quantity)
+    if max_age_seconds is None:
+        max_age_seconds = get_settings().freshness_stale_seconds
+
+    fees, resumo_taxas = await resolve_fees(session, setup_fee_pct, sales_tax_pct, premium)
+    retornos = await load_return_policy(session)
+    spec = await load_specialization_policy(session, spec_levels, item_levels=spec_item_levels)
+    nomes_de_cidade = {loc.slug: loc.display_name for loc in await list_locations(session)}
+
+    # Os itens da família, em ordem de jogo: T2.0, T3.0, T4.0…T8.4.
+    itens = list(
+        (
+            await session.scalars(
+                select(Item)
+                .where(Item.subcategory_code == REFINED_SUBCATEGORY, Item.active.is_(True))
+                .order_by(Item.tier, Item.enchantment)
+            )
+        ).all()
+    )
+    itens = [i for i in itens if family_of(i.unique_name) == familia]
+
+    faltando = list(resumo_taxas.missing)
+    taxa_estacao = await load_station_fee_policy(
+        session, lambda _n: None, station_fee_per_100_nutrition
+    )
+    faltando.extend(taxa_estacao.missing())
+
+    params = CalcParamsUsed(
+        quantity=quantidade,
+        sourcing=str(sourcing_mode),
+        strategy=str(Strategy.PATIENT),
+        station_fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        nutrition_per_item_value=NUTRITION_PER_ITEM_VALUE,
+        focus_per_day=focus_per_day,
+        fees=resumo_taxas,
+        specialization=SpecializationUsed(**spec_out(spec)),
+        complete=not faltando,
+        missing=faltando,
+    )
+
+    if not itens:
+        return _vazio(server, familia, buy_location, sell_location, params, now)
+
+    # Receitas: todas as variantes, para o motor poder comparar.
+    todas = await recipes_repo.list_recipes(session, tracked_only=False, limit=50_000)
+    receitas: dict[int, list] = {}
+    for receita in todas:
+        receitas.setdefault(receita.output_item_id, []).append(receita)
+
+    ids = {i.id for i in itens}
+    for item in itens:
+        for receita in receitas.get(item.id) or []:
+            ids.update(m.item_id for m in receita.materials)
+
+    catalogo = await recipes_repo.load_items(session, sorted(ids))
+    taxa_estacao = StationFeePolicy(
+        fee_per_100_nutrition=taxa_estacao.fee_per_100_nutrition,
+        item_value_of=item_value_lookup(catalogo),
+    )
+
+    manual = await load_manual_overlay(session, user_id, server, now=now)
+
+    # Preço de venda do item final, na cidade onde se vende.
+    linhas, _ = await market_repo.search_prices(
+        session, server_code=server, location_slugs=[sell_location], limit=50_000
+    )
+    precos_venda: dict[str, tuple[int | None, int | None]] = {}
+    for price, item, _loc in linhas:
+        # PACIENTE cria ordem de venda: o preço de referência é `sell_price_min`.
+        precos_venda.setdefault(
+            item.unique_name, (price.sell_price_min, _age(price.sell_price_min_date, now))
+        )
+
+    nomes_materiais = sorted(
+        {
+            catalogo[m.item_id].unique_name
+            for item in itens
+            for receita in receitas.get(item.id) or []
+            for m in receita.materials
+            if m.item_id in catalogo
+        }
+    )
+    compras = await load_material_sourcing(
+        session,
+        server_code=server,
+        item_unique_names=nomes_materiais,
+        base_slug=buy_location,
+        mode=sourcing_mode,
+        max_age_seconds=max_age_seconds,
+        now=now,
+        manual=manual,
+    )
+    sinais = await liquidity_by_item_location(session, server, sorted(ids))
+
+    # O bônus de refino segue o recurso, e o recurso é o mesmo da família
+    # inteira — basta resolver uma vez.
+    retorno, melhor_cidade = retornos.resolve(
+        Activity.REFINING,
+        itens[0].unique_name,
+        city_slug=buy_location,
+        use_focus=use_focus,
+        daily_bonus=daily_production_bonus,
+        override=return_rate,
+    )
+
+    linhas_out = [
+        _linha(
+            item, receitas, catalogo, compras, manual, precos_venda, sinais,
+            taxa_estacao, spec, fees, retorno.rate, quantidade, focus_per_day,
+            sell_location, now,
+        )
+        for item in itens
+    ]
+
+    return CalculatorResponse(
+        server=server,
+        family=familia,
+        families=list(FAMILIES),
+        buy_location=buy_location,
+        sell_location=sell_location,
+        rows=linhas_out,
+        material_return=return_out(retorno, melhor_cidade, nomes_de_cidade),
+        params=params,
+        return_note=RESSALVA_DO_RETORNO,
+        generated_at=now.isoformat(),
+        data_source_note=DATA_SOURCE_NOTE,
+    )
+
+
+def _linha(
+    item, receitas, catalogo, compras, manual, precos_venda, sinais,
+    taxa_estacao, spec, fees, taxa_retorno, quantidade, focus_per_day,
+    sell_location, now,
+) -> CalcRowOut:
+    rotulo = f"T{item.tier}.{item.enchantment}"
+    base = CalcRowOut(
+        item=item.unique_name,
+        item_name=item.display_name_pt or item.display_name_en,
+        icon_url=item_icon_url(item.unique_name),
+        tier=item.tier,
+        enchantment=item.enchantment,
+        tier_label=rotulo,
+    )
+
+    # Preço de venda: manual vence o coletado, e diz que venceu.
+    coletado, idade = precos_venda.get(item.unique_name, (None, None))
+    cotacao_manual = manual.quote(item.unique_name, sell_location, 1, KIND_SELL)
+    venda = coletado
+    if cotacao_manual is not None and cotacao_manual.applies:
+        venda = cotacao_manual.price
+        base.sell_price_is_manual = True
+        base.sell_collected_price = coletado
+        idade = cotacao_manual.age_seconds
+    base.sell_price = venda
+    base.sell_age_seconds = idade
+
+    sinal = next((v for (i, _l, _q), v in sinais.items() if i == item.id and v.known), None)
+    base.liquidity_units_per_day = sinal.units_per_day if sinal else None
+
+    variantes = receitas.get(item.id) or []
+    if not variantes:
+        base.reason = "sem receita no dump"
+        return base
+
+    # Custeia cada variante e fica com a mais barata — mesma regra do motor de
+    # refino. A descartada vai na linha, porque com token o custo muda muito.
+    avaliadas = []
+    for receita in variantes:
+        materiais = _materiais(receita, catalogo, compras, manual)
+        if materiais is None:
+            continue
+        custo = sum((m.gross_cost or 0) for m in materiais)
+        avaliadas.append((custo, receita, materiais))
+
+    if not avaliadas:
+        base.reason = "sem cotação para os materiais"
+        return base
+
+    avaliadas.sort(key=lambda a: a[0])
+    _custo, receita, materiais = avaliadas[0]
+    base.variant_label = _rotulo_de_variante(receita, catalogo)
+    if len(avaliadas) > 1:
+        base.alternative_cost = round(avaliadas[1][0], 2)
+        base.alternative_label = _rotulo_de_variante(avaliadas[1][1], catalogo)
+
+    focus = spec.focus_cost_of(item.unique_name, receita.focus_cost)
+    economia = compute_craft(
+        materials=materiais,
+        sell_price=venda,
+        fees=fees,
+        return_rate=taxa_retorno,
+        station_fee=taxa_estacao.fee_of(item.unique_name),
+        output_quantity=receita.output_quantity,
+        focus_cost=focus,
+        crafts=quantidade,
+        # Ordem de venda: paga imposto **e** setup, e o setup mesmo se não
+        # executar. É o que a planilha cobra e o que o jogador de fato paga.
+        strategy=Strategy.PATIENT,
+    )
+
+    base.materials = _materiais_out(
+        receita, catalogo, compras, manual, materiais, quantidade, taxa_retorno
+    )
+    base.focus_cost = economia.focus_cost
+
+    if not economia.known:
+        base.reason = economia.reason
+        return base
+
+    receita_bruta = (venda or 0) * quantidade * max(1, receita.output_quantity)
+    custo_producao = (
+        (economia.material_cost_net or 0)
+        + (economia.station_fee or 0)
+        + (economia.market_fees or 0)
+    )
+
+    base.known = True
+    base.material_cost = economia.material_cost_net
+    base.material_cost_gross = economia.material_cost_gross
+    base.returned_value = economia.returned_value
+    base.station_fee = economia.station_fee
+    base.sale_fee = economia.market_fees
+    base.production_cost = round(custo_producao, 2)
+    base.gross_revenue = round(receita_bruta, 2)
+    base.profit = economia.profit
+    base.margin_pct = economia.margin_pct
+    base.margin_on_cost_pct = (
+        round((economia.profit or 0) / custo_producao * 100, 2) if custo_producao else None
+    )
+    base.profit_per_focus = economia.profit_per_focus
+
+    # Previsão: o lucro já é da quantidade pedida, porque `crafts=quantidade`.
+    base.total_profit = economia.profit
+    base.total_investment = round(
+        (economia.material_cost_gross or 0) + (economia.station_fee or 0), 2
+    )
+    if sinal and sinal.known and sinal.units_per_day:
+        base.days_to_sell = round(quantidade / sinal.units_per_day, 1)
+
+    return base
+
+
+def _materiais(receita, catalogo, compras, manual) -> list[MaterialCost] | None:
+    materiais: list[MaterialCost] = []
+    for m in receita.materials:
+        if m.item_id not in catalogo:
+            return None
+        material = catalogo[m.item_id]
+        escolha = compras.choose(material.unique_name)
+        cotacao = escolha.quote if escolha.known else None
+        materiais.append(
+            MaterialCost(
+                unique_name=material.unique_name,
+                display_name=material.display_name_pt or material.display_name_en,
+                quantity=m.quantity,
+                unit_price=cotacao.unit_price if cotacao else None,
+                is_returnable=m.is_returnable,
+                location=cotacao.location_name if cotacao else None,
+                age_seconds=cotacao.age_seconds if cotacao else None,
+            )
+        )
+    return materiais
+
+
+def _materiais_out(
+    receita, catalogo, compras, manual, materiais, quantidade, taxa_retorno
+) -> list[CalcMaterialOut]:
+    saida: list[CalcMaterialOut] = []
+    for m, custo in zip(receita.materials, materiais, strict=False):
+        material = catalogo[m.item_id]
+        escolha = compras.choose(material.unique_name)
+        cotacao = escolha.quote if escolha.known else None
+
+        # Token de facção não volta: a lista de compras não pode descontá-lo.
+        taxa = taxa_retorno if m.is_returnable else 0.0
+        linha = shopping_line(material.unique_name, quantidade, m.quantity, taxa)
+
+        saida.append(
+            CalcMaterialOut(
+                item=material.unique_name,
+                item_name=material.display_name_pt or material.display_name_en,
+                icon_url=item_icon_url(material.unique_name),
+                quantity=m.quantity,
+                is_returnable=m.is_returnable,
+                unit_price=custo.unit_price,
+                price_is_manual=bool(cotacao and getattr(cotacao, "is_manual", False)),
+                age_seconds=custo.age_seconds,
+                location=custo.location,
+                is_alternate_city=escolha.is_alternate if escolha.known else False,
+                buy_units=linha.units,
+                gross_units=linha.gross,
+                saved_by_return=linha.saved,
+            )
+        )
+    return saida
+
+
+def _vazio(server, familia, buy_location, sell_location, params, now) -> CalculatorResponse:
+    return CalculatorResponse(
+        server=server,
+        family=familia,
+        families=list(FAMILIES),
+        buy_location=buy_location,
+        sell_location=sell_location,
+        rows=[],
+        params=params,
+        return_note=RESSALVA_DO_RETORNO,
+        generated_at=now.isoformat(),
+        data_source_note=DATA_SOURCE_NOTE,
+    )
