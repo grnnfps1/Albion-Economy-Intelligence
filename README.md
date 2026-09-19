@@ -206,6 +206,76 @@ cidade base. Na tela, o material comprado fora ganha moldura âmbar e a linha
 avisa quando a rota passa de duas cidades — economizar 3% espalhado por quatro
 mercados custa quatro viagens.
 
+### Taxa de estação: prata por 100 de nutrição
+
+A taxa da estação não é um valor fixo por execução. O jogo cobra por **nutrição
+consumida**, e a nutrição sai do valor do item:
+
+```
+nutricao = item_value × 0,1125
+taxa     = nutricao × (prata_por_100_nutricao ÷ 100)
+```
+
+`item_value` vem de `@itemvalue` no dump e dobra a cada tier e a cada nível de
+encantamento — é por isso que um valor fixo errava por duas ordens de grandeza
+entre T2 e T8. O que o usuário informa é a **prata por 100 de nutrição**, que é
+o número que aparece na tela da estação:
+
+```bash
+curl -s "http://localhost:8000/api/v1/refining/opportunities?station_fee_per_100_nutrition=1666&limit=3" | python3 -m json.tool
+```
+
+Detalhe e o que não fechou contra a planilha: `docs/04-taxas.md` §11.
+
+### Especialização: o custo de Focus do dump é o de quem não especializou nada
+
+```
+eficiencia = nivel_spec × 250 + (mastery + mastery2) × 30
+focus      = focus_base × 0,5 ^ (eficiencia ÷ 10.000)
+```
+
+Cinco níveis, um por família de recurso, de 0 a 100:
+
+```bash
+curl -s "http://localhost:8000/api/v1/refining/opportunities?spec_planks=100&limit=3" | python3 -m json.tool
+```
+
+Sem informar, a conta assume **spec 0** e a resposta diz isso em
+`params.specialization.assumes_zero_spec` — diferente das taxas, que viram
+UNKNOWN. Zero aqui não inventa lucro, só superestima o Focus gasto.
+
+### Preço manual
+
+Onde houver preço informado pelo usuário, ele vence o coletado — e envelhece
+junto: passado o limite de frescor, o coletado volta.
+
+```bash
+# COMPRA = o que você paga (sell_price_min). VENDA = o que você recebe (buy_price_max).
+curl -s -X PUT http://localhost:8000/api/v1/manual-prices \
+  -H 'X-User-Id: <discord_id>' -H 'Content-Type: application/json' \
+  -d '{"server":"west","location":"caerleon","item":"T4_PLANKS","quality":1,"price":1234,"kind":"COMPRA"}'
+
+curl -s "http://localhost:8000/api/v1/manual-prices?server=west" -H 'X-User-Id: <discord_id>'
+
+curl -s -X DELETE "http://localhost:8000/api/v1/manual-prices?server=west&location=caerleon&item=T4_PLANKS&quality=1&kind=COMPRA" \
+  -H 'X-User-Id: <discord_id>'
+```
+
+`X-User-Id` é posto pelo Next depois de verificar o cookie assinado; o FastAPI
+não é exposto ao browser. Sem o cabeçalho, a rota responde 401 e o resto da API
+se comporta como antes.
+
+### Exportar para planilha
+
+Botão **exportar csv** em `/market`, `/crafting`, `/refining`, `/arbitrage`,
+`/focus` e `/farming`. Exporta o recorte visível — o que os filtros deixaram na
+tela — e o filtro vai no nome do arquivo (`crafting_tier-5_2026-09-19.csv`).
+
+CSV com `;` e BOM, para abrir direto no Excel em português; a coluna de imagem
+sai como `=IMAGE("…")`, que Excel e Google Sheets renderizam. Números com
+vírgula decimal e **sem** separador de milhar: o ponto de milhar faz a planilha
+ler a coluna como texto quando erra a locale.
+
 ### Verificar
 
 ```bash
