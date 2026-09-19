@@ -42,6 +42,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 22 | Bônus diário entra em `B`; calculador em colunas | ✅ |
 | 23 | Calculador escala pela quantidade; razões invariantes | ✅ |
 | 24 | Linha sem número diz **por quê**; base unitária | ✅ |
+| 25 | Abreviação de valor grande, com fronteira explícita | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -331,6 +332,33 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 25 — a abreviação voltou, e só até onde deve
+
+- **Isto reverte a fase 18 de propósito, e a razão precisa sobreviver.** A fase
+  18 escreveu "número cheio, nunca abreviado" e estava certa **para os dados que
+  existiam então**: valores unitários, de quatro a seis dígitos, onde abreviar
+  economizava o que não precisava ser economizado.
+- **O que mudou foi o dado, não o princípio.** O calculador mostra produções
+  inteiras, e `133.086.292` tem nove dígitos. A regra antiga aplicada a esses
+  números não entrega precisão — entrega coluna estourada e valor cortado pelo
+  navegador, que é pior que arredondado de propósito, porque não avisa.
+- **Por isso a reversão é parcial e tem fronteira escrita.** Abrevia-se o
+  contexto (custo, receita, taxas, investimento); lucro e campo de preço
+  editável continuam cheios; a exportação nunca abrevia. A tabela está na seção
+  "Linguagem visual".
+- **Campo editável não se abrevia porque o texto volta.** `4,5K` digitado de
+  volta é 4.500 ou 4.532? Abreviar a saída de algo que também é entrada cria
+  ambiguidade que nenhum arredondamento justifica.
+- **O exato fica a um hover de distância**, no balão de toda célula abreviada —
+  é o que torna a perda de precisão aceitável na coluna de contexto.
+- **A exportação tem teste próprio contra isso.** Os dois formatadores vivem no
+  mesmo módulo de apresentação, e reaproveitar o de tela no arquivo é o atalho
+  errado mais fácil de tomar. `133,1M` numa planilha vira coluna de texto e some
+  do somatório sem avisar.
+- **O limiar de 10.000 tem teste nos dois lados.** `9.999` sai cheio, `10.000`
+  sai `10,0K`. E há um teste que demonstra a perda: dois lucros diferentes viram
+  o mesmo texto abreviado — que é exatamente por que o lucro não usa a função.
 
 ## Notas da fase 24 — o diagnóstico é o conteúdo da linha
 
@@ -919,8 +947,21 @@ Regras que a tela materializa:
   vago esconde taxa.
 - **Hierarquia por tamanho.** Lucro é o maior número da linha; custo e receita
   encolhem. Tudo com o mesmo peso visual é o mesmo que nada ter peso.
-- **Número cheio, nunca abreviado.** `1.683.277`, não `1,68m`. Numa ferramenta
-  cujo produto é precisão, abreviar economiza a coisa errada.
+- **Número cheio onde ele decide; abreviado onde ele situa.** A regra da fase
+  18 era "cheio, nunca abreviado" e a fase 25 a reverteu **parcialmente** —
+  leia a nota da fase 25 antes de reverter de novo. A fronteira:
+
+  | Onde | Formato | Por quê |
+  |---|---|---|
+  | lucro | cheio | é o número que decide; `133.086.292` e `...291` são coisas diferentes ao conferir |
+  | campo de preço editável | cheio | abreviar o que se digita cria ambiguidade na volta |
+  | custo, receita, taxas, investimento | abreviado acima de 10.000 | é contexto, e em produção inteira tem nove dígitos |
+  | exportação | **sempre cheio** | planilha soma número; `133,1M` é texto e some do somatório |
+
+  Abreviação é `K`/`M`/`B`, vírgula decimal, uma casa: `133,1M`, `12,5K`,
+  `1,2B`. **Abaixo de 10.000 não se abrevia** — `9,9K` é menos legível que
+  `9.870` e ainda perde precisão. O valor exato vai no balão de toda célula
+  abreviada.
 - **Nome visual manda, id técnico no tooltip.**
 - **Nada duplicado.** O badge do ícone é a quantidade; o texto é o preço
   unitário. Repetir a quantidade nos dois gasta espaço e confunde.

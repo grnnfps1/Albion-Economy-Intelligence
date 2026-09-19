@@ -247,3 +247,24 @@ describe("nome do arquivo", () => {
     );
   });
 });
+
+describe("a exportação nunca abrevia", () => {
+  /**
+   * A tela abrevia acima de 10.000 (`formatSilverCompact`); o arquivo não pode.
+   * Planilha soma número, e `133,1M` é texto — entra numa coluna que o Excel
+   * marca como texto e some do somatório sem avisar.
+   *
+   * O teste existe porque os dois formatadores vivem no mesmo módulo de
+   * apresentação, e reaproveitar o de tela aqui é o atalho errado mais fácil
+   * de tomar.
+   */
+  it("números grandes saem por extenso, com vírgula decimal e sem milhar", () => {
+    expect(formatNumberForSheet(133_086_292)).toBe("133086292");
+    expect(formatNumberForSheet(1_200_000_000)).toBe("1200000000");
+    expect(formatNumberForSheet(133_086_292.5)).toBe("133086292,5");
+  });
+
+  it("dois valores que a tela mostraria igual continuam distintos no arquivo", () => {
+    expect(formatNumberForSheet(133_086_292)).not.toBe(formatNumberForSheet(133_086_291));
+  });
+});

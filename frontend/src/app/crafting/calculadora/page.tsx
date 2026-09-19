@@ -9,7 +9,7 @@ import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchCalculator, type CalcMaterial, type CalcRow } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
-import { formatDataAge, formatSilver } from "@/lib/format";
+import { formatDataAge, formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
 import { tierBorderLeft } from "@/lib/tiers";
 
@@ -498,14 +498,31 @@ function Linha({
   );
 }
 
+/**
+ * Uma coluna de contexto: custo, receita, taxa, investimento.
+ *
+ * **Abreviada acima de 10.000**, com o valor exato no balão. São os números que
+ * situam a decisão, não os que a tomam — e numa produção inteira eles chegam a
+ * nove dígitos e estouram a coluna. O lucro não passa por aqui de propósito
+ * (ver `formatSilverCompact`).
+ */
 function Numero({ valor, dica }: { valor: number | null; dica?: string }) {
-  return (
-    <td title={dica}>
-      {valor === null ? (
+  if (valor === null) {
+    return (
+      <td title={dica}>
         <span className="text-[10.5px] text-dim">—</span>
-      ) : (
-        <span className="figure">{formatSilver(valor)}</span>
-      )}
+      </td>
+    );
+  }
+
+  const cheio = formatSilver(valor);
+  const curto = formatSilverCompact(valor);
+  // O exato sempre alcançável, e sem perder a dica que a coluna já tinha.
+  const balao = curto === cheio ? dica : [cheio, dica].filter(Boolean).join(" · ");
+
+  return (
+    <td title={balao}>
+      <span className="figure">{curto}</span>
     </td>
   );
 }
