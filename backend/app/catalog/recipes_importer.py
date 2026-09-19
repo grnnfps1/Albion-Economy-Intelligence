@@ -14,6 +14,21 @@ O formato do dump é irregular e precisa ser tratado, não assumido:
   `T4_ROCK_LEVEL1` com `@enchantmentlevel: 1`, enquanto o catálogo e o AODP usam
   `T4_ROCK_LEVEL1@1`. Sem recompor isso, 12 mil materiais ficam órfãos e o custo
   de qualquer craft encantado sai errado para menos.
+- **O mesmo vale para a saída, e isso passou despercebido até a fase 19.** Há
+  duas formas de o dump representar uma receita encantada, e só uma estava
+  tratada:
+
+  1. aninhada em `enchantments.enchantment[]` do item base — é o caso de
+     equipamento, e sempre funcionou;
+  2. como **entrada de primeiro nível própria**, com `@enchantmentlevel` no
+     item — é o caso dos recursos refinados (`T6_LEATHER_LEVEL1` tem
+     `@enchantmentlevel: 1` e `craftingrequirements` próprios).
+
+  No segundo caso a saída também precisa virar `{nome}@{nível}`. Sem isso o
+  `unique_name` não casa com o catálogo e a receita é descartada em silêncio:
+  **80 recursos refinados encantados ficaram sem receita nenhuma** — 20 itens
+  em 4 níveis —, e `/refining` não conseguia produzir nenhum deles, caindo
+  sempre no preço de mercado.
 
 Material que não é recurso — token de facção, artefato — **não** é elegível ao
 retorno de material. Tratar todos igual infla o lucro calculado.
@@ -133,8 +148,18 @@ def parse_entry(entry: dict) -> list[ParsedRecipe]:
             )
         )
 
+    # A saída herda o encantamento do próprio item quando ele é entrada de
+    # primeiro nível — `T6_LEATHER_LEVEL1` produz `T6_LEATHER_LEVEL1@1`, que é
+    # como o catálogo e o AODP o chamam.
+    nivel_do_item = _as_int(entry.get("@enchantmentlevel"))
+    saida = (
+        f"{unique_name}@{nivel_do_item}"
+        if 1 <= nivel_do_item <= 4 and "@" not in unique_name
+        else unique_name
+    )
+
     for indice, bloco in enumerate(_as_list(entry.get("craftingrequirements"))):
-        acrescentar(unique_name, bloco, indice)
+        acrescentar(saida, bloco, indice)
 
     # Variantes encantadas: o identificador de mercado é `{base}@{nivel}`.
     for encantada in _as_list((entry.get("enchantments") or {}).get("enchantment")):
