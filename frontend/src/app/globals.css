@@ -177,19 +177,25 @@ body {
    colunas de texto — as de material —, e abre um vão morto antes das colunas
    de decisão, que são as que importam. Com larguras fixas por tipo de coluna,
    o olho encontra "lucro" sempre no mesmo lugar, linha após linha. */
-/* Contêiner de rolagem da tabela (`components/sheet/SheetScroll.tsx`).
+/* Contêiner de rolagem da tabela.
 
-   `--sheet-top` é a distância entre o topo da janela e o topo da tabela, medida
-   pelo próprio elemento. Sem altura aqui, o `sticky` do `thead` não tem
-   scrollport a que grudar: `overflow-x: auto` já torna este div o scrollport
-   dos dois eixos, mas com altura de conteúdo ele nunca rola na vertical, e o
-   cabeçalho sai da tela junto com a página.
+   `overflow-x: auto` já torna este div o scrollport dos **dois** eixos — é
+   regra do CSS, não escolha —, e por isso é ele, e não a página, que o `sticky`
+   do `thead` procura. Sem altura, ele nunca rolava na vertical e o cabeçalho
+   saía da tela junto com a página.
 
-   O fallback de `--sheet-top` é conservador de propósito: antes de o JavaScript
-   medir, a tabela aparece um pouco mais baixa e completa, nunca cortada. */
+   A altura vem do flex: `PageShell` limita a coluna à janela e este é o único
+   item que cresce. Nada de medir com JavaScript e nada de `calc(100dvh - …)`
+   com um número chutado — quem mede é o layout, que já sabe o que há acima e
+   abaixo da tabela.
+
+   Em telas estreitas a coluna não é limitada, este `flex: 1` não tem o que
+   esticar e o div fica com a altura do conteúdo: a página rola inteira, como
+   sempre rolou. */
 .sheet-scroll {
   overflow: auto;
-  max-height: calc(100dvh - var(--sheet-top, 22rem));
+  flex: 1 1 auto;
+  min-height: 0;
   overscroll-behavior: contain;
 }
 

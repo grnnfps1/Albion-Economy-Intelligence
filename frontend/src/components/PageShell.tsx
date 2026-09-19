@@ -32,7 +32,10 @@ export function PageShell({
   const [aberto, setAberto] = useState(false);
 
   return (
-    <div className="min-w-0">
+    // Coluna de altura limitada: o cabeçalho, os filtros e o painel de
+    // preferências mantêm a altura natural, e o que sobrar vai para `children`
+    // — onde mora a tabela, que é quem rola.
+    <div className="flex min-w-0 flex-col md:min-h-0 md:flex-1">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 pt-4 pb-2">
         <h1 className="display text-body text-h1">{titulo}</h1>
         {contagem && <span className="figure text-[11px] text-dim">{contagem}</span>}
@@ -43,7 +46,7 @@ export function PageShell({
       <Toolbar grupos={grupos} busca={busca} onConfig={() => setAberto((v) => !v)} />
       {aberto && <PreferencesForm initial={prefs} />}
 
-      {children}
+      <div className="flex min-w-0 flex-col md:min-h-0 md:flex-1">{children}</div>
     </div>
   );
 }

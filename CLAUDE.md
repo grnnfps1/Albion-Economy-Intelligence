@@ -45,6 +45,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 25 | Abreviação de valor grande, com fronteira explícita | ✅ |
 | 26 | Histórico coletado; estado vazio da taxa da estação | ✅ |
 | 27 | Retorno e intervalo de preço **antes** do cálculo | ✅ |
+| 28 | Uma barra de rolagem; ícone ancora a coluna | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -334,6 +335,43 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 28 — a rolagem, o ícone e o que ainda mora nas preferências
+
+- **Duas barras de rolagem vinham de duas coisas rolando.** A tabela tinha
+  altura limitada e rolava; a página, por ter conteúdo abaixo dela, rolava
+  também. Pior que a redundância: a de fora movia o cabeçalho que a de dentro
+  acabara de prender.
+- **Quem mede a altura agora é o layout, não o JavaScript.** A fase 26 media o
+  topo da tabela e escrevia `--sheet-top`. Funcionava e era maquinário demais
+  para uma conta que o flexbox faz sozinho: `PageShell` limita a coluna à
+  janela, e a tabela é o único item que cresce. `SheetScroll` foi removido.
+- **Abaixo de `md` nada disso vale, de propósito.** Numa tela estreita, prender
+  a tabela deixaria a janela de leitura menor que a própria linha. Lá a página
+  rola inteira, como sempre rolou, e o `flex: 1` não tem o que esticar.
+- **O ícone vem antes do valor porque é a âncora da coluna.** O bloco estava
+  alinhado à direita: o número ia para a borda oposta e o ícone ficava solto à
+  esquerda, então de relance a coluna começava pelo número. Alinhar à esquerda
+  cola os dois e devolve a ordem que o olho procura — é o mesmo arranjo do
+  `MaterialCell` das telas de ranking.
+- **Balão: a idade fica, a dedução sai.** `Lymhurst 100 (há 3 d, velha, fora do
+  intervalo)` virou `Lymhurst 100 · há 3 d`. A idade decide e é decisão do
+  projeto desde a fase 4; "velha" e "fora do intervalo" são dedutíveis dela e
+  da cor, e repetir a dedução ao lado do dado gasta três palavras para não
+  dizer nada novo. Marcas viraram sinal: `←` a usada, `✎` a manual.
+- **O botão de preferências não ficou redundante — dezesseis campos vivem só
+  lá.** Servidor, cidade de venda, Premium, imposto, setup fee, bônus do dia,
+  Focus disponível, Focus por dia, os dois de risco de rota e os seis de
+  especialização. O que ganhou atalho foram quatro: cidade de compra, Focus
+  ligado, quantidade e taxa da estação. Ele passou a se chamar
+  **"⚙ preferências"**, porque risco de rota e especialização nunca foram
+  "taxas e focus".
+- **Cidade é preferência; ilha é cenário da tela.** A distinção decide onde cada
+  uma é guardada. A cidade vale para /market, arbitragem e refino, então o
+  painel grava o **mesmo cookie** que o formulário — um lugar só, dois caminhos
+  até ele. Guardá-la na URL faria a escolha sumir ao trocar de tela e deixaria
+  o campo "Comprar em" mostrando outra coisa. Produzir na ilha é uma pergunta
+  que só o calculador faz, fica na URL e é compartilhável pelo link.
 
 ## Notas da fase 27 — mostrar antes, não depois
 

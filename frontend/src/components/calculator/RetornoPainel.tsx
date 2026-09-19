@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { MaterialReturn, ReturnOption } from "@/lib/api";
+import { COOKIE, type Preferences } from "@/lib/preferences-shared";
 
 /**
  * O retorno **antes** do cálculo, e não depois.
@@ -36,21 +37,37 @@ export function RetornoPainel({
   retorno,
   opcoes,
   familiaLabel,
+  prefs,
 }: {
   retorno: MaterialReturn;
   opcoes: ReturnOption[];
   familiaLabel: string;
+  prefs: Preferences;
 }) {
   const router = useRouter();
   const params = useSearchParams();
 
+  /**
+   * A cidade é **preferência**; a ilha é **cenário desta tela**.
+   *
+   * Parece detalhe e não é. A cidade em que você está vale para /market, para
+   * arbitragem e para o refino — guardá-la só na URL faria a escolha sumir ao
+   * trocar de tela, e deixaria o campo "Comprar em" das preferências mostrando
+   * outra coisa. Por isso ela grava o mesmo cookie que o formulário grava: um
+   * lugar só, dois caminhos até ele.
+   *
+   * Produzir na ilha não é onde você está — é uma pergunta que só este
+   * calculador faz ("e se eu refinasse na ilha?"). Fica na URL, junto dos
+   * outros filtros de cenário, e é compartilhável com o link.
+   */
   function escolher(opcao: ReturnOption) {
     const next = new URLSearchParams(params.toString());
-    if (opcao.is_island) {
-      next.set("produce_on_island", "true");
-    } else {
-      next.set("produce_on_island", "false");
-      next.set("buy_location", opcao.slug);
+    next.set("produce_on_island", opcao.is_island ? "true" : "false");
+
+    if (!opcao.is_island && opcao.slug !== prefs.buyLocation) {
+      document.cookie = `${COOKIE}=${encodeURIComponent(
+        JSON.stringify({ ...prefs, buyLocation: opcao.slug }),
+      )};path=/;max-age=31536000;samesite=lax`;
     }
     router.push(`?${next.toString()}`);
   }

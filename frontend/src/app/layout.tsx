@@ -41,9 +41,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pt-BR" className={`${inter.variable} ${cinzel.variable}`}>
       <body className="min-h-dvh">
-        <div className="flex min-h-dvh flex-col md:flex-row">
+        {/* Em telas largas o app ocupa exatamente a janela e **nada** rola
+            aqui: quem rola é a tabela, lá dentro. Era isto que faltava para
+            haver uma barra só — com a página rolando *e* a tabela rolando,
+            apareciam duas, e a de fora movia o cabeçalho que a de dentro
+            acabara de prender.
+
+            Abaixo de `md` o comportamento antigo continua: a página rola
+            inteira, porque numa tela estreita prender a tabela deixaria a
+            janela de leitura menor que a própria linha. */}
+        <div className="flex min-h-dvh flex-col md:h-dvh md:flex-row md:overflow-hidden">
           <Sidebar session={session} />
-          <main className="min-w-0 flex-1">{children}</main>
+          <main className="flex min-w-0 flex-1 flex-col md:min-h-0">{children}</main>
         </div>
       </body>
     </html>

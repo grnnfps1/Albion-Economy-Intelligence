@@ -19,8 +19,6 @@
  * /crafting e em /refining.
  */
 
-import { SheetScroll } from "@/components/sheet/SheetScroll";
-
 /** Larguras por *tipo* de coluna, não por coluna. */
 export const SHEET_WIDTHS = {
   /** Identidade do item: ícone, badge, nome visual e id técnico. */
@@ -96,7 +94,7 @@ export function SheetTable({
   }
 
   return (
-    <SheetScroll>
+    <div className="sheet-scroll">
       <table
         className={`sheet text-[11.5px] ${freeze > 0 ? "sheet-freeze" : ""}`}
         style={Object.fromEntries(
@@ -119,6 +117,6 @@ export function SheetTable({
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </SheetScroll>
+    </div>
   );
 }

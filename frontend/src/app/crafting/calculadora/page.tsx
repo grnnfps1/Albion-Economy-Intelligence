@@ -53,20 +53,14 @@ const GRUPOS = [
     ],
   },
   {
+    // A base é **uma** unidade, e o padrão daqui tem de ser o mesmo da página —
+    // senão a pílula acesa diz 100 enquanto a conta usa 1.
     chave: "quantity",
-    padrao: "100",
-    opcoes: [10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
+    padrao: "1",
+    opcoes: [1, 10, 100, 500, 1000].map((q) => ({ valor: String(q), rotulo: String(q) })),
   },
 ];
 
-/**
- * As colunas, na ordem em que a conta se constrói.
- *
- * A planilha de referência mostra o resultado primeiro e os componentes
- * depois. Aqui é o contrário, de propósito: num **calculador** a ordem que
- * ensina é a da conta — material, taxas, custo, receita, lucro. Quem só quer o
- * resultado lê a última coluna; quem quer entender lê da esquerda.
- */
 /**
  * Os papéis de material, na ordem em que a cadeia os consome.
  *
@@ -92,6 +86,14 @@ function papeisPresentes(linhas: CalcRow[]): string[] {
   return PAPEIS.filter((p) => vistos.has(p.chave)).map((p) => p.chave);
 }
 
+/**
+ * As colunas, na ordem em que a conta se constrói.
+ *
+ * A planilha de referência mostra o resultado primeiro e os componentes
+ * depois. Aqui é o contrário, de propósito: num **calculador** a ordem que
+ * ensina é a da conta — material, taxas, custo, receita, lucro. Quem só quer o
+ * resultado lê a última coluna; quem quer entender lê da esquerda.
+ */
 function colunas(papeis: string[]): SheetColumn[] {
   return [
     { label: "tier", width: "focus", left: true },
@@ -220,6 +222,7 @@ export default async function CalculadoraPage({
             retorno={data.material_return}
             opcoes={data.return_options}
             familiaLabel={familia}
+            prefs={prefs}
           />
           <Parametros data={data} quantidade={Number(quantidade)} />
 
@@ -565,7 +568,7 @@ function Faixa({ faixa }: { faixa: PriceRange | null }) {
 
   if (!faixa.comparable) {
     return (
-      <span className="w-full text-right text-[9px] text-dim">
+      <span className="w-full text-[9px] text-dim">
         {faixa.fresh_city_count === 0 ? "nenhuma cotação fresca" : "1 cidade só"}
       </span>
     );
@@ -575,7 +578,7 @@ function Faixa({ faixa }: { faixa: PriceRange | null }) {
   // falso. A cor separa "olhe para isto" de "pode ignorar".
   const vale = (faixa.spread_pct ?? 0) >= 10;
   return (
-    <span className="flex w-full items-baseline justify-end gap-1 text-[9px]">
+    <span className="flex w-full items-baseline gap-1 text-[9px]">
       <span className="figure text-dim">
         {formatSilverCompact(faixa.min_price)}–{formatSilverCompact(faixa.max_price)}
       </span>
@@ -651,35 +654,39 @@ function Material({
   const cabecalho = [
     `${material.item_name ?? material.item} · ${material.item}`,
     `receita pede ${material.quantity} por unidade`,
-    `comprar ${formatSilver(material.buy_units)}${
+    `comprar ${formatSilverCompact(material.buy_units)}${
       material.saved_by_return > 0
-        ? ` (o retorno poupou ${formatSilver(material.saved_by_return)})`
+        ? ` (retorno poupou ${formatSilverCompact(material.saved_by_return)})`
         : ""
     }`,
   ].join(" · ");
 
+  // Uma linha por cidade, curta. A idade fica — ela decide, e é decisão do
+  // projeto desde a fase 4. "velha" e "fora do intervalo" saíram: são
+  // dedutíveis da própria idade, e repetir a dedução ao lado do dado gasta
+  // três palavras para não dizer nada novo.
   const listaDeCidades = (faixa?.cities ?? []).map((c) => {
-    const marcas = [
-      c.is_chosen ? "usada" : null,
-      c.is_manual ? "sua" : null,
-      c.is_fresh ? null : "velha, fora do intervalo",
-    ].filter(Boolean);
-    return `  ${c.location_name}  ${formatSilver(c.unit_price)}` +
-      `  (${formatDataAge(c.age_seconds)}${marcas.length ? `, ${marcas.join(", ")}` : ""})`;
+    const marca = c.is_chosen ? "←" : c.is_manual ? "✎" : " ";
+    return `${marca} ${c.location_name} ${formatSilverCompact(c.unit_price)} · ${formatDataAge(
+      c.age_seconds,
+    )}`;
   });
 
   const resumoDaFaixa = !faixa
     ? "sem cotação em nenhuma cidade"
     : faixa.comparable
-      ? `entre ${faixa.fresh_city_count} cidades com cotação fresca: ` +
-        `${formatSilver(faixa.min_price)} a ${formatSilver(faixa.max_price)} ` +
-        `(+${faixa.spread_pct}% na mais cara)`
-      : `só ${faixa.fresh_city_count} cidade com cotação fresca — sem alternativa para comparar`;
+      ? `${formatSilverCompact(faixa.min_price)}–${formatSilverCompact(faixa.max_price)}` +
+        ` · +${faixa.spread_pct}% · ${faixa.fresh_city_count} cidades frescas`
+      : "1 cidade fresca — sem alternativa para comparar";
 
   const dica = [cabecalho, resumoDaFaixa, ...listaDeCidades].join("\n");
 
   return (
     <td className="l align-top">
+      {/* O ícone é a âncora da coluna, e por isso vem **antes** do valor e
+          colado nele. Com o bloco alinhado à direita, o número ia para a
+          borda oposta e o ícone ficava solto à esquerda — de relance a coluna
+          começava pelo número, que é o inverso do que o olho procura. */}
       <HoverTip dica={dica} lista className="flex w-full items-start gap-1.5">
         <ItemIcon
           url={material.icon_url}
@@ -687,7 +694,7 @@ function Material({
           tier={tier}
           size={30}
         />
-        <span className="flex min-w-0 flex-1 flex-col items-end gap-px">
+        <span className="flex min-w-0 flex-1 flex-col items-start gap-px">
           <PriceInput
             server={server}
             location={material.location ?? buyLocation}
@@ -701,7 +708,7 @@ function Material({
           {/* "comprar N" ganhou linha própria: espremido ao lado do preço ele
               truncava. A quantidade saiu do badge do ícone pelo mesmo motivo —
               seis dígitos não cabem num selo de 30px. */}
-          <span className="flex w-full items-center justify-end gap-px whitespace-nowrap text-[9.5px]">
+          <span className="flex w-full items-center gap-px whitespace-nowrap text-[9.5px]">
             <span className="text-muted">comprar {formatSilver(material.buy_units)}</span>
             {/* Nome em português: é o que a busca do mercado no jogo entende,
                 e aqui importa mais que em qualquer tela — esta é a lista de

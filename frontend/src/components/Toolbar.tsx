@@ -69,9 +69,10 @@ export function Toolbar({
         <button
           type="button"
           onClick={onConfig}
+          title="servidor, cidade de venda, Premium, imposto, setup fee, bônus do dia, orçamento de Focus, risco de rota e especialização"
           className="rounded border border-line bg-raised px-3 py-1.5 text-[11px] text-muted hover:border-line-strong hover:text-body"
         >
-          ⚙ taxas e focus
+          ⚙ preferências
         </button>
       )}
     </div>
