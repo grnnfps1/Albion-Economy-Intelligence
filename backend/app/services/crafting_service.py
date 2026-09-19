@@ -76,6 +76,7 @@ async def find_crafting_opportunities(
     tier: int | None,
     station_category: str | None,
     limit: int,
+    sort_desc: bool = True,
     sourcing_mode: SourcingMode = SourcingMode.SINGLE_CITY,
     max_age_seconds: int | None = None,
     loss_pct_blue: float | None = None,
@@ -323,7 +324,19 @@ async def find_crafting_opportunities(
         focus = op.economics.focus_cost
         return lucro / focus if focus > 0 else -1
 
-    resultados.sort(key=chave, reverse=True)
+    def ordem(op):
+        """Desconhecido no fim, nas duas direções.
+
+        A separação entra **antes** do valor na tupla, e o sinal entra no
+        valor: se o `reverse` fizesse a inversão, ele inverteria também a
+        separação e as linhas sem cálculo subiriam ao topo no crescente. Mesma
+        regra do calculador (`calculator_service._ordena`).
+        """
+        valor = chave(op)
+        desconhecido = not op.economics.known
+        return (desconhecido, -valor if sort_desc else valor)
+
+    resultados.sort(key=ordem)
 
     return CraftingResponse(
         server=server,
@@ -331,6 +344,7 @@ async def find_crafting_opportunities(
         sell_location=sell_location,
         crafts=crafts,
         sort_by=sort_by,
+        sort_dir="desc" if sort_desc else "asc",
         sourcing_mode=str(sourcing_mode),
         total=len(resultados),
         params=params,

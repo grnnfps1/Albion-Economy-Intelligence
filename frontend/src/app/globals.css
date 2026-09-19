@@ -193,8 +193,24 @@ body {
   overscroll-behavior: contain;
 }
 
+/* `max-content`, e **não** `width: 100%`.
+
+   Esta linha era a causa de toda coluna truncada. Com `table-layout: fixed`, a
+   largura usada pela tabela é a do `width` — e quando a soma das larguras do
+   `colgroup` passa disso, o navegador não deixa a tabela transbordar: ele
+   **encolhe todas as colunas proporcionalmente** até caberem.
+
+   O efeito é traiçoeiro porque a tabela continua parecendo certa: nada some,
+   tudo fica um pouco mais estreito, e só o conteúdo mais largo denuncia —
+   "custo de produç", e o lucro de nove dígitos virando "+1.". A barra de
+   rolagem horizontal existia e não rolava nada, porque não havia transbordo.
+
+   Com `max-content` as larguras declaradas são respeitadas, a tabela passa da
+   janela e a barra horizontal passa a fazer o que ela existe para fazer.
+   `min-width: 100%` mantém o preenchimento quando há poucas colunas. */
 .sheet {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -210,6 +226,21 @@ body {
   text-align: right;
   white-space: nowrap;
   backdrop-filter: blur(4px);
+}
+
+/* O rótulo termina onde o número termina.
+
+   `.lbl` usa `letter-spacing: 0.07em`, e letter-spacing acrescenta espaço
+   **depois** de cada caractere — inclusive do último. Numa coluna alinhada à
+   direita isso deixa o rótulo recuado em relação ao dígito de baixo, por um
+   valor pequeno e constante que o olho percebe como desalinhamento sem saber
+   nomear. Descontar o mesmo valor do padding direito devolve os dois à mesma
+   coluna.
+
+   Só nas de número: nas de texto o tracking sobra do lado oposto ao alinhamento
+   e não incomoda. */
+.sheet thead th:not(.l) {
+  padding-right: calc(6px - 0.07em);
 }
 
 .sheet thead th.l,

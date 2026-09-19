@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/PageShell";
+import { ComoLer } from "@/components/sheet/ComoLer";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import {
   EmptyMaterialCell,
@@ -46,14 +47,27 @@ export const dynamic = "force-dynamic";
  * avisar.
  */
 
+/** A ordenação de abertura: prata/focus, porque focus é o recurso escasso. */
+const ORDEM_PADRAO = { by: "profit_per_focus", dir: "desc" };
+
 function colunas(maxMateriais: number): SheetColumn[] {
   return [
     { label: "item", width: "item", left: true },
     ...materialColumns(maxMateriais),
     { label: "você gasta", width: "num", title: "materiais depois do retorno, mais a taxa da estação" },
     { label: "você recebe", width: "num", title: "já descontado o imposto de venda" },
-    { label: "lucro ajustado", width: "num" },
-    { label: "prata/focus", width: "num", title: "a ordenação principal: focus é o recurso escasso" },
+    // `numWide` e não `num`: com a seta de ordenação, "lucro ajustado" não
+    // cabe em 6,8rem e o navegador cortaria o rótulo. Rótulo truncado num
+    // cabeçalho clicável é pior que noutro lugar — ele é o alvo do clique.
+    { label: "lucro ajustado", width: "numWide", sortKey: "profit",
+      title: "lucro já descontado o risco da rota" },
+    { label: "prata/focus", width: "num", sortKey: "profit_per_focus",
+      title: "a ordenação principal: focus é o recurso escasso" },
+    // ROI ganhou coluna nesta conversão. Ele já era uma das três ordens
+    // possíveis e **não aparecia em lugar nenhum** da tabela — ordenar por
+    // um número que não se vê é pedir confiança sem dar como conferir.
+    { label: "ROI", width: "pct", sortKey: "roi",
+      title: "lucro sobre o capital imobilizado" },
     {
       label: "lucro/dia",
       width: "num",
@@ -119,15 +133,6 @@ function exportacao(maxMateriais: number): ExportColumn<CraftOpportunity>[] {
 }
 
 const GRUPOS = [
-  {
-    chave: "sort_by",
-    padrao: "profit_per_focus",
-    opcoes: [
-      { valor: "profit_per_focus", rotulo: "prata/focus" },
-      { valor: "profit", rotulo: "lucro" },
-      { valor: "roi", rotulo: "ROI" },
-    ],
-  },
   {
     // Onde comprar cada material. Uma cidade é o padrão porque rota espalhada
     // custa viagem: só vale quando a economia paga o desvio.
@@ -218,7 +223,11 @@ export default async function CraftingPage({
       )}
 
       {data && data.total > 0 && (
-        <SheetTable columns={colunas(maxMateriais)}>
+        <SheetTable
+          columns={colunas(maxMateriais)}
+          sort={{ by: data.sort_by, dir: data.sort_dir }}
+          sortDefault={ORDEM_PADRAO}
+        >
           {linhas.map((op) => (
             <CraftLine
               key={`${op.item}-${op.recipe_variant}`}
@@ -230,7 +239,8 @@ export default async function CraftingPage({
       )}
 
       {data && data.opportunities.length > 0 && (
-        <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
+        <ComoLer>
+          <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
           <b>Como ler:</b> <i>você gasta</i> é o custo dos materiais depois do retorno, mais a
           taxa da estação. <i>Você recebe</i> já desconta o imposto de venda. Nos materiais, o
           número é o preço por unidade; o badge no ícone é a quantidade. A faixa à esquerda é o
@@ -241,7 +251,8 @@ export default async function CraftingPage({
           a carga inteira pode não chegar. O Black Market aceita equipamento, nunca recurso.
           A marca <i>↩</i> é o retorno de material: ele muda com a cidade, e craftar na cidade
           com bônus da família devolve 24,8% do material em vez de 15,2%.
-        </p>
+          </p>
+        </ComoLer>
       )}
     </PageShell>
   );
@@ -430,6 +441,18 @@ function CraftLine({
         >
           {eco.profit_per_focus === null ? "—" : formatSilver(eco.profit_per_focus)}
         </span>
+      </td>
+
+      {/* ROI: lucro sobre o capital imobilizado. Era uma das três ordenações e
+          não aparecia na tabela — ordenar por um número que não se vê é pedir
+          confiança sem dar como conferir. */}
+      <td
+        className={`figure ${
+          positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
+        }`}
+        title="lucro sobre o capital imobilizado — margem alta com ROI baixo é armadilha de capital parado"
+      >
+        {eco.roi_pct === null ? "—" : `${eco.roi_pct.toFixed(1)}%`}
       </td>
 
       <LucroDia

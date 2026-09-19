@@ -47,6 +47,15 @@ export const SHEET_WIDTHS = {
   calcMat: "10.5rem",
   /** Prata. Cabe `1.683.277` sem quebrar. */
   num: "6.8rem",
+  /**
+   * A coluna que decide — no calculador, o lucro.
+   *
+   * Larga o bastante para `-1.683.277.500` em corpo 13 semibold, que é o pior
+   * caso: sinal, nove dígitos e três separadores. É a única coluna que **não
+   * pode** truncar: uma margem cortada ainda se entende pelo percentual ao
+   * lado, um lucro cortado vira outro número.
+   */
+  numWide: "9.5rem",
   /** Percentual. */
   pct: "5.2rem",
   /** Focus e outros inteiros curtos. */
@@ -128,6 +137,7 @@ export function SheetTable({
                     ativo={sort}
                     padrao={sortDefault}
                     title={c.title}
+                    left={c.left}
                   />
                 ) : (
                   c.label

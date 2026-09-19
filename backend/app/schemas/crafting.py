@@ -237,6 +237,7 @@ class CraftingResponse(BaseModel):
     sell_location: str
     crafts: int
     sort_by: str
+    sort_dir: str = Field(default="desc", description="`asc` ou `desc`.")
     sourcing_mode: str = "CIDADE_UNICA"
     total: int
     params: CraftParamsUsed

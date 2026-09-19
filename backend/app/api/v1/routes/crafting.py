@@ -73,6 +73,7 @@ async def crafting_opportunities(
     crafts: int = Query(1, ge=1, le=10_000),
     strategy: str = Query("IMEDIATA", description="IMEDIATA | PACIENTE"),
     sort_by: str = Query("profit_per_focus", description=f"um de {ORDENACOES}"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     tier: int | None = Query(None, ge=1, le=8),
     station_category: str | None = Query(None, description="Ex.: wood, metal, cloth."),
     # Em qual cidade comprar cada material. CIDADE_UNICA é o padrão porque uma
@@ -116,6 +117,7 @@ async def crafting_opportunities(
         crafts=crafts,
         strategy=Strategy.PATIENT if strategy.upper().startswith("PAC") else Strategy.FAST,
         sort_by=sort_by if sort_by in ORDENACOES else "profit_per_focus",
+        sort_desc=sort_dir == "desc",
         tier=tier,
         station_category=station_category,
         sourcing_mode=SOURCING_MODE.get(sourcing_mode.upper(), SourcingMode.SINGLE_CITY),

@@ -36,6 +36,35 @@ import { useEffect, useRef } from "react";
  * tem por que rolar. Nenhum número fixo: se a faixa de retorno crescer ou o
  * rodapé encolher, a conta acompanha no mesmo quadro.
  */
+
+/**
+ * Arredonda a altura para baixo, até caber um número inteiro de linhas.
+ *
+ * Sem isto a última linha aparece partida ao meio, e linha pela metade lê-se
+ * como dado incompleto: o olho não sabe se o número está cortado ou se o valor
+ * é aquele. Sobra menos de uma linha de folga, que é o preço.
+ *
+ * Mede a linha em vez de assumir: a altura muda com a densidade da tela (o
+ * calculador usa ícone de 30px, os rankings usam 20px) e com o conteúdo — uma
+ * linha com duas linhas de texto na célula de material é mais alta.
+ */
+function emLinhasInteiras(el: HTMLElement, disponivel: number): number {
+  const cabecalho = el.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+  const primeira = el.querySelector("tbody tr")?.getBoundingClientRect().height ?? 0;
+  if (primeira <= 0) return disponivel;
+
+  // A barra de rolagem **horizontal** come altura por dentro do contêiner. Sem
+  // descontá-la, a conta fecha em linhas inteiras e a última fica escondida
+  // atrás da barra — o mesmo sintoma que esta função existe para eliminar.
+  // `offsetHeight - clientHeight` é a medida real, e não um 15px chutado que
+  // erra em cada sistema.
+  const barra = Math.max(0, el.offsetHeight - el.clientHeight);
+
+  const corpo = disponivel - cabecalho - barra;
+  if (corpo <= primeira) return disponivel;
+  return Math.floor(cabecalho + barra + Math.floor(corpo / primeira) * primeira);
+}
+
 export function SheetScroll({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -64,7 +93,7 @@ export function SheetScroll({ children }: { children: React.ReactNode }) {
       // Um piso evita o caso degenerado em que o conteúdo acima já ocupa a
       // janela inteira e a tabela viraria uma fresta — aí é melhor deixá-la
       // usável e a página rolar um pouco.
-      el.style.height = `${Math.max(disponivel, 220)}px`;
+      el.style.height = `${Math.max(emLinhasInteiras(el, disponivel), 220)}px`;
     };
 
     medir();

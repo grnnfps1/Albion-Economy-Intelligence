@@ -3,6 +3,7 @@ import { PageShell } from "@/components/PageShell";
 import type { CampoPref } from "@/components/PreferencesForm";
 import { RetornoPainel } from "@/components/calculator/RetornoPainel";
 import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
+import { ComoLer } from "@/components/sheet/ComoLer";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
 import { HoverTip } from "@/components/sheet/HoverTip";
@@ -155,7 +156,8 @@ function colunas(papeis: string[]): SheetColumn[] {
     { label: "custo", width: "num", sortKey: "production_cost",
       title: "custo de produção: material líquido + taxa da loja + taxa de venda" },
     { label: "receita", width: "num", title: "receita bruta, antes das taxas" },
-    { label: "lucro", width: "num", sortKey: "profit" },
+    // A única coluna que não pode truncar, e por isso tem largura própria.
+    { label: "lucro", width: "numWide", sortKey: "profit" },
     // Investimento em coluna própria: com oito dígitos nos dois, ele brigava com
     // o lucro dentro da mesma célula.
     { label: "investe", width: "num", sortKey: "total_investment",
@@ -320,25 +322,27 @@ export default async function CalculadoraPage({
             ))}
           </SheetTable>
 
-          <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
-            <b>Como ler:</b> a base é <b>uma unidade</b>, e a tabela inteira está multiplicada
-            pela quantidade do filtro — agora em {formatSilver(Number(quantidade))}. Tudo que é
-            soma escala junto: compra,
-            gasto, focus, taxa de venda, custo, receita, lucro e investimento.{" "}
-            <b>Margem, prata/focus e a margem sobre o custo não escalam</b>, porque são razões —
-            ficam idênticas em 1 e em 10.000 unidades, e se mudassem seria bug.
-          </p>
-          <p className="max-w-prose px-4 pb-4 text-[11px] text-dim leading-relaxed">
-            O <i>comprar N</i> sob o preço de cada material é o consumo total já descontado o
-            retorno, arredondado para cima <b>uma vez, no fim</b> — arredondar por unidade e
-            multiplicar compraria material a mais. {data.return_note} A <i>taxa da loja</i> é
-            por execução, não fixa da sessão: {formatSilver(Number(quantidade))} unidades pagam{" "}
-            {formatSilver(Number(quantidade))} vezes. A <i>taxa de venda</i> é imposto mais setup
-            fee: uma ordem de venda paga os dois, e o setup mesmo se a ordem não executar. A
-            coluna <i>escoa em</i> depende do histórico de mercado; enquanto ele não for
-            coletado (<code>python -m app.cli.collect_history</code>) ela diz{" "}
-            <i>sem dado</i> — que é diferente de giro zero.
-          </p>
+          <ComoLer>
+            <p className="max-w-prose p-4 text-[11px] text-dim leading-relaxed">
+              <b>Como ler:</b> a base é <b>uma unidade</b>, e a tabela inteira está multiplicada
+              pela quantidade do filtro — agora em {formatSilver(Number(quantidade))}. Tudo que é
+              soma escala junto: compra,
+              gasto, focus, taxa de venda, custo, receita, lucro e investimento.{" "}
+              <b>Margem, prata/focus e a margem sobre o custo não escalam</b>, porque são razões —
+              ficam idênticas em 1 e em 10.000 unidades, e se mudassem seria bug.
+            </p>
+            <p className="max-w-prose px-4 pb-4 text-[11px] text-dim leading-relaxed">
+              O <i>comprar N</i> sob o preço de cada material é o consumo total já descontado o
+              retorno, arredondado para cima <b>uma vez, no fim</b> — arredondar por unidade e
+              multiplicar compraria material a mais. {data.return_note} A <i>taxa da loja</i> é
+              por execução, não fixa da sessão: {formatSilver(Number(quantidade))} unidades pagam{" "}
+              {formatSilver(Number(quantidade))} vezes. A <i>taxa de venda</i> é imposto mais setup
+              fee: uma ordem de venda paga os dois, e o setup mesmo se a ordem não executar. A
+              coluna <i>escoa em</i> depende do histórico de mercado; enquanto ele não for
+              coletado (<code>python -m app.cli.collect_history</code>) ela diz{" "}
+              <i>sem dado</i> — que é diferente de giro zero.
+            </p>
+          </ComoLer>
         </>
       )}
     </PageShell>

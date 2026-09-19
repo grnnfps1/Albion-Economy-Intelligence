@@ -36,12 +36,29 @@ import { useRouter, useSearchParams } from "next/navigation";
  */
 export type SortState = { by: string; dir: string };
 
+/**
+ * A seta só aparece na coluna ativa — e nas outras ela nem ocupa lugar.
+ *
+ * Uma seta cinza em toda coluna ordenável viraria ruído de doze setas e
+ * esconderia qual manda. E uma seta invisível **reservando espaço** faria o
+ * rótulo de toda coluna ordenável nascer deslocado em relação ao número.
+ */
+function Seta({ ativa, dir }: { ativa: boolean; dir: string }) {
+  if (!ativa) return null;
+  return (
+    <span className="text-warn" aria-hidden>
+      {dir === "asc" ? "▲" : "▼"}
+    </span>
+  );
+}
+
 export function SortHeader({
   label,
   sortKey,
   ativo,
   padrao,
   title,
+  left = false,
 }: {
   label: string;
   sortKey: string;
@@ -50,6 +67,15 @@ export function SortHeader({
   /** A ordenação de abertura da tela, para onde o terceiro clique volta. */
   padrao: SortState;
   title?: string;
+  /**
+   * A coluna é de texto (alinhada à esquerda).
+   *
+   * Muda a **ordem** dos dois elementos, não só o `justify`. Numa coluna
+   * numérica o rótulo tem de terminar exatamente onde o número termina, e uma
+   * seta depois dele empurraria o último caractere para dentro — por isso ali
+   * a seta vem antes. Numa coluna de texto é o espelho: rótulo, depois seta.
+   */
+  left?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -78,16 +104,16 @@ export function SortHeader({
           : `ordenar por ${label}${eAtiva ? "" : ", do maior para o menor"}`
       }
       aria-sort={eAtiva ? (ativo.dir === "desc" ? "descending" : "ascending") : "none"}
+      // `p-0` e `border-0` não são detalhe: qualquer padding próprio do botão
+      // desloca o rótulo em relação ao número da coluna, e o desencontro fica
+      // visível na vertical porque as outras colunas não têm botão.
       className={`lbl inline-flex w-full cursor-pointer items-baseline gap-1 border-0 bg-transparent p-0 ${
-        eAtiva ? "text-body" : "text-dim hover:text-muted"
-      }`}
+        left ? "justify-start text-left" : "justify-end text-right"
+      } ${eAtiva ? "text-body" : "text-dim hover:text-muted"}`}
     >
+      {!left && <Seta ativa={eAtiva} dir={ativo.dir} />}
       <span className="truncate">{label}</span>
-      {/* A seta só aparece na coluna ativa. Uma seta cinza em toda coluna
-          ordenável viraria ruído de doze setas e esconderia qual manda. */}
-      <span className={eAtiva ? "text-warn" : "opacity-0"} aria-hidden>
-        {eAtiva && ativo.dir === "asc" ? "▲" : "▼"}
-      </span>
+      {left && <Seta ativa={eAtiva} dir={ativo.dir} />}
     </button>
   );
 }

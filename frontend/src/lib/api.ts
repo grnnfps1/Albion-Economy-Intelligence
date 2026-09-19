@@ -426,7 +426,7 @@ export type CraftOpportunity = {
 
 export type CraftingResponse = {
   server: string; buy_location: string; sell_location: string;
-  crafts: number; sort_by: string; sourcing_mode: string; total: number;
+  crafts: number; sort_by: string; sort_dir: string; sourcing_mode: string; total: number;
   params: {
     return_rate: number | null; station_fee_per_100_nutrition: number | null;
     nutrition_per_item_value: number | null;
