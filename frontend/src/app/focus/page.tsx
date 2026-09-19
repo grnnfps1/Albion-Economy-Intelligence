@@ -6,7 +6,9 @@ import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { TierBadge } from "@/components/ui/Badges";
 import { Figure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchFocus, type FocusPlan } from "@/lib/api";
+import { fetchFocus, type FocusPlan,
+  ultimaFalha,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
@@ -112,7 +114,7 @@ export default async function FocusPage({
         />
       }
     >
-      {data === null && <ApiDown />}
+      {data === null && <ApiDown falha={ultimaFalha()} />}
 
       {data?.total === 0 && (
         <EmptyState>

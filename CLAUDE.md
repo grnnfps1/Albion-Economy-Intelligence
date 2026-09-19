@@ -49,6 +49,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 29 | Pílula espelha a resposta; painel por tela; desvio de sessão em dev | ✅ |
 | 30 | Ordenação clicável no cabeçalho, resolvida no servidor | ✅ |
 | 31 | Ordenação uniformizada; tabela deixa de encolher | ✅ |
+| 32 | Focus fracionário derrubava /crafting e /focus | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -338,6 +339,35 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 32 — o spec derrubava duas telas inteiras
+
+- **`CraftEconomicsOut.focus_cost` era `int` e o valor é fracionário.** Com
+  especialização, `54 × 0,5^(16000/10000) = 17,6908`, e o Pydantic recusa float
+  com parte fracionária num campo `int`. Resultado: **500** em `/crafting` e
+  `/focus`, com o frontend dizendo "a API não respondeu".
+- **O caso comum escondia o tipo errado — de novo.** O padrão de spec é zero, e
+  zero devolve `54.0`, um float **sem** parte fracionária, que o Pydantic aceita
+  num `int`. Todos os testes de API passavam `spec_levels=None`. O bug estava lá
+  desde a fase 16 e só apareceu quando alguém informou uma especialização.
+  É a regra 12 com outra roupa: lá era o encantamento que não mudava peso nem
+  categoria; aqui é o spec zero que devolve um número redondo.
+- **A pista estava na linha de baixo.** `base_focus_cost` — o focus **antes** da
+  redução — já era `float | None`. O campo reduzido, que é o que de fato vira
+  fracionário, ficou `int`. Os dois foram escritos no mesmo commit.
+- **`farming.focus_cost: int` está certo e ficou.** Agricultura não aplica
+  especialização: o valor vem do dump e é multiplicado por um inteiro de ciclos.
+  Conferido antes de "consertar" por simetria.
+- **"A API não respondeu" cobria três causas com ações opostas.** Container
+  parado pede `docker compose ps`; tempo limite diz que a rota está lenta e que
+  reiniciar não adianta; 500 diz que há exceção no log e a infraestrutura está
+  boa. Este bug foi o exemplo: a tela mandava olhar a infraestrutura, que estava
+  saudável. `ApiDown` agora nomeia a causa e diz o comando.
+- **O motivo viaja por `cache()` do React, não por uma união de tipos.** As oito
+  telas tratam ausência como `null`, e mudar o contrato obrigaria a reescrever o
+  afunilamento de tipo em todas para ganhar uma frase. `cache()` é memoização
+  **por requisição** no App Router: cada requisição tem a sua caixa, sem o
+  vazamento entre usuários simultâneos que uma variável de módulo teria.
 
 ## Notas da fase 31 — ordenação uniforme, e a tabela que encolhia
 

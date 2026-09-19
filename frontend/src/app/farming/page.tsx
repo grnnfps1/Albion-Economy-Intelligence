@@ -15,7 +15,9 @@ import { SpreadWarning, TierBadge } from "@/components/ui/Badges";
 import { AgeTag, ProfitFigure } from "@/components/ui/Figures";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchFarming, type FarmPlan } from "@/lib/api";
+import { fetchFarming, type FarmPlan,
+  ultimaFalha,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
@@ -191,7 +193,7 @@ export default async function FarmingPage({
         />
       }
     >
-      {data === null && <ApiDown />}
+      {data === null && <ApiDown falha={ultimaFalha()} />}
 
       {data?.total === 0 && (
         <EmptyState>

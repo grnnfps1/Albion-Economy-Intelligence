@@ -6,7 +6,9 @@ import { PageShell } from "@/components/PageShell";
 import { CityTag, QualityBadge, TierBadge } from "@/components/ui/Badges";
 import { AgeTag } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchMarketPrices, type MarketPrice, type PriceField } from "@/lib/api";
+import { fetchMarketPrices, type MarketPrice, type PriceField,
+  ultimaFalha,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { getPreferences } from "@/lib/preferences";
@@ -132,7 +134,7 @@ export default async function MarketPage({
         />
       }
     >
-      {page === null && <ApiDown />}
+      {page === null && <ApiDown falha={ultimaFalha()} />}
 
       {page?.total === 0 && (
         <EmptyState>

@@ -173,7 +173,13 @@ class CraftEconomicsOut(BaseModel):
     known: bool
     reason: str | None = None
     output_quantity: int
-    focus_cost: int
+    focus_cost: float = Field(
+        description=(
+            "Focus das execuções pedidas, **já reduzido pela especialização**. "
+            "É fracionário: a redução é `0,5 ^ (eficiência ÷ 10.000)`, e 54 com "
+            "spec vira 17,6908."
+        )
+    )
     base_focus_cost: float | None = Field(
         default=None,
         description="Focus antes da especialização — o `@craftingfocus` do dump.",

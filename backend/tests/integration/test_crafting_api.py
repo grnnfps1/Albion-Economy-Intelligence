@@ -342,3 +342,69 @@ async def test_risco_alto_pode_derrubar_um_craft_lucrativo(session, cenario):
     assert op.risk.gross_profit > 0
     assert op.risk.survives_risk is False
     assert op.risk.expected_profit < 0
+
+
+class TestEspecializacaoNaResposta:
+    """Focus com especialização é **fracionário**, e a resposta precisa aceitá-lo.
+
+    Esta classe existe por causa de um 500 em produção: `CraftEconomicsOut`
+    declarava `focus_cost: int`, e o Pydantic aceita `54.0` (float sem parte
+    fracionária) mas recusa `17.6908`. Como o padrão de spec é zero, o campo
+    nunca ficava fracionário em teste nenhum — todos passavam `spec_levels=None`
+    — e o erro só apareceu quando alguém informou uma especialização de
+    verdade, derrubando `/crafting` e `/focus` inteiras.
+
+    É a mesma armadilha da regra 12 numa roupa nova: **o caso comum esconde o
+    tipo errado**. Lá era o encantamento que não mudava peso nem categoria;
+    aqui é o spec zero que devolve um float redondo.
+    """
+
+    async def test_spec_reduz_o_focus_e_a_resposta_serializa(self, session, cenario):
+        p = cenario["preco"]
+        await semear(session, cenario, [
+            p(cenario["wood"], 1000, 900),
+            p(cenario["t3"], 800, 700),
+            p(cenario["planks"], 5000, 4500),
+        ])
+
+        resposta = await find_crafting_opportunities(
+            session, **(PADRAO | {"spec_levels": {"planks": 64}})
+        )
+        eco = resposta.opportunities[0].economics
+
+        # 54 × 0,5^(16.000/10.000) = 17,7. O valor exato não importa aqui;
+        # importa que ele tem parte fracionária e atravessou a serialização.
+        assert eco.focus_cost != int(eco.focus_cost)
+        assert 0 < eco.focus_cost < 54
+        assert eco.base_focus_cost == 54
+
+    async def test_sem_spec_o_focus_continua_o_do_dump(self, session, cenario):
+        p = cenario["preco"]
+        await semear(session, cenario, [
+            p(cenario["wood"], 1000, 900),
+            p(cenario["t3"], 800, 700),
+            p(cenario["planks"], 5000, 4500),
+        ])
+        resposta = await find_crafting_opportunities(session, **PADRAO)
+        assert resposta.opportunities[0].economics.focus_cost == 54
+
+    async def test_prata_por_focus_acompanha_a_reducao(self, session, cenario):
+        """Menos focus para o mesmo lucro é mais prata por focus.
+
+        É a ordenação principal da tela: se a redução não chegasse até aqui, o
+        ranking premiaria quem **não** especializou.
+        """
+        p = cenario["preco"]
+        await semear(session, cenario, [
+            p(cenario["wood"], 1000, 900),
+            p(cenario["t3"], 800, 700),
+            p(cenario["planks"], 5000, 4500),
+        ])
+        sem = await find_crafting_opportunities(session, **PADRAO)
+        com = await find_crafting_opportunities(
+            session, **(PADRAO | {"spec_levels": {"planks": 64}})
+        )
+        a = sem.opportunities[0].economics
+        b = com.opportunities[0].economics
+        assert b.profit == pytest.approx(a.profit)
+        assert b.profit_per_focus > a.profit_per_focus

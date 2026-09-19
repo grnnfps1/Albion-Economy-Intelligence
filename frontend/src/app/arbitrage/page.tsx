@@ -6,7 +6,9 @@ import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { CityTag, QualityBadge, TierBadge, ZoneTag } from "@/components/ui/Badges";
 import { AgeTag, Figure, RiskProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchArbitrage, type Opportunity } from "@/lib/api";
+import { fetchArbitrage, type Opportunity,
+  ultimaFalha,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
@@ -113,7 +115,7 @@ export default async function ArbitragePage({
         />
       }
     >
-      {data === null && <ApiDown />}
+      {data === null && <ApiDown falha={ultimaFalha()} />}
 
       {data?.total === 0 && (
         <EmptyState>

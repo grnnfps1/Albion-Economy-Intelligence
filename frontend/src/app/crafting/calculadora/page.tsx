@@ -16,6 +16,7 @@ import {
   type CalcMaterial,
   type CalcRow,
   type PriceRange,
+  ultimaFalha,
 } from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatDataAge, formatSilver, formatSilverCompact } from "@/lib/format";
@@ -284,7 +285,7 @@ export default async function CalculadoraPage({
         />
       }
     >
-      {data === null && <ApiDown />}
+      {data === null && <ApiDown falha={ultimaFalha()} />}
 
       {data && linhas.length === 0 && (
         <EmptyState>

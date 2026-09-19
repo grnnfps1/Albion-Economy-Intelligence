@@ -6,7 +6,9 @@ import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { ReturnTag, TierBadge } from "@/components/ui/Badges";
 import { Figure, ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchRefining, type RefiningOpportunity } from "@/lib/api";
+import { fetchRefining, type RefiningOpportunity,
+  ultimaFalha,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatDataAge, formatSilver } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
@@ -152,7 +154,7 @@ export default async function RefiningPage({
         />
       }
     >
-      {data === null && <ApiDown />}
+      {data === null && <ApiDown falha={ultimaFalha()} />}
 
       {data?.total === 0 && (
         <EmptyState>

@@ -7,7 +7,86 @@
  */
 import "server-only";
 
+import { cache } from "react";
+
 const BASE_URL = process.env.BACKEND_INTERNAL_URL ?? "http://localhost:8000";
+
+/**
+ * Por que a chamada falhou.
+ *
+ * "A API não respondeu" cobria três situações que pedem ações diferentes:
+ * container fora do ar (suba-o), tempo limite estourado (a rota está lenta
+ * demais) e erro 500 (há uma exceção no log). Quem lê a tela não tem como
+ * saber qual foi, e as três levam a caminhos opostos.
+ *
+ * O caso que motivou a distinção: `/focus` respondia **500** por causa de um
+ * campo mal tipado, e a tela dizia "não respondeu" — que manda olhar para a
+ * infraestrutura, que estava saudável.
+ */
+export type TipoDeFalha =
+  | "fora-do-ar"
+  | "tempo-limite"
+  | "erro-do-servidor"
+  | "requisicao-invalida";
+
+export type ApiFailure = {
+  tipo: TipoDeFalha;
+  status?: number;
+  rota: string;
+};
+
+/**
+ * A falha da requisição, guardada por **requisição HTTP**.
+ *
+ * As oito telas densas tratam ausência de dado como `null`, e `null` não
+ * carrega motivo. Mudar o contrato para uma união obrigaria a reescrever o
+ * afunilamento de tipo em todas elas para ganhar uma frase.
+ *
+ * `cache()` do React é memoização **por requisição** no App Router: cada
+ * requisição recebe a sua própria caixa, e não há vazamento entre usuários
+ * simultâneos — que é o defeito óbvio de uma variável de módulo. O motivo é
+ * ambiente por natureza: ele pertence à última chamada desta requisição, que é
+ * exatamente a que produziu o `null` que a tela está tratando.
+ */
+const caixaDeFalha = cache((): { falha: ApiFailure | null } => ({ falha: null }));
+
+export function registrarFalha(falha: ApiFailure): null {
+  caixaDeFalha().falha = falha;
+  return null;
+}
+
+/** O motivo da última falha desta requisição, para a tela poder dizê-lo. */
+export function ultimaFalha(): ApiFailure | null {
+  return caixaDeFalha().falha;
+}
+
+/** Classifica o que deu errado, a partir do que o `fetch` jogou. */
+export function classificar(erro: unknown, rota: string): ApiFailure {
+  if (erro instanceof RespostaDeErro) {
+    return {
+      rota,
+      status: erro.status,
+      // 5xx é problema nosso e tem exceção no log; 4xx é a requisição que a
+      // tela montou, e o log do backend não vai ter nada de anormal.
+      tipo: erro.status >= 500 ? "erro-do-servidor" : "requisicao-invalida",
+    };
+  }
+  // `AbortSignal.timeout` rejeita com `TimeoutError`; um `AbortError` chega
+  // pelo mesmo caminho quando a navegação é cancelada.
+  if (erro instanceof Error && (erro.name === "TimeoutError" || erro.name === "AbortError")) {
+    return { rota, tipo: "tempo-limite" };
+  }
+  // Conexão recusada, DNS, rede: o `fetch` do Node embrulha tudo em TypeError.
+  return { rota, tipo: "fora-do-ar" };
+}
+
+/** Erro com o status preservado — `new Error(texto)` perderia o número. */
+class RespostaDeErro extends Error {
+  constructor(readonly status: number, rota: string) {
+    super(`${rota} respondeu ${status}`);
+    this.name = "RespostaDeErro";
+  }
+}
 
 export type ComponentHealth = {
   status: string;
@@ -68,7 +147,7 @@ async function getJson<T>(path: string): Promise<T> {
   });
   // 503 é resposta legítima do health check degradado: tem corpo útil.
   if (!response.ok && response.status !== 503) {
-    throw new Error(`${path} respondeu ${response.status}`);
+    throw new RespostaDeErro(response.status, path);
   }
   return (await response.json()) as T;
 }
@@ -83,8 +162,8 @@ async function getJson<T>(path: string): Promise<T> {
 export async function fetchCatalogMeta(): Promise<CatalogMeta | null> {
   try {
     return await getJson<CatalogMeta>("/api/v1/meta");
-  } catch {
-    return null;
+  } catch (erro) {
+    return registrarFalha(classificar(erro, "/api/v1/meta"));
   }
 }
 
@@ -228,8 +307,9 @@ export async function fetchMarketPrices(query: MarketQuery): Promise<MarketPrice
   }
   try {
     return await getJson<MarketPricePage>(`/api/v1/market/prices?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/market/prices?${params.toString()}`));
   }
 }
 
@@ -287,16 +367,18 @@ export async function fetchHistory(
   }
   try {
     return await getJson<HistoryResponse>(`/api/v1/market/history?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/market/history?${params.toString()}`));
   }
 }
 
 export async function fetchGold(server: string, days: string): Promise<GoldResponse | null> {
   try {
     return await getJson<GoldResponse>(`/api/v1/gold?server=${server}&days=${days}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/gold?server=${server}&days=${days}`));
   }
 }
 
@@ -345,8 +427,9 @@ export async function fetchArbitrage(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<ArbitrageResponse>(`/api/v1/arbitrage?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/arbitrage?${params.toString()}`));
   }
 }
 
@@ -453,8 +536,9 @@ export async function fetchCrafting(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<CraftingResponse>(`/api/v1/crafting/opportunities?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/crafting/opportunities?${params.toString()}`));
   }
 }
 
@@ -502,8 +586,9 @@ export async function fetchRefining(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<RefiningResponse>(`/api/v1/refining/opportunities?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/refining/opportunities?${params.toString()}`));
   }
 }
 
@@ -533,8 +618,9 @@ export async function fetchFocus(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<FocusResponse>(`/api/v1/focus/ranking?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/focus/ranking?${params.toString()}`));
   }
 }
 
@@ -568,8 +654,9 @@ export async function fetchDashboard(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<DashboardResponse>(`/api/v1/dashboard?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/dashboard?${params.toString()}`));
   }
 }
 
@@ -659,8 +746,9 @@ export async function fetchFarming(
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
   try {
     return await getJson<FarmingResponse>(`/api/v1/farming/plans?${params.toString()}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/farming/plans?${params.toString()}`));
   }
 }
 
@@ -793,7 +881,8 @@ export async function fetchCalculator(
   const params = new URLSearchParams(query);
   try {
     return await getJson<CalculatorResponse>(`/api/v1/crafting/calculator?${params}`);
-  } catch {
-    return null;
+  } catch (erro) {
+    // O motivo sobrevive ao `null`: ver `registrarFalha`.
+    return registrarFalha(classificar(erro, `/api/v1/crafting/calculator?${params}`));
   }
 }
