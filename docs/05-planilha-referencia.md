@@ -6,9 +6,9 @@
 > **Nada aqui foi implementado.** Este documento é um mapa para decidir ordem de
 > trabalho, não um plano aprovado.
 >
-> O arquivo **não está no repositório** — ele vive fora, em
-> `docs/referencia/` de um checkout local. Se for virar referência permanente,
-> precisa de uma decisão sobre versionar 13 MB de binário.
+> O arquivo está em **`docs/referencias/`** (plural), **não rastreado pelo
+> git**. São 13 MB de binário: versionar ou não é decisão sua, e por isso não
+> foi adicionado no commit deste relatório.
 
 ## Como ler este documento
 
