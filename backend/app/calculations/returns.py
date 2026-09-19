@@ -133,6 +133,64 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+@dataclass(frozen=True)
+class BonusPart:
+    """Uma parcela de `B`, com o nome que ela tem na tela.
+
+    `bonus_total` sozinho responde *quanto*; não responde *de onde*. Numa tela
+    em que o usuário escolhe cidade e Focus, saber que 1,17 é
+    `0,18 + 0,40 + 0,59` é o que transforma o número em decisão: falta o Focus,
+    ou falta a cidade?
+
+    `applies=False` não some da lista — é justamente a parcela que o usuário
+    *poderia* ter e não tem, e mostrá-la apagada é o que revela o que está
+    sobre a mesa.
+    """
+
+    key: str
+    label: str
+    value: float
+    applies: bool
+
+
+def bonus_parts(
+    components: ReturnComponents,
+    activity: Activity,
+    has_city_bonus: bool,
+    use_focus: bool,
+    is_island: bool = False,
+    daily_bonus: float = 0.0,
+    city_label: str | None = None,
+) -> list[BonusPart]:
+    """As parcelas de `B`, aplicáveis e não aplicáveis, na ordem em que somam."""
+    de_cidade = (
+        components.refining_city if activity is Activity.REFINING else components.crafting_city
+    )
+    onde = f" em {city_label}" if city_label else ""
+
+    partes = [
+        BonusPart(
+            key="city_base",
+            label="base de cidade",
+            value=components.city_base or 0.0,
+            # Ilha não tem a base — é o que faz o retorno dela ser zero sem Focus.
+            applies=not is_island,
+        ),
+        BonusPart(
+            key="activity_city",
+            label=("refino" if activity is Activity.REFINING else "craft") + onde,
+            value=de_cidade or 0.0,
+            applies=has_city_bonus,
+        ),
+        BonusPart(key="focus", label="foco", value=components.focus or 0.0, applies=use_focus),
+    ]
+    if daily_bonus > 0:
+        partes.append(
+            BonusPart(key="daily", label="bônus do dia", value=daily_bonus, applies=True)
+        )
+    return partes
+
+
 def rrr_from_bonus(bonus_total: float) -> float:
     """`B ÷ (1 + B)`.
 

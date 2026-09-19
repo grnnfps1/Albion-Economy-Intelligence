@@ -1,5 +1,6 @@
 import { PriceInput } from "@/components/calculator/PriceInput";
 import { PageShell } from "@/components/PageShell";
+import { RetornoPainel } from "@/components/calculator/RetornoPainel";
 import { StationFeePrompt } from "@/components/calculator/StationFeePrompt";
 import { CopyButton } from "@/components/sheet/CopyButton";
 import { ExportButton } from "@/components/sheet/ExportButton";
@@ -8,7 +9,12 @@ import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { ReturnTag, TierBadge } from "@/components/ui/Badges";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
 import { ItemIcon } from "@/components/ui/ItemIcon";
-import { fetchCalculator, type CalcMaterial, type CalcRow } from "@/lib/api";
+import {
+  fetchCalculator,
+  type CalcMaterial,
+  type CalcRow,
+  type PriceRange,
+} from "@/lib/api";
 import { toExportSheet, type ExportColumn } from "@/lib/export";
 import { formatDataAge, formatSilver, formatSilverCompact } from "@/lib/format";
 import { feeParams, getPreferences } from "@/lib/preferences";
@@ -210,6 +216,11 @@ export default async function CalculadoraPage({
       {data && linhas.length > 0 && (
         <>
           {faltaTaxaDaEstacao && <StationFeePrompt prefs={prefs} />}
+          <RetornoPainel
+            retorno={data.material_return}
+            opcoes={data.return_options}
+            familiaLabel={familia}
+          />
           <Parametros data={data} quantidade={Number(quantidade)} />
 
           <SheetTable columns={colunas(papeis)} freeze={2}>
@@ -536,6 +547,46 @@ function Numero({ valor, dica }: { valor: number | null; dica?: string }) {
 }
 
 /**
+ * O intervalo de preço entre as cidades, em uma linha.
+ *
+ * A tela mostrava só o preço **usado**, e com isso o usuário não tinha como
+ * saber se a escolha economizou muito ou se foi indiferente. Intervalo grande
+ * diz que vale a viagem; intervalo pequeno diz que comprar tudo numa cidade só
+ * custa quase nada — a decisão que `cities_involved` já sinalizava sem o número
+ * que a justifica.
+ *
+ * **Uma cotação só não é intervalo de zero, é falta de alternativa**, e as duas
+ * coisas têm de se ler diferente: zero diria "todas as cidades cobram igual",
+ * que é uma afirmação sobre o mercado; falta de alternativa é uma afirmação
+ * sobre o que se sabe dele.
+ */
+function Faixa({ faixa }: { faixa: PriceRange | null }) {
+  if (!faixa) return null;
+
+  if (!faixa.comparable) {
+    return (
+      <span className="w-full text-right text-[9px] text-dim">
+        {faixa.fresh_city_count === 0 ? "nenhuma cotação fresca" : "1 cidade só"}
+      </span>
+    );
+  }
+
+  // Espalhamento pequeno não justifica viagem, e dizê-lo em âmbar seria alarme
+  // falso. A cor separa "olhe para isto" de "pode ignorar".
+  const vale = (faixa.spread_pct ?? 0) >= 10;
+  return (
+    <span className="flex w-full items-baseline justify-end gap-1 text-[9px]">
+      <span className="figure text-dim">
+        {formatSilverCompact(faixa.min_price)}–{formatSilverCompact(faixa.max_price)}
+      </span>
+      <span className={`figure ${vale ? "text-warn" : "text-dim"}`}>
+        +{faixa.spread_pct}%
+      </span>
+    </span>
+  );
+}
+
+/**
  * Um material: ícone com a **quantidade a comprar** no badge, e o preço
  * editável no balão de hover.
  *
@@ -591,7 +642,13 @@ function Material({
   server: string;
   buyLocation: string;
 }) {
-  const dica = [
+  const faixa = material.price_range;
+
+  // O balão é onde o detalhe cabe sem ocupar coluna. As cidades vão ordenadas
+  // por preço, com a escolhida marcada e a velha etiquetada — ver uma cotação
+  // de três dias em Thetford é informação, e é por isso que ela aparece na
+  // lista mesmo ficando de fora do intervalo.
+  const cabecalho = [
     `${material.item_name ?? material.item} · ${material.item}`,
     `receita pede ${material.quantity} por unidade`,
     `comprar ${formatSilver(material.buy_units)}${
@@ -599,15 +656,31 @@ function Material({
         ? ` (o retorno poupou ${formatSilver(material.saved_by_return)})`
         : ""
     }`,
-    material.location ? `em ${material.location}` : null,
-    material.age_seconds !== null ? `cotação ${formatDataAge(material.age_seconds)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].join(" · ");
+
+  const listaDeCidades = (faixa?.cities ?? []).map((c) => {
+    const marcas = [
+      c.is_chosen ? "usada" : null,
+      c.is_manual ? "sua" : null,
+      c.is_fresh ? null : "velha, fora do intervalo",
+    ].filter(Boolean);
+    return `  ${c.location_name}  ${formatSilver(c.unit_price)}` +
+      `  (${formatDataAge(c.age_seconds)}${marcas.length ? `, ${marcas.join(", ")}` : ""})`;
+  });
+
+  const resumoDaFaixa = !faixa
+    ? "sem cotação em nenhuma cidade"
+    : faixa.comparable
+      ? `entre ${faixa.fresh_city_count} cidades com cotação fresca: ` +
+        `${formatSilver(faixa.min_price)} a ${formatSilver(faixa.max_price)} ` +
+        `(+${faixa.spread_pct}% na mais cara)`
+      : `só ${faixa.fresh_city_count} cidade com cotação fresca — sem alternativa para comparar`;
+
+  const dica = [cabecalho, resumoDaFaixa, ...listaDeCidades].join("\n");
 
   return (
     <td className="l align-top">
-      <HoverTip dica={dica} className="flex w-full items-start gap-1.5">
+      <HoverTip dica={dica} lista className="flex w-full items-start gap-1.5">
         <ItemIcon
           url={material.icon_url}
           alt={material.item_name ?? material.item}
@@ -635,6 +708,7 @@ function Material({
                 compras. */}
             <CopyButton name={material.item_name} id={material.item} />
           </span>
+          <Faixa faixa={faixa} />
         </span>
       </HoverTip>
     </td>

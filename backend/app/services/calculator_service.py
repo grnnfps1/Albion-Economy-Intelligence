@@ -57,11 +57,14 @@ from app.schemas.calculator import (
     CalcParamsUsed,
     CalcRowOut,
     CalculatorResponse,
+    CityQuoteOut,
+    PriceRangeOut,
+    ReturnOptionOut,
 )
 from app.schemas.crafting import SpecializationUsed
 from app.services.arbitrage_service import resolve_fees
 from app.services.manual_price_service import load_manual_overlay
-from app.services.return_service import load_return_policy, return_out
+from app.services.return_service import ISLAND_KINDS, load_return_policy, return_out
 from app.services.sourcing import SourcingMode, load_material_sourcing
 from app.services.specialization_service import load_specialization_policy, spec_out
 from app.services.station_service import (
@@ -272,6 +275,37 @@ async def build_calculator(
         override=return_rate,
     )
 
+    # O retorno de cada local para esta família, com os mesmos Focus e bônus do
+    # dia. O motor já sabia disto desde a fase 20 e só contava **depois** do
+    # cálculo — quem estava em Caerleon sem Focus via 27 linhas vermelhas e
+    # nenhuma pista de que trocar de cidade resolveria.
+    locais = await list_locations(session, only_active=False)
+    opcoes = retornos.options(
+        Activity.REFINING,
+        itens[0].unique_name,
+        [
+            (local.slug, local.display_name, local.kind in ISLAND_KINDS)
+            for local in locais
+            if local.kind != "black_market"
+        ],
+        use_focus=use_focus,
+        daily_bonus=daily_production_bonus,
+        override=return_rate,
+    )
+    melhor_taxa = max((o.rate for o in opcoes if o.rate is not None), default=None)
+    opcoes_out = [
+        ReturnOptionOut(
+            slug=o.slug,
+            name=o.name,
+            rate=o.rate,
+            has_city_bonus=o.has_city_bonus,
+            is_island=o.is_island,
+            is_current=o.slug == local_de_producao,
+            is_best=o.rate is not None and o.rate == melhor_taxa,
+        )
+        for o in opcoes
+    ]
+
     linhas_out = [
         _linha(
             item, receitas, catalogo, compras, manual, precos_venda, sinais,
@@ -288,7 +322,21 @@ async def build_calculator(
         buy_location=buy_location,
         sell_location=sell_location,
         rows=linhas_out,
-        material_return=return_out(retorno, melhor_cidade, nomes_de_cidade),
+        material_return=return_out(
+            retorno,
+            melhor_cidade,
+            nomes_de_cidade,
+            components=retornos.components,
+            activity=Activity.REFINING,
+            # A parcela do bônus é rotulada com a cidade que **dá** o bônus,
+            # não com a que está em uso. Quando ela não se aplica, é o nome da
+            # outra cidade que informa: "refino em Martlock 40% (não)" diz o
+            # que fazer; "refino em Caerleon 40% (não)" não diz nada.
+            city_label=nomes_de_cidade.get(
+                melhor_cidade.city_slug or "", melhor_cidade.city_slug
+            ),
+        ),
+        return_options=opcoes_out,
         params=params,
         return_note=RESSALVA_DO_RETORNO,
         generated_at=now.isoformat(),
@@ -436,6 +484,36 @@ def _linha(
     return base
 
 
+def _intervalo(faixa) -> PriceRangeOut | None:
+    """O intervalo entre cidades, pronto para a tela.
+
+    `None` quando não há cotação nenhuma: aí a linha já vai dizer que falta
+    preço, e um intervalo vazio ao lado só repetiria a ausência.
+    """
+    if not faixa.cities:
+        return None
+    return PriceRangeOut(
+        cities=[
+            CityQuoteOut(
+                location_slug=c.location_slug,
+                location_name=c.location_name,
+                unit_price=c.unit_price,
+                age_seconds=c.age_seconds,
+                is_fresh=c.is_fresh,
+                is_manual=c.is_manual,
+                is_chosen=c.is_chosen,
+            )
+            for c in faixa.cities
+        ],
+        min_price=faixa.min_price,
+        max_price=faixa.max_price,
+        spread=faixa.spread,
+        spread_pct=faixa.spread_pct,
+        fresh_city_count=faixa.fresh_city_count,
+        comparable=faixa.comparable,
+    )
+
+
 def _explica(base: CalcRowOut, economia) -> None:
     """Traduz o impedimento para a linha, separando o que é de quem.
 
@@ -507,6 +585,7 @@ def _materiais_out(
                 buy_units=linha.units,
                 gross_units=linha.gross,
                 saved_by_return=linha.saved,
+                price_range=_intervalo(compras.range_of(material.unique_name)),
             )
         )
     # Ordena por papel, não pela ordem do dump. `sorted` é estável, então dois

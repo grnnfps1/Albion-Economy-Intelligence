@@ -111,6 +111,22 @@ Depois de o servidor cair para a casa das dezenas de milissegundos, vale medir
 de novo — aí sim com a aba Performance, que é a única parte desta lista que eu
 não consigo instrumentar daqui.
 
+## Adendo de 19/09/2026 — o intervalo de preço não custou nada
+
+A fase 27 passou a carregar as cotações de **todas** as cidades mesmo no modo
+CIDADE_UNICA, para poder mostrar o intervalo de preço por material. O comentário
+que justificava consultar só a base dizia que "o modo padrão não pode ficar mais
+caro em banco por causa de um recurso que ele não usa" — e a premissa deixou de
+valer, porque agora ele usa.
+
+Medido: `load_material_sourcing` leva **14 ms** para 50 materiais em sete
+cidades, e calcular o intervalo de todos leva **1 ms**. A requisição inteira
+continua em ~2.100 ms, inalterada — o gargalo segue sendo o `list_recipes`.
+
+O que cresceu foi o corpo da resposta, de 46 KB para 108 KB, por causa da lista
+de cidades por material. Vale o preço: é a informação que responde "vale a
+viagem?", e 108 KB não é tempo de render perceptível.
+
 ## Conclusão
 
 A escolha de calcular no servidor **não** é o gargalo e não precisa ser

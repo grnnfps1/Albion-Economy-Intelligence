@@ -356,6 +356,7 @@ export type MaterialReturn = {
   has_city_bonus: boolean; use_focus: boolean;
   daily_bonus: number; assumes_no_daily_bonus: boolean;
   bonus_total: number | null; is_island: boolean;
+  components: { key: string; label: string; value: number; applies: boolean }[];
   matrix_rate: number | null;
   best_city: string | null; best_city_name: string | null;
   rate_at_best_city: number | null; delta: number | null;
@@ -666,6 +667,39 @@ export async function fetchFarming(
 // Calculador de crafting (fase 19)
 // --------------------------------------------------------------------------- //
 
+/** Um local e o retorno que ele daria para a família em tela. */
+export type ReturnOption = {
+  slug: string;
+  name: string;
+  rate: number | null;
+  has_city_bonus: boolean;
+  is_island: boolean;
+  is_current: boolean;
+  is_best: boolean;
+};
+
+/** Uma cidade com cotação de um material. Vai no balão, não na coluna. */
+export type CityQuote = {
+  location_slug: string;
+  location_name: string;
+  unit_price: number;
+  age_seconds: number | null;
+  is_fresh: boolean;
+  is_manual: boolean;
+  is_chosen: boolean;
+};
+
+export type PriceRange = {
+  cities: CityQuote[];
+  min_price: number | null;
+  max_price: number | null;
+  spread: number | null;
+  spread_pct: number | null;
+  fresh_city_count: number;
+  /** Falso significa **falta de alternativa**, não espalhamento zero. */
+  comparable: boolean;
+};
+
 export type CalcMaterial = {
   item: string;
   item_name: string | null;
@@ -683,6 +717,7 @@ export type CalcMaterial = {
   buy_units: number;
   gross_units: number;
   saved_by_return: number;
+  price_range: PriceRange | null;
 };
 
 export type CalcRow = {
@@ -731,6 +766,7 @@ export type CalculatorResponse = {
   sell_location: string;
   rows: CalcRow[];
   material_return: MaterialReturn;
+  return_options: ReturnOption[];
   params: {
     quantity: number;
     sourcing: string;

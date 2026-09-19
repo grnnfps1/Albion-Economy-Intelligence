@@ -6,6 +6,41 @@ from app.schemas.arbitrage import FeesUsed
 from app.schemas.crafting import ReturnOut, SpecializationUsed
 
 
+class CityQuoteOut(BaseModel):
+    """Uma cidade com cotação deste material. Vai no balão, não na coluna."""
+
+    location_slug: str
+    location_name: str
+    unit_price: int
+    age_seconds: int | None = None
+    is_fresh: bool = Field(
+        description="Dentro do limite de frescor. Só as frescas formam o intervalo."
+    )
+    is_manual: bool = False
+    is_chosen: bool = False
+
+
+class PriceRangeOut(BaseModel):
+    """O intervalo de preço deste material entre as cidades consultadas."""
+
+    cities: list[CityQuoteOut] = Field(default_factory=list)
+    min_price: int | None = None
+    max_price: int | None = None
+    spread: int | None = None
+    spread_pct: float | None = Field(
+        default=None, description="Quanto a cidade cara cobra a mais, sobre a barata."
+    )
+    fresh_city_count: int = 0
+    comparable: bool = Field(
+        default=False,
+        description=(
+            "Há pelo menos duas cidades frescas. Falso significa **falta de "
+            "alternativa**, não espalhamento zero — a tela precisa dizer as "
+            "duas coisas de formas diferentes."
+        ),
+    )
+
+
 class CalcMaterialOut(BaseModel):
     """Um material da linha, com preço editável e o que comprar."""
 
@@ -36,6 +71,8 @@ class CalcMaterialOut(BaseModel):
     buy_units: int = 0
     gross_units: float = 0
     saved_by_return: float = 0
+
+    price_range: PriceRangeOut | None = None
 
 
 class CalcRowOut(BaseModel):
@@ -109,6 +146,23 @@ class CalcRowOut(BaseModel):
     )
 
 
+class ReturnOptionOut(BaseModel):
+    """O retorno que cada local daria para a família em tela.
+
+    A lista existe para a escolha de cidade ser informada em vez de às cegas: o
+    motor sabe o retorno de todas desde a fase 20, e só contava depois do
+    cálculo.
+    """
+
+    slug: str
+    name: str
+    rate: float | None = None
+    has_city_bonus: bool = False
+    is_island: bool = False
+    is_current: bool = False
+    is_best: bool = False
+
+
 class CalcParamsUsed(BaseModel):
     quantity: int
     sourcing: str
@@ -131,6 +185,14 @@ class CalculatorResponse(BaseModel):
 
     rows: list[CalcRowOut] = Field(default_factory=list)
     material_return: ReturnOut = Field(default_factory=ReturnOut)
+    return_options: list[ReturnOptionOut] = Field(
+        default_factory=list,
+        description=(
+            "O retorno de cada local para a família em tela, com os mesmos "
+            "Focus e bônus do dia. Reage à família: Martlock dá 40% para couro "
+            "e zero para tábuas."
+        ),
+    )
     params: CalcParamsUsed
 
     return_note: str = Field(

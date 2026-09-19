@@ -44,6 +44,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 24 | Linha sem número diz **por quê**; base unitária | ✅ |
 | 25 | Abreviação de valor grande, com fronteira explícita | ✅ |
 | 26 | Histórico coletado; estado vazio da taxa da estação | ✅ |
+| 27 | Retorno e intervalo de preço **antes** do cálculo | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -333,6 +334,53 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 27 — mostrar antes, não depois
+
+- **A informação já existia; faltava a hora.** Retorno por cidade, componentes
+  de `B`, melhor cidade e diferença estão no motor desde a fase 20 — e só eram
+  contados **depois** do cálculo. Quem estava em Caerleon sem Focus via 27
+  linhas vermelhas e nenhuma pista de que trocar de cidade resolveria. Nenhuma
+  conta nova entrou nesta fase: só mudou quando ela aparece.
+- **Três níveis, porque são três perguntas.** Componentes (`18% + 40% + 59% =
+  117%`) respondem *de onde vem*; o resultado (`53,9%`) responde *o que entra na
+  conta*; a comparação (`Martlock dá 36,7% para couro; aqui você está em 15,2%`)
+  responde *o que estou perdendo*. Só o resultado seria correto e inacionável;
+  só os componentes, aritmética sem conclusão.
+- **A parcela que não se aplica fica na soma, apagada.** É o que o usuário
+  poderia ter e não tem — some do total, não da tela. Escondê-la deixaria o
+  número certo e a decisão invisível.
+- **O rótulo do bônus nomeia a cidade que o dá, não a que está em uso.** "refino
+  em Martlock 40% (não)" diz o que fazer; "refino em Caerleon 40% (não)" não diz
+  nada.
+- **O bônus depende da família, e a lista reage.** Martlock 36,7% para couro e
+  15,2% para tábuas; Fort Sterling o inverso. Por isso a lista vem do backend
+  por família: replicá-la no frontend violaria a regra 3 e divergiria da fórmula
+  no primeiro ajuste — mesmo motivo pelo qual a matriz de oito células saiu de
+  `config_parameters` na fase 20.
+- **A ilha é o único caso em que o Focus não é melhoria marginal.** Sem a base
+  de cidade, `B` é zero e **nada** volta; com Focus vai a 37,1%. Nas cidades o
+  Focus soma; na ilha ele é a diferença entre haver retorno e não haver, e o
+  painel diz isso só quando a ilha está selecionada.
+- **O intervalo de preço por material responde "vale a viagem?".** A tela
+  mostrava só o preço usado, e com isso não dava para saber se a escolha
+  economizou muito ou foi indiferente. Agora: menor, maior e o percentual, com
+  a lista de cidades no balão.
+- **Uma cotação só não é intervalo de zero — é falta de alternativa.** Zero
+  diria "todas as cidades cobram igual", que é afirmação sobre o mercado; falta
+  de alternativa é afirmação sobre o que se sabe dele, e muda a confiança no
+  número. A tela as escreve diferente, e há teste separando as duas (duas
+  cidades com o mesmo preço **são** comparáveis, com espalhamento zero).
+- **Só cotação fresca forma o intervalo, e a velha continua no balão.** Incluir
+  a velha faria o "maior preço" ser sempre a cidade que ninguém visita. Mas ver
+  que Thetford tem preço de três dias é informação, então ela aparece na lista,
+  etiquetada.
+- **Uma premissa de desempenho caiu, e foi medida antes de cair.** O modo
+  CIDADE_UNICA consultava só a cidade base porque "não podia ficar mais caro em
+  banco por um recurso que não usa". Agora ele usa. Medido: 14 ms para 50
+  materiais em sete cidades, contra os ~2.100 ms da requisição inteira. O
+  `choose()` continua restrito pelo modo: ganhou-se informação, não
+  comportamento.
 
 ## Notas da fase 26 — o vazio precisa se explicar
 

@@ -157,6 +157,15 @@ body {
   z-index: 30;
 }
 
+/* Balão de lista: quebra em `
+` e ganha largura máxima, para a relação de
+   cidades caber sem virar uma linha mais larga que a tela. */
+.hover-tip--lista::after {
+  white-space: pre-line;
+  max-width: 22rem;
+  line-height: 1.5;
+}
+
 .hover-tip:hover::after,
 .hover-tip:focus-within::after {
   opacity: 1;

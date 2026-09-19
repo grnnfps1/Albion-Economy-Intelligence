@@ -10,6 +10,7 @@ import pytest
 from app.calculations.returns import (
     Activity,
     ReturnComponents,
+    bonus_parts,
     resolve_return_rate,
     rrr_from_bonus,
     total_bonus,
@@ -241,3 +242,55 @@ class TestConferenciaContraAPlanilha:
             if not (ilha and bonus)
         ]
         assert min(abs(c - planilha) for c in candidatas) > 0.005
+
+
+class TestParcelasDeB:
+    """`bonus_total` responde *quanto*; as parcelas respondem *de onde*.
+
+    Numa tela em que o usuário escolhe cidade e Focus, `1,17` sozinho é correto
+    e inacionável. `0,18 + 0,40 + 0,59` diz o que fazer.
+    """
+
+    def partes(self, **kw):
+        base = dict(
+            components=OFICIAIS, activity=Activity.REFINING,
+            has_city_bonus=False, use_focus=False,
+        )
+        return bonus_parts(**(base | kw))
+
+    def test_as_parcelas_somam_o_B(self):
+        partes = self.partes(has_city_bonus=True, use_focus=True)
+        assert sum(p.value for p in partes if p.applies) == pytest.approx(1.17)
+
+    def test_a_parcela_que_nao_se_aplica_continua_na_lista(self):
+        """É o que o usuário poderia ter e não tem — some da soma, não da tela."""
+        partes = self.partes()
+        assert [p.key for p in partes] == ["city_base", "activity_city", "focus"]
+        assert [p.applies for p in partes] == [True, False, False]
+        # O valor continua visível: é "40% em Martlock que você está deixando".
+        assert next(p for p in partes if p.key == "activity_city").value == 0.40
+
+    def test_a_parcela_da_cidade_muda_de_nome_com_a_atividade(self):
+        refino = self.partes()
+        craft = self.partes(activity=Activity.CRAFTING)
+        assert refino[1].label.startswith("refino")
+        assert craft[1].label.startswith("craft")
+        # E de valor: 40% no refino, 15% no craft.
+        assert (refino[1].value, craft[1].value) == (0.40, 0.15)
+
+    def test_o_rotulo_carrega_a_cidade_do_bonus(self):
+        """"refino em Martlock 40% (não)" diz o que fazer; sem o nome, não diz."""
+        partes = self.partes(city_label="Martlock")
+        assert partes[1].label == "refino em Martlock"
+
+    def test_na_ilha_a_base_de_cidade_nao_se_aplica(self):
+        """É o que faz a ilha render zero sem Focus, e o painel precisa mostrá-lo."""
+        partes = self.partes(is_island=True)
+        assert next(p for p in partes if p.key == "city_base").applies is False
+        assert sum(p.value for p in partes if p.applies) == 0.0
+
+    def test_o_bonus_do_dia_so_aparece_quando_informado(self):
+        """Zero significa "não estou modelando" — e parcela zero na soma é ruído."""
+        assert all(p.key != "daily" for p in self.partes())
+        com = self.partes(daily_bonus=0.10)
+        assert com[-1].key == "daily" and com[-1].value == 0.10

@@ -118,6 +118,70 @@ class Choice:
         return float(self.base.unit_price - self.quote.unit_price)
 
 
+@dataclass(frozen=True)
+class CityQuote:
+    """Uma cotação na lista do balão: cidade, preço, idade e se conta."""
+
+    location_slug: str
+    location_name: str
+    unit_price: int
+    age_seconds: int | None
+    is_fresh: bool
+    is_manual: bool
+    is_chosen: bool
+
+
+@dataclass(frozen=True)
+class PriceRange:
+    """O intervalo de preço de um material entre as cidades consultadas.
+
+    Existe porque a tela mostrava só o preço **usado**, e com isso o usuário não
+    tinha como saber se a escolha economizou muito ou se foi indiferente.
+    Intervalo grande diz que vale a viagem; intervalo pequeno diz que comprar
+    tudo numa cidade só custa quase nada — que é a decisão que `cities_involved`
+    já sinalizava sem o número que a justifica.
+
+    ## Só cotação fresca entra
+
+    Mesma regra que governa a escolha (fase 11). Incluir cotação velha faria o
+    intervalo parecer maior do que a decisão real, e o "maior preço" seria
+    sempre a cidade que ninguém visita — um espalhamento que não existe para
+    quem for comprar hoje.
+
+    ## Uma cotação só não é intervalo
+
+    É **falta de alternativa**, e muda a confiança no número: não há com o que
+    comparar, e o preço não foi validado por nenhum outro mercado. Por isso
+    `comparable` é falso com menos de duas cidades frescas, e a tela diz isso
+    em vez de mostrar um intervalo de zero, que pareceria "todas as cidades
+    cobram igual".
+    """
+
+    cities: list[CityQuote]
+    """Todas as cidades com cotação utilizável, da mais barata para a mais cara."""
+
+    min_price: int | None = None
+    max_price: int | None = None
+    fresh_city_count: int = 0
+
+    @property
+    def comparable(self) -> bool:
+        return self.fresh_city_count >= 2 and self.min_price is not None
+
+    @property
+    def spread(self) -> int | None:
+        if not self.comparable:
+            return None
+        return self.max_price - self.min_price
+
+    @property
+    def spread_pct(self) -> float | None:
+        """Sobre o menor preço: "quanto a mais custa a cidade cara"."""
+        if not self.comparable or not self.min_price:
+            return None
+        return round((self.max_price - self.min_price) / self.min_price * 100, 1)
+
+
 class MaterialSourcing:
     """Decide, material a material, em qual cidade comprar.
 
@@ -172,6 +236,47 @@ class MaterialSourcing:
             return Choice(quote=base, base=base)
         return Choice(quote=melhor, base=base)
 
+    def range_of(self, unique_name: str) -> PriceRange:
+        """Intervalo entre as cidades consultadas, e a lista para o balão.
+
+        A lista traz **todas** as cotações utilizáveis, inclusive as velhas,
+        porque o balão é onde o detalhe cabe e ver que Thetford tem preço de
+        três dias atrás é informação. O intervalo, esse, sai só das frescas.
+        """
+        usaveis = [q for q in self._quotes.get(unique_name, ()) if q.usable]
+        if not usaveis:
+            return PriceRange(cities=[])
+
+        escolhida = self.choose(unique_name).quote
+        slug_escolhido = escolhida.location_slug if escolhida is not None else None
+
+        cidades = sorted(
+            (
+                CityQuote(
+                    location_slug=q.location_slug,
+                    location_name=q.location_name,
+                    unit_price=q.unit_price,
+                    age_seconds=q.age_seconds,
+                    is_fresh=self._fresh(q),
+                    is_manual=q.is_manual,
+                    is_chosen=q.location_slug == slug_escolhido,
+                )
+                for q in usaveis
+            ),
+            key=lambda c: (c.unit_price, c.location_slug),
+        )
+
+        frescas = [c for c in cidades if c.is_fresh]
+        if len(frescas) < 2:
+            return PriceRange(cities=cidades, fresh_city_count=len(frescas))
+
+        return PriceRange(
+            cities=cidades,
+            min_price=frescas[0].unit_price,
+            max_price=frescas[-1].unit_price,
+            fresh_city_count=len(frescas),
+        )
+
     def price_of(self, unique_name: str) -> int | None:
         """Preço da cidade escolhida. Assinatura de `market_price` da cadeia."""
         return self.choose(unique_name).unit_price
@@ -199,21 +304,26 @@ async def load_material_sourcing(
     now: datetime,
     manual: "ManualPriceOverlay | None" = None,
 ) -> MaterialSourcing:
-    """Carrega as cotações das cidades candidatas e monta a política.
+    """Carrega as cotações de todas as cidades candidatas e monta a política.
 
-    Em CIDADE_UNICA consulta só a cidade base: o modo padrão não pode ficar mais
-    caro em banco por causa de um recurso que ele não usa.
+    **Isto mudou.** Antes, em CIDADE_UNICA consultava-se só a cidade base, com a
+    justificativa de que o modo padrão não podia ficar mais caro em banco por um
+    recurso que ele não usava. A premissa deixou de valer: o modo padrão agora
+    *usa* as outras cidades — não para escolher, mas para **informar** o
+    intervalo de preço (`range_of`). Sem as outras cotações, a tela não tem como
+    dizer se a escolha economizou muito ou foi indiferente.
+
+    `choose()` continua restrito pelo modo: em CIDADE_UNICA a compra segue sendo
+    na base, aconteça o que acontecer nas outras. O que se ganhou foi
+    informação, não comportamento.
     """
-    if mode.spreads:
-        cidades = [
-            local.slug
-            for local in await list_locations(session, only_active=True)
-            if local.kind != BLACK_MARKET
-        ]
-        if base_slug not in cidades:
-            cidades.append(base_slug)
-    else:
-        cidades = [base_slug]
+    cidades = [
+        local.slug
+        for local in await list_locations(session, only_active=True)
+        if local.kind != BLACK_MARKET
+    ]
+    if base_slug not in cidades:
+        cidades.append(base_slug)
 
     linhas = await market_repo.sell_quotes_by_city(
         session, server_code, list(item_unique_names), cidades

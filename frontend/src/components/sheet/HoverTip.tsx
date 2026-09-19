@@ -17,13 +17,26 @@ export function HoverTip({
   dica,
   children,
   className = "",
+  lista = false,
 }: {
   dica: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * O balão vira várias linhas, quebrando em `
+`.
+   *
+   * O padrão é `nowrap` porque a dica curta de uma célula não pode rebobinar
+   * em três linhas finas. Uma lista de cidades é o caso oposto: ela **é** a
+   * quebra, e forçá-la numa linha só sairia mais larga que a tela.
+   */
+  lista?: boolean;
 }) {
   return (
-    <span data-dica={dica} className={`hover-tip relative ${className}`}>
+    <span
+      data-dica={dica}
+      className={`hover-tip relative ${lista ? "hover-tip--lista" : ""} ${className}`}
+    >
       {children}
     </span>
   );

@@ -26,11 +26,12 @@ from app.calculations.returns import (
     Activity,
     ReturnComponents,
     ReturnResolution,
+    bonus_parts,
     resolve_return_rate,
 )
 from app.repositories import settings_repo
 from app.repositories.reference import list_locations
-from app.schemas.crafting import ReturnOut
+from app.schemas.crafting import BonusPartOut, ReturnOut
 
 CRAFT_FAMILIES_KEY = "crafting.city_bonus_families"
 REFINE_RESOURCES_KEY = "refining.city_bonus_resources"
@@ -163,6 +164,52 @@ class ReturnPolicy:
 
         return atual, melhor
 
+    def options(
+        self,
+        activity: Activity,
+        unique_name: str,
+        locations: list[tuple[str, str, bool]],
+        use_focus: bool,
+        daily_bonus: float = 0.0,
+        override: float | None = None,
+    ) -> list["ReturnOption"]:
+        """O retorno que cada local daria, para **esta** família.
+
+        A informação já existia no motor desde a fase 20; o que faltava era ela
+        aparecer **antes** do cálculo. Um usuário em Caerleon sem Focus via 27
+        linhas vermelhas e nenhuma pista de que trocar de cidade resolveria — o
+        motor sabia, e só contava depois.
+
+        `locations` vem como `(slug, nome, é ilha)` porque quem sabe quais
+        locais existem é o repositório, não esta política.
+        """
+        opcoes: list[ReturnOption] = []
+        for slug, nome, e_ilha in locations:
+            resolucao, _ = self.resolve(
+                activity, unique_name, slug, use_focus, daily_bonus, override
+            )
+            opcoes.append(
+                ReturnOption(
+                    slug=slug,
+                    name=nome,
+                    rate=resolucao.rate,
+                    has_city_bonus=resolucao.has_city_bonus,
+                    is_island=e_ilha,
+                )
+            )
+        return opcoes
+
+
+@dataclass(frozen=True)
+class ReturnOption:
+    """Um local e o que ele renderia, com os mesmos Focus e bônus do dia."""
+
+    slug: str
+    name: str
+    rate: float | None
+    has_city_bonus: bool
+    is_island: bool
+
 
 async def load_return_policy(session: AsyncSession) -> ReturnPolicy:
     valores = await settings_repo.get_values(
@@ -192,9 +239,30 @@ def return_out(
     resolucao: ReturnResolution,
     melhor: CityBonus,
     nome_da_cidade: dict[str, str] | None = None,
+    components: ReturnComponents | None = None,
+    activity: Activity = Activity.REFINING,
+    city_label: str | None = None,
 ) -> ReturnOut:
-    """Traduz a resolução para a resposta, com o nome visual da cidade."""
+    """Traduz a resolução para a resposta, com o nome visual da cidade.
+
+    As parcelas de `B` vão junto: `bonus_total` responde *quanto*, e as
+    parcelas respondem *de onde* — que é o que permite ao usuário ver se o que
+    falta é o Focus ou a cidade.
+    """
     nomes = nome_da_cidade or {}
+    partes = (
+        []
+        if components is None
+        else bonus_parts(
+            components,
+            activity,
+            resolucao.has_city_bonus,
+            resolucao.use_focus,
+            resolucao.is_island,
+            resolucao.daily_bonus,
+            city_label,
+        )
+    )
     return ReturnOut(
         rate=resolucao.rate,
         source=resolucao.source,
@@ -205,6 +273,10 @@ def return_out(
         matrix_rate=resolucao.formula_rate,
         bonus_total=resolucao.bonus_total,
         is_island=resolucao.is_island,
+        components=[
+            BonusPartOut(key=p.key, label=p.label, value=p.value, applies=p.applies)
+            for p in partes
+        ],
         best_city=melhor.city_slug,
         best_city_name=nomes.get(melhor.city_slug or "", melhor.city_slug),
         rate_at_best_city=melhor.rate_there,

@@ -59,6 +59,21 @@ class CraftParamsUsed(BaseModel):
     missing: list[str] = Field(default_factory=list)
 
 
+class BonusPartOut(BaseModel):
+    """Uma parcela de `B`, para a tela poder mostrar a soma e não só o total."""
+
+    key: str
+    label: str
+    value: float
+    applies: bool = Field(
+        description=(
+            "A parcela entra neste cenário. As que **não** entram continuam na "
+            "lista de propósito: são o que o usuário poderia ter e não tem, e é "
+            "isso que transforma o número numa decisão."
+        )
+    )
+
+
 class ReturnOut(BaseModel):
     """A taxa de retorno em uso e onde ela seria maior.
 
@@ -89,6 +104,10 @@ class ReturnOut(BaseModel):
             "O bônus do dia não foi informado, então a conta assume zero. Ele "
             "varia por cidade e por dia e o jogador o lê na tela."
         ),
+    )
+    components: list[BonusPartOut] = Field(
+        default_factory=list,
+        description="As parcelas de `B`, na ordem em que somam. Vazio quando UNKNOWN.",
     )
 
     best_city: str | None = None
