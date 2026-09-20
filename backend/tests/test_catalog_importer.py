@@ -143,6 +143,38 @@ class TestNormalize:
         assert normalize({"UniqueName": "   "}, self.index) is None
 
     def test_lista_de_rastreio_e_parametrizavel(self):
-        item = normalize(names_entry("T4_WOOD"), self.index, frozenset({"resources"}))
+        item = normalize(
+            names_entry("T4_WOOD", "Rough Logs", "Troncos Rústicos"),
+            self.index,
+            frozenset({"resources"}),
+        )
         assert item is not None
         assert item.is_tracked is True
+
+    def test_item_sem_nome_em_nenhum_idioma_nao_e_rastreado(self):
+        """Item sem `display_name` nos dois idiomas não é item de mercado.
+
+        Medido em 20/09/2026: os 30 itens rastreados sem nome nenhum — os
+        `CRYSTALLEAGUE_*_TEMPLATE` e o cristal de arena — **nunca** tiveram
+        cotação, e o AODP devolve as 35 linhas deles zeradas. Eram 6,6% de cada
+        varredura completa gastos em item que ninguém compra.
+
+        O critério é a ausência de nome, e não "nunca teve cotação": montaria
+        rara e rédea decorativa também não têm ordem observada, e **continuam
+        rastreadas** porque têm nome e são itens de verdade. Ausência de mercado
+        observado não é ausência de mercado.
+        """
+        item = normalize(names_entry("T4_WOOD"), self.index, frozenset({"resources"}))
+        assert item is not None
+        assert item.is_tracked is False
+
+    def test_nome_em_um_idioma_so_ja_basta(self):
+        """O corte é "não tem nome em lugar nenhum", não "falta o português"."""
+        so_en = normalize(
+            names_entry("T4_WOOD", en="Rough Logs"), self.index, frozenset({"resources"})
+        )
+        so_pt = normalize(
+            names_entry("T4_WOOD", pt="Troncos Rústicos"), self.index, frozenset({"resources"})
+        )
+        assert so_en is not None and so_en.is_tracked is True
+        assert so_pt is not None and so_pt.is_tracked is True

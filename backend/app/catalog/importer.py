@@ -229,7 +229,23 @@ def normalize(
         item_value=_as_float(valor),
         nutrition=_as_int(meta.get("@nutrition")),
         food_category=meta.get("@foodcategory"),
-        is_tracked=subcategory in tracked_subcategories,
+        # Item sem nome em **nenhum** idioma não é item de mercado.
+        #
+        # Medido em 20/09/2026: dos 455 rastreados, 45 nunca tiveram cotação
+        # alguma. Trinta deles não têm `display_name` em português nem em
+        # inglês — são os `CRYSTALLEAGUE_*_TEMPLATE` e o cristal de arena, que
+        # existem no dump como peça de configuração de conteúdo, não como
+        # coisa que alguém compra. O AODP devolve as 35 linhas deles com tudo
+        # zerado, sempre.
+        #
+        # Eram 6,6% de cada varredura completa gastos em item que não tem
+        # mercado. **Não remarque achando que foi esquecimento**: o critério é
+        # a ausência de nome nos dois idiomas, e os outros 15 sem cotação —
+        # montarias raras, rédeas decorativas — **continuam rastreados**,
+        # porque têm nome e são itens de verdade que só não tiveram ordem
+        # observada. Ausência de mercado observado não é ausência de mercado.
+        is_tracked=subcategory in tracked_subcategories
+        and bool(localized.get("PT-BR") or localized.get("EN-US")),
         has_metadata=bool(meta),
     )
 
