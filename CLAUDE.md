@@ -268,6 +268,7 @@ docker compose exec backend pytest -q -rs
 docker compose exec backend ruff check .
 docker compose exec frontend npm run test
 docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run auditar   # Linguagem visual, seguindo os imports
 ```
 
 Atalhos equivalentes no `Makefile`.
@@ -421,6 +422,18 @@ obrigatório. Nenhuma delas lê configuração.
   `/crafting` "sem abreviação" usa `<Figure>`, que abrevia; `/arbitrage` "sem
   hierarquia" usa `ProfitFigure`, que aplica `text-val`. **Auditoria que não
   segue o import mede o arquivo, não a tela.**
+- **Virou script: `npm run auditar`.** Auditoria refeita à mão a cada fase se
+  degrada — a próxima é sempre um pouco mais apressada. Ela segue os imports
+  transitivamente e separa **falha** de **sem alvo**, porque `ProfitFigure` em
+  `/market` não falta: `/market` não calcula lucro. Sem essa distinção a
+  auditoria vira pressão para inventar coluna e satisfazer forma.
+- **O script reproduziu, duas vezes, o erro que existe para evitar** — e as
+  duas viraram comentário nele. Primeiro avaliava "esta tela tem esse dado?"
+  no código **com** os imports, e acusou `/market` de não tingir por lucro
+  porque a palavra vinha de um componente. Depois procurava a palavra `lucro`,
+  e a achou na **prosa do rodapé**: "trocá-los inverte o sinal do lucro". A
+  pergunta do alvo olha a página; a da conformidade olha a tela inteira; e o
+  alvo é campo de dado, nunca palavra.
 - **Três regras não têm alvo, e isso não é falha.** `ProfitFigure` em
   `/market` (não calcula lucro), `CityTag` em `/refining` e `/focus` (não
   exibem cidade — ela aparece só em balão). Inventar a coluna para cumprir a
@@ -1562,6 +1575,17 @@ Regras que a tela materializa:
   317. Confundi-los foi o que fez a regra sair ambígua — e é por isso que o
   Calculador mostra "comprar N" em texto e os rankings mostram a quantidade no
   badge, sem que nenhum dos dois esteja errado.
+
+- **`lbl` sob número neutro é rótulo; sob número com acento é ênfase
+  empilhada.** A regra não é sobre caixa alta, é sobre **duas ênfases
+  disputando a mesma célula** — a mesma distinção que decidiu a cor na fase 31.
+  `materiais + taxas` em caixa alta apagada, sob um número neutro, **diz o que
+  o número inclui**: é a regra "rótulo diz a consequência" funcionando. O que
+  pesava em `/refining` era `6,61 UN · FOCUS` sob um número grande **e
+  colorido**, onde o olho não sabe qual das duas ler primeiro.
+
+  Permitido sob número neutro. Proibido sob o número que carrega o acento de
+  cor da linha — ali o sub-texto usa `Sub`: caixa baixa, apagado.
 
 - **Nada duplicado.** O texto ao lado do ícone é o preço unitário, não a
   quantidade que já está no badge. Repetir gasta espaço e confunde.
