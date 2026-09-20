@@ -9,6 +9,7 @@ import { ExportButton } from "@/components/sheet/ExportButton";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { TierBadge } from "@/components/ui/Badges";
 import { Figure } from "@/components/ui/Figures";
+import { ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import { fetchFocus, type FocusPlan,
   ultimaFalha,
@@ -222,14 +223,10 @@ function FocusLine({ plano, dias }: { plano: FocusPlan; dias: number }) {
       </td>
 
       <td>
-        <span
-          className={`figure font-semibold text-val leading-none ${
-            positivo ? "text-up" : "text-down"
-          }`}
-        >
-          {positivo ? "+" : ""}
-          {formatSilver(plano.realizable_profit)}
-        </span>
+        {/* `ProfitFigure` compartilhado. `/focus` não tem margem — o plano é
+            sobre quanto se leva para casa no horizonte, não sobre proporção —,
+            então a pílula não aparece. É ausência de dado, não de regra. */}
+        <ProfitFigure profit={plano.realizable_profit} marginPct={null} />
         <Sub>
           em {dias} dia{dias > 1 ? "s" : ""}
         </Sub>

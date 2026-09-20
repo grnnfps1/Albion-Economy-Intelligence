@@ -215,7 +215,10 @@ function Preco({ campo }: { campo: PriceField }) {
             SEU
           </span>
         )}
-        <span className="figure">{formatSilverCompact(campo.value)}</span>
+        {/* Hierarquia por tamanho: estes são os números que a tela existe
+            para comparar. Estavam com o mesmo peso de todo o resto, e
+            tudo com o mesmo peso é o mesmo que nada ter peso. */}
+        <span className="figure text-val">{formatSilverCompact(campo.value)}</span>
       </span>
       {campo.is_manual && campo.collected_value !== null && (
         <span

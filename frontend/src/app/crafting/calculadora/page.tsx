@@ -13,6 +13,7 @@ import { HoverTip } from "@/components/sheet/HoverTip";
 import { SheetTable, type SheetColumn } from "@/components/sheet/SheetTable";
 import { ReturnTag, TierBadge } from "@/components/ui/Badges";
 import { ApiDown, EmptyState } from "@/components/ui/EmptyState";
+import { ProfitFigure } from "@/components/ui/Figures";
 import { ItemIcon } from "@/components/ui/ItemIcon";
 import {
   fetchCalculator,
@@ -160,7 +161,8 @@ function colunas(papeis: string[]): SheetColumn[] {
     // o lucro dentro da mesma célula.
     { label: "investe", width: "num", sortKey: "total_investment",
       title: "capital que sai do bolso antes de vender" },
-    { label: "margem", width: "pct", title: "sobre a receita bruta; entre parênteses, sobre o custo" },
+    { label: "margem s/ custo", width: "pct",
+      title: "lucro ÷ custo de produção — a definição da planilha. A margem sobre a receita está na pílula, colada ao lucro." },
     { label: "escoa em", width: "mini", title: "quantos dias o giro leva para absorver a quantidade" },
   ];
 }
@@ -537,32 +539,29 @@ function Linha({
       <Numero valor={linha.production_cost} />
       <Numero valor={linha.gross_revenue} />
 
+      {/* `ProfitFigure` compartilhado: a margem vem em pílula **colada** ao
+          lucro, que é a regra da linguagem visual. Aqui ela morava numa coluna
+          separada, e a pílula — que existe para o par se ler de uma vez — não
+          existia. O caso bloqueado continua com o diagnóstico próprio: é a
+          única coisa que esta tela tem e as outras não. */}
       <td title={linha.reason ?? undefined}>
         {linha.profit === null ? (
           <Impedimento linha={linha} />
         ) : (
-          <span
-            className={`figure font-semibold text-val ${positivo ? "text-up" : "text-down"}`}
-          >
-            {positivo ? "+" : ""}
-            {formatSilver(linha.profit)}
-          </span>
+          <ProfitFigure profit={linha.profit} marginPct={linha.margin_pct} />
         )}
       </td>
 
       <Numero valor={linha.total_investment} dica="material bruto mais a taxa da estação" />
 
-      <td
-        className={`figure ${
-          positivo ? "text-up" : positivo === false ? "text-down" : "text-dim"
-        }`}
-      >
-        {linha.margin_pct === null ? "—" : `${linha.margin_pct.toFixed(1)}%`}
-        {linha.margin_on_cost_pct !== null && (
-          <span className="block text-micro text-dim">
-            ({linha.margin_on_cost_pct.toFixed(1)}%)
-          </span>
-        )}
+      {/* Só a margem **sobre o custo**. A margem sobre a receita subiu para a
+          pílula, colada no lucro, e repetir as duas aqui seria a mesma
+          informação em dois lugares. Esta é a definição que a planilha de
+          referência usa, e por isso continua tendo coluna. */}
+      <td className="figure" title="lucro ÷ custo de produção — a definição da planilha">
+        {linha.margin_on_cost_pct === null
+          ? "—"
+          : `${linha.margin_on_cost_pct.toFixed(1)}%`}
       </td>
 
       {/* Traço aqui significava três coisas — sem histórico, giro zero, erro —

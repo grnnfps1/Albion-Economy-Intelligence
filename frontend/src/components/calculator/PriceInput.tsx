@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { tomDeFrescor } from "@/components/ui/Figures";
 import { formatSilver } from "@/lib/format";
 
 /**
@@ -93,11 +94,12 @@ export function PriceInput({
     startTransition(() => router.refresh());
   }
 
+  // A mesma escala de frescor do `AgeTag`, em vez de uma de duas faixas só
+  // aqui. O âmbar do meio existia no resto do produto e faltava justamente na
+  // tela que mais depende de preço fresco.
   const tom = isManual
     ? "border-warn text-warn"
-    : ageSeconds !== null && ageSeconds > 21_600
-      ? "border-line text-down"
-      : "border-line text-body";
+    : `border-line ${tomDeFrescor(ageSeconds)}`;
 
   return (
     <span className="flex flex-col items-end gap-px">

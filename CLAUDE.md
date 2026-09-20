@@ -55,6 +55,7 @@ média de 7 dias em Caerleon, vendável em Lymhurst com margem de 18,4% e score 
 | 35 | Agricultura: rodapé recolhível e o que falta em cima | ✅ |
 | 36 | Esqueleto único nas seis telas densas | ✅ |
 | 37 | Calculador vira a norma: tokens, cor e sub-texto | ✅ |
+| 38 | Volta ao básico: regras de briefing nunca aplicadas | ✅ |
 
 Detalhe das fases em `docs/03-riscos-e-fases.md`.
 
@@ -395,6 +396,35 @@ escrito na tela dela, dentro do jogo. Pré-preencher seria inventar número
 
 As funções de `calculations/fees.py` recebem `FeeProfile` como argumento
 obrigatório. Nenhuma delas lê configuração.
+
+## Notas da fase 38 — o que o briefing decidiu e a tela nunca aplicou
+
+- **"Nome visual manda, id técnico no tooltip" estava escrito desde a fase 18 e
+  nunca foi aplicado.** Seis telas mostravam `T6_METALBAR_LEVEL2@2` numa
+  segunda linha da coluna mais estreita. Passou porque as fases seguintes foram
+  atrás de densidade, cor e alinhamento, e ninguém voltou ao básico.
+- **O Calculador ser a norma não o torna certo em tudo.** Ele virou referência
+  por ser o mais trabalhado, e mesmo assim falhava em três regras: sem ponto
+  heráldico na cidade, sem o âmbar de dado velho (escala de duas faixas no
+  `PriceInput`, pulando o meio) e sem a pílula de margem colada ao lucro. Norma
+  que não se confere vira norma errada.
+- **A escala de frescor existia em dois lugares com faixas diferentes.**
+  `AgeTag` tinha três (verde / âmbar / vermelho) e o `PriceInput` tinha duas,
+  sem o âmbar. Virou `tomDeFrescor`, uma só — e a tela que mais depende de
+  preço fresco passou a ter o aviso que faltava justamente nela.
+- **A pílula de margem obrigou a separar as duas margens.** Com `margin_pct` na
+  pílula colada ao lucro, mantê-la também na coluna seria a mesma informação
+  duas vezes. A coluna ficou com a margem **sobre o custo** — a definição da
+  planilha —, e o rótulo passou a dizer isso.
+- **Dois dos meus sete achados eram falso positivo, e o erro foi de método.** A
+  varredura leu só os arquivos de página e não os componentes compartilhados:
+  `/crafting` "sem abreviação" usa `<Figure>`, que abrevia; `/arbitrage` "sem
+  hierarquia" usa `ProfitFigure`, que aplica `text-val`. **Auditoria que não
+  segue o import mede o arquivo, não a tela.**
+- **Três regras não têm alvo, e isso não é falha.** `ProfitFigure` em
+  `/market` (não calcula lucro), `CityTag` em `/refining` e `/focus` (não
+  exibem cidade — ela aparece só em balão). Inventar a coluna para cumprir a
+  regra seria mudar conteúdo para satisfazer forma.
 
 ## Notas da fase 37 — o Calculador virou a norma
 
@@ -1477,7 +1507,7 @@ Linha densa, 40 por tela, com **cor carregando informação e nunca decoração*
 | Elemento | O que comunica |
 |---|---|
 | faixa à esquerda | tier, nas cores do jogo (T4 azul … T8 branco) |
-| fundo tingido | verde = lucro, vermelho = prejuízo |
+| fundo tingido | verde = lucro, vermelho = prejuízo — **exceto em `/market`**, que não calcula lucro: lá a regra não tem o que tingir, e a ausência é consciente |
 | moldura do ícone | tier de novo, para o olho separar antes de ler |
 | ponto na cidade | cor heráldica oficial, sempre **acompanhada do nome** |
 | pílula verde/vermelha | margem percentual, ao lado do lucro |
@@ -1514,9 +1544,27 @@ Regras que a tela materializa:
   `1,2B`. **Abaixo de 10.000 não se abrevia** — `9,9K` é menos legível que
   `9.870` e ainda perde precisão. O valor exato vai no balão de toda célula
   abreviada.
-- **Nome visual manda, id técnico no tooltip.**
-- **Nada duplicado.** O badge do ícone é a quantidade; o texto é o preço
-  unitário. Repetir a quantidade nos dois gasta espaço e confunde.
+- **Nome visual manda, id técnico no tooltip.** O id não decide nada. Ele fica
+  no `title` do nome e no `alt+clique` do botão de copiar — **nunca** numa
+  segunda linha da célula. Esta regra existia desde a fase 18 e só foi aplicada
+  na fase 38: seis telas mostravam `T6_METALBAR_LEVEL2@2` ocupando uma linha
+  inteira da coluna mais estreita.
+
+- **Duas quantidades, dois nomes.** A regra antiga dizia "o badge do ícone é a
+  quantidade" como se houvesse uma só, e não há:
+
+  | O quê | Onde | O que é |
+  |---|---|---|
+  | **quantidade da receita** | badge do ícone | propriedade do item: `2× madeira`. Não muda com nada. |
+  | **comprar N** | linha de texto sob o preço | lista de compras: já com o retorno descontado e arredondado para cima. Só existe onde há quantidade escolhida. |
+
+  São números diferentes e não se substituem: a receita pede 5, você compra
+  317. Confundi-los foi o que fez a regra sair ambígua — e é por isso que o
+  Calculador mostra "comprar N" em texto e os rankings mostram a quantidade no
+  badge, sem que nenhum dos dois esteja errado.
+
+- **Nada duplicado.** O texto ao lado do ícone é o preço unitário, não a
+  quantidade que já está no badge. Repetir gasta espaço e confunde.
 
 **Preferências ficam num cookie**, não na URL, e num formulário só
 (`PreferencesForm`), recolhido por padrão e **já preenchido**. Antes cada tela

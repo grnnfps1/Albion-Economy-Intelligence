@@ -1,4 +1,5 @@
 import { CopyButton } from "@/components/sheet/CopyButton";
+import { CityTag } from "@/components/ui/Badges";
 import { SHEET_ICON } from "@/components/sheet/Chrome";
 import { HoverTip } from "@/components/sheet/HoverTip";
 import { SHEET_WIDTHS, type SheetColumn, type SheetWidth } from "@/components/sheet/SheetTable";
@@ -116,13 +117,15 @@ export function MaterialCell({
               </span>
             )
           ) : (
-            <span
-              className={`block truncate text-micro ${
-                isAlternateCity ? "text-warn" : "text-dim"
-              }`}
-            >
-              {cidade}
-            </span>
+            // A cidade vem com o ponto na cor heráldica, como manda a
+            // linguagem visual: numa tela densa o jogador reconhece
+            // "laranja = Bridgewatch" antes de ler o texto. Era texto cinza,
+            // e a cor que deveria fazer esse trabalho não existia aqui.
+            <CityTag
+              city={cidade}
+              alternate={isAlternateCity}
+              className="block truncate text-micro"
+            />
           )}
         </span>
       </HoverTip>

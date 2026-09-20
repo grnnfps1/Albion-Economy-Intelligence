@@ -80,16 +80,23 @@ const TOM: Record<string, string> = {
 };
 
 /** Idade abreviada e colorida. Está em toda tela porque o dado é comunitário. */
+/**
+ * O tom do frescor, numa escala só.
+ *
+ * Existia aqui dentro do `AgeTag` e, em paralelo, uma escala de duas faixas no
+ * `PriceInput` do Calculador — que pulava o âmbar e ia direto do neutro para o
+ * vermelho. "Âmbar = dado velho" é regra da linguagem visual, e a tela que
+ * mais depende de preço fresco era justamente a que não a aplicava.
+ */
+export function tomDeFrescor(seconds: number | null): string {
+  if (seconds === null) return "text-dim";
+  if (seconds <= 900) return "text-up";
+  if (seconds <= 21_600) return "text-warn";
+  return "text-down";
+}
+
 export function AgeTag({ seconds, freshness }: { seconds: number | null; freshness?: string }) {
-  const tom = freshness
-    ? TOM[freshness]
-    : seconds === null
-      ? "text-dim"
-      : seconds <= 900
-        ? "text-up"
-        : seconds <= 21600
-          ? "text-warn"
-          : "text-down";
+  const tom = freshness ? TOM[freshness] : tomDeFrescor(seconds);
   return <span className={`figure text-micro ${tom}`}>{formatDataAge(seconds)}</span>;
 }
 
@@ -138,7 +145,12 @@ export function RiskProfitFigure({
           marginPct={marginPct ?? null}
         />
         {crossesOpenWorld && (
-          <span className="lbl mt-px block text-dim" title="Informe a perda esperada nas preferências para ver o lucro ajustado ao risco.">
+          // Caixa baixa e apagado: sub-texto sob número grande não usa
+          // `lbl`, senão empilha duas ênfases. Mesma regra do `Sub`.
+          <span
+            className="mt-px block text-micro text-dim"
+            title="Informe a perda esperada nas preferências para ver o lucro ajustado ao risco."
+          >
             risco não modelado
           </span>
         )}
